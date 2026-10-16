@@ -1,3 +1,5 @@
+import { tmdbDirect, tmdbEpisodesDirect } from './tmdbDirect'
+
 /** Client for the Zenkai API (Cloudflare Pages Functions in production, Vite middleware in dev). */
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 
@@ -91,7 +93,11 @@ export function fetchTmdb(anilistId: number, title: string, format?: string | nu
   }
 
   const q = new URLSearchParams({ id: key, title, format: format ?? '' })
-  const p = getJson<{ mapping: Mapping | null; tmdb: Tmdb | null }>(`/api/tmdb?${q}`)
+  // Browser first (like Movies: no Worker request, no Worker -> proxy hop), the server route is the fallback.
+  const viaServer = () => getJson<{ mapping: Mapping | null; tmdb: Tmdb | null }>(`/api/tmdb?${q}`)
+  const p = tmdbDirect(anilistId, title, format)
+    .then((r) => (r.tmdb ? r : viaServer()))
+    .catch(viaServer)
     .then((r) => {
       const v = { mapping: r.mapping, tmdb: r.tmdb }
       if (v.tmdb) {
@@ -126,10 +132,10 @@ export function fetchTmdbEpisodes(tmdbId: number, season: number): Promise<EpInf
   const key = `${tmdbId}:${season}`
   const hit = epMem.get(key)
   if (hit) return hit
-  const p = getJson<{ episodes: { n: number; name: string | null; overview: string | null; still: string | null; runtime: number | null; air: string | null }[] }>(
-    `/api/tmdb/episodes?id=${tmdbId}&season=${season}`,
-  )
-    .then((r) => r.episodes.map((e) => ({ n: e.n, name: e.name, overview: e.overview, image: tmdbImg(e.still, 'w500'), runtime: e.runtime, air: e.air })))
+  type Raw = { n: number; name: string | null; overview: string | null; still: string | null; runtime: number | null; air: string | null }
+  const p = (tmdbEpisodesDirect(tmdbId, season) as Promise<Raw[]>)
+    .catch(() => getJson<{ episodes: Raw[] }>(`/api/tmdb/episodes?id=${tmdbId}&season=${season}`).then((r) => r.episodes))
+    .then((rows) => rows.map((e) => ({ n: e.n, name: e.name, overview: e.overview, image: tmdbImg(e.still, 'w500'), runtime: e.runtime, air: e.air })))
     .catch(() => {
       epMem.delete(key)
       return [] as EpInfo[]

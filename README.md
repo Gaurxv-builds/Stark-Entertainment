@@ -11,7 +11,7 @@ Free, fast and beautifully simple. Responsive on phone, tablet and desktop, with
 [![Latest release](https://img.shields.io/github/v/release/Nyyrox/zenkai?style=for-the-badge&color=e8294c&label=release)](https://github.com/Nyyrox/zenkai/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/Nyyrox/zenkai/total?style=for-the-badge&color=e8294c)](https://github.com/Nyyrox/zenkai/releases)
 [![Stars](https://img.shields.io/github/stars/Nyyrox/zenkai?style=for-the-badge&color=e8294c)](https://github.com/Nyyrox/zenkai/stargazers)
-[![License](https://img.shields.io/badge/license-ISC-e8294c?style=for-the-badge)](package.json)
+[![License: MIT](https://img.shields.io/badge/license-MIT-e8294c?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 [**Download the Android app**](https://github.com/Nyyrox/zenkai/releases/latest) ·
 [Releases](https://github.com/Nyyrox/zenkai/releases) ·
@@ -37,6 +37,7 @@ Free, fast and beautifully simple. Responsive on phone, tablet and desktop, with
 - [API](#api)
 - [Routes](#routes)
 - [Contributing](#contributing)
+- [License](#-license)
 - [Disclaimer](#disclaimer)
 
 ## Features
@@ -238,6 +239,10 @@ Contributions are welcome.
 3. Open a pull request that says what changed and why.
 
 Found a bug or want a feature? [Open an issue](https://github.com/Nyyrox/zenkai/issues) or ask in the [Discord](https://discord.gg/kHxHzZtH7).
+
+## 📜 License
+
+Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.
 
 ## Disclaimer
 
