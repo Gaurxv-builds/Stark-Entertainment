@@ -1,257 +1,159 @@
 <div align="center">
 
-<img src="docs/logo.svg" alt="Zenkai logo" width="112" height="112" />
+<img src="docs/logo.svg" alt="Gaurxv Verse logo" width="112" height="112" />
 
-# Zenkai
+# Gaurxv Verse ⎊
 
-**Watch anime & movies. Read manga & novels. Track it all in one beautiful place.**
+**Next-Gen Media Server**
 
-Free, fast and beautifully simple. Responsive on phone, tablet and desktop, with polished light and dark themes.
+*Stream anime & movies. Read manga & light novels. Track it all in one unified, futuristic universe.*
 
-[![Latest release](https://img.shields.io/github/v/release/Nyyrox/zenkai?style=for-the-badge&color=e8294c&label=release)](https://github.com/Nyyrox/zenkai/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/Nyyrox/zenkai/total?style=for-the-badge&color=e8294c)](https://github.com/Nyyrox/zenkai/releases)
-[![Stars](https://img.shields.io/github/stars/Nyyrox/zenkai?style=for-the-badge&color=e8294c)](https://github.com/Nyyrox/zenkai/stargazers)
-[![License: MIT](https://img.shields.io/badge/license-MIT-e8294c?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![Repository](https://img.shields.io/badge/GitHub-Stark--Entertainment-00E5FF?style=for-the-badge&logo=github)](https://github.com/Gaurxv-builds/Stark-Entertainment)
+[![Upstream](https://img.shields.io/badge/Upstream-Zenkai-8b949e?style=for-the-badge&logo=git)](https://github.com/Bortus-AI/Zenkai)
+[![License: MIT](https://img.shields.io/badge/License-MIT-00E5FF?style=for-the-badge)](LICENSE)
 
-[**Download the Android app**](https://github.com/Nyyrox/zenkai/releases/latest) ·
-[Releases](https://github.com/Nyyrox/zenkai/releases) ·
-[Report a bug](https://github.com/Nyyrox/zenkai/issues) ·
-[Discord](https://discord.gg/kHxHzZtH7) ·
-[Telegram](https://t.me/StreamverseOfc)
+[**Explore**](https://gaurxv-verse.pages.dev) ·
+[**Download Android App**](https://github.com/Nyyrox/zenkai/releases/latest) ·
+[**Report an Issue**](https://github.com/Gaurxv-builds/Stark-Entertainment/issues) ·
+[**Telegram**](https://t.me/StreamverseOfc) ·
+[**Discord**](https://discord.gg/kHxHzZtH7)
 
-<img src="docs/banner.jpg" alt="Zenkai: watch anime and movies, read manga and novels" width="720" />
+<br />
 
 </div>
 
 ---
 
-## Contents
+## Overview
 
-- [Features](#features)
-- [Get the app](#get-the-app)
-- [Quick start](#quick-start)
-- [Deploy your own](#deploy-your-own)
-- [Keyboard & TV remote](#keyboard--tv-remote)
-- [Configuration](#configuration)
-- [Project structure](#project-structure)
-- [API](#api)
-- [Routes](#routes)
-- [Contributing](#contributing)
-- [License](#-license)
-- [Disclaimer](#disclaimer)
+**Gaurxv Verse ⎊** is an all-in-one entertainment client and next-generation media server frontend. Designed with a deep charcoal (`#0a0a0c`), electric cyan (`#00E5FF`), and monochrome palette, it unifies four media pillars into a single responsive application:
 
-## Features
+| Section | Theme Accent | Capabilities |
+| :--- | :--- | :--- |
+| **Anime** (アニメ) | Electric Cyan | Trending, popular, top-rated feeds, live airing schedule, sub/dub switching, custom CinePlayer with HLS, Anime4K upscaling, and multi-audio stream support. |
+| **Movies & TV** (映画) | Monochrome | Full TMDB catalogue with search, high-res posters, cast info, backdrops, and multi-source streaming providers. |
+| **Manga** (漫画) | Indigo | Five reader sources (ComicK, Manhua, Asura Scans, WeebCentral, MangaDex) with customizable reading modes (webtoon, LTR, RTL). |
+| **Novels** (小説) | Amber | Distraction-free light novel and web novel reader with chapter caching and typography customization. |
 
-Zenkai is four apps in one, each with its own colour identity:
+---
 
-| Section | Accent | What you get |
-| ------- | ------ | ------------ |
-| **Anime** アニメ | Red | Trending, popular and top-rated rows, airing schedule in your local time, sub and dub, multiple servers, intro/outro skip, captions, optional Anime4K upscaling |
-| **Movies** 映画 | Black & white | Movies and TV via TMDB, browse and search, details and a full-screen player |
-| **Manga** 漫画 | Indigo | Five servers (ComicK, Manhua, Asura Scans, WeebCentral, MangaDex), reader with saved preferences |
-| **Novels** 小説 | Amber | Search, details, chapters and a distraction-free reader |
+## Key Features
 
-Across everything:
+- **Zero-Database Architecture:** Your watch history, reading position, and watchlist live locally in your browser's `localStorage` via reactive, multi-tab observable stores.
+- **AniList Two-Way Sync:** Connect your AniList account with an implicit OAuth flow to seamlessly sync progress and watchlist across devices.
+- **CinePlayer Engine:** In-house video player featuring HLS.js adaptive streaming, WebGPU-powered Anime4K upscaling, subtitle selection, and audio language toggling.
+- **Unified Media Server (Marvel-themed Providers):** High-speed streaming resolvers (Iron Man 4K, Scarlet Witch, Captain America, Thor, Hulk, Spider-Man, and more).
+- **Verse Shield:** Optional cryptographic proof-of-work challenge and rate-limiting gateway protecting backend streaming workers without third-party captchas.
+- **10-Foot TV Mode:** Built-in D-pad and smart TV navigation support for Android TV, Fire TV, and modern web browsers (`?tv=1`).
 
-- **Details pages** with AniList and MAL score rings, next-episode countdown, characters and voice actors, staff, related titles, watch order, score distribution and recommendations.
-- **Continue watching / reading** shelves, watchlist and progress, stored locally in your browser.
-- **AniList sync** and a customisable profile.
-- **Command-palette search** (`Ctrl/⌘ + K` or `/`) with keyboard navigation and filters.
-- **Theme toggle** with a circular reveal animation.
-- **Phone:** bottom dock navigation. **Desktop:** floating glass navbar.
-- **Multi-audio dubs** through the ACDN resolver, played in Zenkai's own player.
-- **Zenkai Shield**, an optional invisible proof-of-work gate for your API.
+---
 
-## Get the app
+## Quick Start
 
-The Android app is published on the release repo:
-
-**https://github.com/Nyyrox/zenkai/releases/latest**
-
-1. Download the latest `.apk` from the release assets.
-2. Open it on your phone and allow installs from your browser or file manager if asked.
-3. Install and open Zenkai.
-
-The web app reads that repo live. The home-page banner and `/app` show the current version, release notes, APK links, sizes, download counts and stars. New releases appear within five minutes with no redeploy.
-
-## Quick start
-
-You need [Node.js](https://nodejs.org) 20 or newer.
+### Prerequisites
+- **Node.js:** `v20.19.0` or higher (`v22 LTS` recommended)
+- **npm:** Included with Node.js
 
 ```bash
-git clone https://github.com/nyyrox2/Zenkai.git
-cd Zenkai
+# Clone the repository
+git clone https://github.com/Gaurxv-builds/Stark-Entertainment.git
+cd Stark-Entertainment
+
+# Install dependencies
 npm install
-npm run dev        # http://localhost:5173
+
+# Start development server (serves client + in-process API middleware)
+npm run dev
 ```
 
-| Command           | What it does                                |
-| ----------------- | ------------------------------------------- |
-| `npm run dev`     | Dev server, with the API served in-process  |
-| `npm run build`   | Type-checks, then builds to `dist/`         |
-| `npm run preview` | Serves the production build locally         |
-| `npm run build:selfhost` | Builds the site and the Node API bundle for your own server |
-| `npm start`       | Runs the self-hosted server (`serve.js`)    |
+Visit [`http://localhost:5173`](http://localhost:5173) in your browser.
 
-`npm run dev` serves `/api/*` and `/proxy` through a Vite middleware, so there is nothing else to run. A step-by-step guide for phones, PCs and hosting lives at `/self-host` in the app.
+---
 
-## Deploy your own
+## NPM Scripts
 
-Zenkai deploys to **Cloudflare Pages**:
+| Command | Description |
+| :--- | :--- |
+| `npm run dev` | Starts Vite development server with API middleware mounted in-process. |
+| `npm run build` | Type-checks with TypeScript (`tsc --noEmit`) and compiles the static site to `dist/`. |
+| `npm run preview` | Previews the compiled production build locally. |
+| `npm run build:server` | Builds the SSR server bundle to `dist-server/handler.js`. |
+| `npm run build:selfhost` | Compiles both client and server bundles for standalone Node deployment. |
+| `npm start` | Runs the standalone Node production server (`serve.js`). |
 
-- Build command: `npm run build`
-- Output directory: `dist`
-
-Everything in `functions/` is picked up automatically. Or from the CLI:
-
-```bash
-npm run build
-npx wrangler login
-npx wrangler pages deploy dist --project-name my-zenkai
-```
-
-If the frontend is hosted elsewhere, point it at your API with `VITE_API_BASE`.
-
-### On your own server (Node)
-
-`serve.js` runs the same API handler as the Cloudflare Functions and serves the built site, so one Node process is all you need. It reads `.env` itself.
-
-```bash
-cp .env.example .env      # set VITE_SITE_URL to your domain, plus the server options below
-npm install
-npm run build:selfhost    # builds dist/ (site) and dist-server/ (API)
-npm start                 # http://localhost:4180
-```
-
-Keep it running with a process manager, for example `pm2 start serve.js --name zenkai && pm2 save`. After pulling updates, run `npm run build:selfhost` again and restart.
-
-Put a reverse proxy (Nginx, Nginx Proxy Manager, Caddy) in front of it for HTTPS. The server only trusts the proxy's `X-Real-IP` header when the request comes from a private address, so visitors can't fake their IP to get around Zenkai Shield. To make the proxy the only way in, set `HOST` to the address the proxy connects from, such as a Docker bridge (`172.17.0.1`) or `127.0.0.1`.
-
-**Private site.** Set `SITE_PASSWORD` and every page, file and API call needs a sign-in first. Visitors get a login page and stay signed in for 30 days; `/logout` signs out. Failed attempts are limited per IP, `robots.txt` blocks all crawlers, and every response is sent with `X-Robots-Tag: noindex`. Changing the password signs everyone out.
-
-## Keyboard & TV remote
-
-Press **`?`** anywhere (or use *Keyboard shortcuts* in the footer) to see the full list.
-
-| Where | Keys |
-| ----- | ---- |
-| Everywhere | `/` or `Ctrl/⌘ K` search · `?` shortcuts |
-| Anime player | `Space`/`K` play · `←` `→` seek 10 s (`Shift` 30 s) · `J` `L` ±10 s · `↑` `↓` volume · `0`-`9` jump to % · `Home` `End` · `,` `.` frame step · `<` `>` speed · `N` `P` next/prev episode · `M` mute · `C` captions · `F` fullscreen · `I` picture-in-picture · `Tab` skip intro |
-| Manga reader | `←` `→` pages · `Space`/`PgDn`/`Shift+Space`/`PgUp` · `Home` `End` · `[` `]` chapters · `C` chapters · `S` settings · `F` fullscreen |
-| Novel reader | `←` `→` or `[` `]` chapters · `Esc` close panel |
-
-**TV mode** turns on by itself on smart TVs (Android TV, Fire TV, Tizen, webOS and similar). On a TV box or a browser on a TV, add `?tv=1` to the URL once or flip the switch in the shortcuts panel (`?tv=0` turns it off). It enlarges the UI, draws a clear focus ring, and lets the D-pad move between buttons and cards. `OK` presses, `Back` closes a menu and then goes back, and media keys (play/pause, next, previous, fast-forward, rewind) control the player. In the player, `↑` brings up the controls and `←` `→` seek, or move between controls when they are showing.
+---
 
 ## Configuration
 
-Copy `.env.example` to `.env` and adjust.
+Copy `.env.example` to `.env` to customize settings:
 
-| Variable                 | Where  | Purpose |
-| ------------------------ | ------ | ------- |
-| `VITE_SITE_URL`          | build  | Public site URL for the share image and sitemap |
-| `VITE_ANILIST_CLIENT_ID` | build  | AniList app client ID. Redirect URL: `https://your-domain.com/auth/anilist` |
-| `VITE_API_BASE`          | build  | API origin when the frontend and API are hosted separately |
-| `SHIELD_SECRET`          | server | Turns on Zenkai Shield. Unset means off. On Cloudflare: `npx wrangler pages secret put SHIELD_SECRET` |
-| `GITHUB_TOKEN`           | server | Optional. Lifts GitHub's 60 requests/hour anonymous limit for the release data |
-| `SITE_PASSWORD`          | server | Self-hosted only. Puts the whole site behind a password. Unset means public |
-| `HOST`                   | server | Self-hosted only. Address `serve.js` listens on. Default `0.0.0.0` |
-| `PORT`                   | server | Self-hosted only. Port `serve.js` listens on. Default `4180` |
-
-## Project structure
-
-```
-src/
-  pages/        Landing, Home, Details, Catalog, Schedule, Watch, Manga, Novel, Movies, Profile, App, Self-host
-  components/   Flat. CinePlayer.tsx + cineplayer.css is the video player
-  services/     anilist.ts (GraphQL) · jikan.ts (MyAnimeList) · api.ts (Zenkai API client)
-  hooks/        useAsync · useTmdb · useEpisodes · ...
-  lib/          utils · constants · mappers · servers · episodes · progress · subtitles · backToDetails
-server/         handler.js: one Web-standard API used by Pages Functions AND `npm run dev`
-functions/      Cloudflare Pages Functions (thin wrappers around server/handler.js)
-serve.js        Self-hosted Node server: static site + the same API handler
-gate.js         Optional password gate used by serve.js (SITE_PASSWORD)
-public/         Static assets and anime-mapping.json
-docs/           README assets
-```
-
-Built with React 19, TypeScript, Vite, Tailwind CSS v4, Framer Motion and hls.js. Metadata comes from AniList (GraphQL), MyAnimeList (via Jikan) and TMDB.
-
-## API
-
-All routes are served by `server/handler.js`.
-
-| Route                     | What it does |
-| ------------------------- | ------------ |
-| `/api/stream`             | MegaPlay / Vidstream HLS resolver (sub and dub, intro/outro, captions). `server=acdn` is the multi-audio resolver (dub only) |
-| `/proxy` (`/api/proxy`)   | Referer-spoofing proxy that rewrites m3u8 so segments and keys pass through |
-| `/api/mapping/:anilistId` | AniBridge mapping (AniList to MAL / TMDB / TVDB / IMDb / AniDB), ARM fallback |
-| `/api/tmdb`               | TMDB details, backdrops and logo PNG |
-| `/api/subtitles`          | OpenSubtitles (IMDb id comes from the mapping) |
-| `/api/embed/animesalt`    | AnimeSalt multi-audio player URL |
-| `/api/app/release`        | Live Android release data from GitHub (cached 5 min, served stale if GitHub is down) |
-| `/api/manga/*`            | `home`, `search`, `chapters`, `pages`, `sources`. Every route takes `source=` |
-| `/api/novel/*`            | `home`, `search`, `detail`, `chapters`, `read` |
-
-<details>
-<summary><b>ACDN (multi audio)</b></summary>
-
-A **Direct** server that only appears while **DUB** is selected, tagged *Multi audio*. `server/acdn.js` is a port of the Android `MultiAudioExtractor`: `public/anime-mapping.json` (AniList id to AnimeSalt id / season / episode offset), then AnimeDekho (search, episode page, `?trdekho=0..4` players), then an AnimeSalt fallback. Players are turned into a direct stream (as-cdn / ravok HLS, AbyssPlayer via enc-dec.app, `player.php`, Pixel, plain m3u8 / mp4) and played in Zenkai's own player, which lists the stream's audio tracks under the language button.
-
-The mapping file is bundled into the API, so editing it needs a redeploy.
-
-</details>
-
-<details>
-<summary><b>Manga servers</b></summary>
-
-Five servers, same as the Android app (`src/lib/mangaModels.ts` is a port of `MangaModels.kt`): **ComicK**, **Manhua**, **Asura Scans**, **WeebCentral** and **MangaDex**.
-
-- Pick one with the tabs on `/manga`. It is remembered, and links carry `?source=<id>`.
-- WeebCentral, ComicK, Manhua and Asura go through the Zenkai manga worker (`server/manga.js`). MangaDex is queried directly from its public API (`server/mangadex.js`), English chapters only.
-- A title's details page has a **Server** row: tapping another server searches the same title there and opens the best match.
-
-</details>
-
-## Routes
-
-| Path                            | Page |
-| ------------------------------- | ---- |
-| `/`                             | Opening page: pick Anime, Movies, Manga or Novels |
-| `/home`                         | Anime home |
-| `/trending` `/popular` `/top`   | Ranked infinite-scroll catalogues with filters |
-| `/browse`                       | Search plus genre / year / season / format / status / sort |
-| `/schedule`                     | Day-by-day airing schedule in local time |
-| `/anime/:id` · `/mal/:id`       | Details: watch now, episodes, watch order, stats |
-| `/watch/:id?ep=&server=&audio=` | Player |
-| `/movies` · `/movies/:type/:id` | Movies and TV |
-| `/manga` · `/manga/:id`         | Manga browse and details, reader at `/manga/:id/read/:chapterId` |
-| `/novel` · `/novel/:source/:slug` | Novel browse and details, reader under `/read/:chapter` |
-| `/list` · `/profile`            | Your library and profile |
-| `/app`                          | Android app page: live release notes, APK download, install guide |
-| `/self-host`                    | Self-hosting guide |
-
-## Contributing
-
-Contributions are welcome.
-
-1. Fork the repo and create a branch: `git checkout -b feat/my-change`.
-2. Run `npm run build` before you push. It type-checks, so it catches most mistakes.
-3. Open a pull request that says what changed and why.
-
-Found a bug or want a feature? [Open an issue](https://github.com/Nyyrox/zenkai/issues) or ask in the [Discord](https://discord.gg/kHxHzZtH7).
-
-## 📜 License
-
-Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.
-
-## Disclaimer
-
-Zenkai does not host or store any video, manga or novel files. It displays metadata and trailers from public APIs and links to content hosted by third parties. All titles and artwork belong to their respective owners.
+| Variable | Scope | Purpose | Default |
+| :--- | :--- | :--- | :--- |
+| `VITE_SITE_URL` | Client / Build | Canonical site URL for metadata, share cards, and sitemaps. | `https://gaurxv-verse.pages.dev` |
+| `VITE_ANILIST_CLIENT_ID` | Client / Build | AniList developer client ID for OAuth authentication. | `53784` |
+| `VITE_API_BASE` | Client / Build | Remote backend origin if hosted on an external domain. | `""` (relative) |
+| `SHIELD_SECRET` | Server Runtime | Secret key for proof-of-work verification. If omitted, shield is off. | Unset |
+| `GITHUB_TOKEN` | Server Runtime | GitHub PAT to prevent rate-limiting on Android release checking. | Unset |
+| `SITE_PASSWORD` | Node Server | Password for the self-hosted server (`serve.js`). | Unset (public) |
+| `HOST` | Node Server | Host address for `serve.js`. | `0.0.0.0` |
+| `PORT` | Node Server | Port for `serve.js`. | `4180` |
 
 ---
 
-<div align="center">
+## Project Structure
 
-Made with care by [Nyyrox](https://github.com/Nyyrox). If Zenkai is useful to you, leave a star.
+```
+src/
+  pages/        Portal (Landing), Home, Details, Watch, Manga, Novel, Movies, Profile, App
+  components/   Modular UI components (CinePlayer, Navbar, MobileDock, ShieldGate, etc.)
+  services/     API connectors (AniList GraphQL, TMDB, Jikan, Novel, Manga, Release)
+  hooks/        Custom React hooks (useAsync, useTmdb, useEpisodes, useShowcase, etc.)
+  lib/          Core utilities, state stores (brand.ts, library.ts, providers.ts, sections.ts)
+server/         Web-standard API handler shared across dev and production (server/handler.js)
+functions/      Cloudflare Pages Functions integration (functions/api/[[route]].js)
+public/         Static assets, web manifest, favicon, OpenGraph cards, mapping tables
+docs/           Branding and logo assets
+serve.js        Standalone Node.js production server with static hosting & API routing
+gate.js         HMAC-SHA256 password gate for private server instances
+```
 
-</div>
+---
+
+## Routing Overview
+
+| Route | Page | Purpose |
+| :--- | :--- | :--- |
+| `/` | `LandingPage` | Entertainment Hub: Dive into Anime, Manga, Novels, or Movies. |
+| `/home` | `HomePage` | Anime home feed with trending, top rated, and current season. |
+| `/trending` · `/popular` · `/top` | `CatalogPage` | Infinite-scroll ranked anime collections with filters. |
+| `/browse` | `CatalogPage` | Advanced search by genre, season, format, and status. |
+| `/schedule` | `SchedulePage` | Airing calendar aligned to user local timezone. |
+| `/anime/:id` · `/mal/:id` | `DetailsPage` | Comprehensive anime overview, characters, staff, and relations. |
+| `/watch/:id` | `WatchPage` | Immersive full-bleed anime player. |
+| `/movies` · `/movies/browse` | `MoviesHomePage` | Film and television catalogue powered by TMDB. |
+| `/movies/:type/:id` | `MovieDetailsPage` | Movie and series details, trailers, and cast. |
+| `/movies/watch/:type/:id` | `MovieWatchPage` | Multi-provider movie & TV streaming player. |
+| `/manga` · `/manga/:id` | `MangaHomePage` | Manga catalog across five reader sources. |
+| `/manga/:id/read/:chapterId` | `MangaReaderPage` | Full-screen multi-mode manga reader. |
+| `/novel` · `/novel/:source/:slug` | `NovelHomePage` | Light novel and web novel catalog. |
+| `/novel/:source/:slug/read/:chapter` | `NovelReaderPage` | Focused, clean text reader with night mode. |
+| `/list` · `/profile` | `ListPage` / `ProfilePage` | Local library, watchlist, AniList sync, and preference controls. |
+| `/app` | `AppPage` | Android application release notes, APK downloads, and updates. |
+
+---
+
+## Contributing
+
+1. Fork the repository.
+2. Create your feature branch: `git checkout -b feat/my-feature`
+3. Verify your changes pass type checks: `npm run build`
+4. Commit your changes: `git commit -m "feat: add feature"`
+5. Push to your branch and open a Pull Request.
+
+---
+
+## License & Disclaimer
+
+- **License:** Distributed under the [MIT License](LICENSE).
+- **Disclaimer:** Gaurxv Verse does not host, upload, or store any video, audio, manga, or novel media files. It functions exclusively as a client-side interface linking to third-party public indexing services and APIs. All artwork, trademarks, and titles belong to their respective copyright holders.
+- **Upstream:** Gaurxv Verse is forked from [Bortus-AI/Zenkai](https://github.com/Bortus-AI/Zenkai) (originally created by [Nyyrox](https://github.com/Nyyrox)).
