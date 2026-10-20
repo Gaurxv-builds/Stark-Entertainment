@@ -10,6 +10,7 @@ import { useAsync } from '../hooks/useAsync'
 import { useDebounced } from '../hooks/useDebounced'
 import { toMovieCard } from '../lib/movieCards'
 import { fetchShelf, MOVIE_GENRES, searchAll, type MediaType, type MovieItem, type Shelf } from '../services/movies'
+import { pageTitle } from '../lib/brand'
 
 const SHELVES: { type: MediaType; shelf: Shelf; eyebrow: string; title: string; ranked?: boolean }[] = [
   { type: 'movie', shelf: 'popular', eyebrow: 'Everyone is watching', title: 'Popular Movies', ranked: true },
@@ -33,7 +34,7 @@ export default function MoviesHomePage() {
   const found = useAsync<MovieItem[] | null>(() => (term ? searchAll(term) : Promise.resolve(null)), [term])
 
   useEffect(() => {
-    document.title = 'Movies — Zenkai'
+    document.title = pageTitle('Movies')
   }, [])
 
   const allFailed = !!data.data && !data.data.hero && data.data.rows.every((r) => !r)

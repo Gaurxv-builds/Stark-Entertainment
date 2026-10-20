@@ -18,6 +18,7 @@ import { useSearch } from '../context/SearchContext'
 import { mediaToCard, recommendationToCard, relationToCard } from '../lib/mappers'
 import { compact, formatDate, formatLabel, formatStatus, humanize, pickTitle, stripHtml } from '../lib/utils'
 import type { AniMediaDetails, CardItem, JikanStats } from '../types/anime'
+import { pageTitle } from '../lib/brand'
 import { AnimeCard } from '../components/AnimeCard'
 import { BookCard, type BookCardItem } from '../components/BookCard'
 import { AnimeRow } from '../components/AnimeRow'
@@ -109,7 +110,7 @@ export default function DetailsPage() {
 
   const a = anime.data
   useEffect(() => {
-    document.title = a ? `${pickTitle(a.title)} — Zenkai` : 'Zenkai'
+    document.title = a ? pageTitle(pickTitle(a.title)) : pageTitle()
   }, [a])
 
   const relations: CardItem[] = useMemo(

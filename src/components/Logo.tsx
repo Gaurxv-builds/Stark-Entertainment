@@ -1,23 +1,24 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { BRAND_MARK, BRAND_NAME, BRAND_SYMBOL } from '../lib/brand'
 import { LOGO_URL } from '../lib/constants'
 import { cn } from '../lib/utils'
 
 export function Logo({ size = 36, showText = true, className, to = '/home' }: { size?: number; showText?: boolean; className?: string; to?: string }) {
   const [failed, setFailed] = useState(false)
   return (
-    <Link to={to} aria-label="Zenkai home" className={cn('group inline-flex items-center gap-2.5', className)}>
+    <Link to={to} aria-label={`${BRAND_MARK} home`} className={cn('group inline-flex min-w-0 items-center gap-2.5', className)}>
       {failed ? (
         <span
-          className="grid place-items-center rounded-xl bg-foreground font-display text-lg font-black text-background"
+          className="grid place-items-center rounded-xl bg-background font-display text-lg font-black text-accent ring-1 ring-accent/40"
           style={{ width: size, height: size }}
         >
-          Z
+          {BRAND_SYMBOL}
         </span>
       ) : (
         <img
           src={LOGO_URL}
-          alt="Zenkai logo"
+          alt=""
           width={size}
           height={size}
           onError={() => setFailed(true)}
@@ -25,7 +26,14 @@ export function Logo({ size = 36, showText = true, className, to = '/home' }: { 
           style={{ width: size, height: size }}
         />
       )}
-      {showText && <span className="font-display text-xl font-extrabold tracking-tight">Zenkai</span>}
+      {showText && (
+        <span className="font-display truncate text-base font-extrabold tracking-tight sm:text-xl">
+          {BRAND_NAME}{' '}
+          <span className="text-accent" aria-hidden>
+            {BRAND_SYMBOL}
+          </span>
+        </span>
+      )}
     </Link>
   )
 }

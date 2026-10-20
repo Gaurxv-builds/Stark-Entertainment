@@ -8,6 +8,7 @@ import { DotPattern } from '../components/DotPattern'
 import { FreePlanNotice } from '../components/FreePlanNotice'
 import { FadeSlideshow } from '../components/FadeSlideshow'
 import { Logo } from '../components/Logo'
+import { BRAND_MARK, BRAND_TAGLINE, pageTitle } from '../lib/brand'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { useCompact, useShowcase } from '../hooks/useShowcase'
 import type { ShowcaseImage } from '../services/showcase'
@@ -40,7 +41,7 @@ export default function LandingPage() {
   const compact = useCompact('(min-width: 640px) and (max-width: 1023px)') // tablets get the wide banners; phones show a 2x2 grid of portrait cards
 
   useEffect(() => {
-    document.title = 'Zenkai'
+    document.title = pageTitle()
     const t = timers.current
     return () => t.forEach(window.clearTimeout)
   }, [])
@@ -80,10 +81,12 @@ export default function LandingPage() {
         <FreePlanNotice />
 
         <div className="text-center">
+          <p className="font-display text-sm font-semibold tracking-[0.28em] text-accent uppercase">{BRAND_MARK}</p>
+          <p className="mt-2 text-sm font-medium tracking-[0.18em] text-muted uppercase">{BRAND_TAGLINE}</p>
           <BlurText
             text="What are you in the mood for?"
             delay={0.1}
-            className="font-display text-[2rem] font-black leading-[1.02] tracking-tight [text-wrap:balance] sm:text-6xl"
+            className="mt-4 font-display text-[2rem] font-black leading-[1.02] tracking-tight [text-wrap:balance] sm:text-6xl"
           />
         </div>
 

@@ -12,6 +12,7 @@ import { ErrorState } from '../components/ErrorState'
 import { Reveal } from '../components/Reveal'
 import { Tabs } from '../components/Tabs'
 import { cn } from '../lib/utils'
+import { pageTitle } from '../lib/brand'
 
 const toCard = (n: NovelItem): BookCardItem => ({
   key: `${n.source}:${n.slug}`,
@@ -41,7 +42,7 @@ export default function NovelHomePage() {
   const found = useAsync(() => (!term ? Promise.resolve(null) : everywhere ? searchNovelsEverywhere(term) : searchNovels(source, term)), [term, source])
 
   useEffect(() => {
-    document.title = 'Novels — Zenkai'
+    document.title = pageTitle('Novels')
   }, [])
   useEffect(() => {
     if (params.get('search') === '1') document.getElementById('discover-search')?.focus()

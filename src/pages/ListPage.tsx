@@ -7,6 +7,7 @@ import { AnimeCard } from '../components/AnimeCard'
 import { ContinueRow } from '../components/ContinueRow'
 import { GradientText } from '../components/GradientText'
 import { Tabs } from '../components/Tabs'
+import { pageTitle } from '../lib/brand'
 
 type Filter = 'all' | ListStatus
 const STATUSES = Object.keys(STATUS_LABEL) as ListStatus[]
@@ -18,7 +19,7 @@ export default function ListPage() {
   const [filter, setFilter] = useState<Filter>('all')
 
   useEffect(() => {
-    document.title = 'My List — Zenkai'
+    document.title = pageTitle('My List')
   }, [])
 
   const count = (s: ListStatus) => list.filter((i) => i.status === s).length

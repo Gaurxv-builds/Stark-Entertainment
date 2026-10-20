@@ -36,6 +36,7 @@ import { PhoneMockup } from '../components/PhoneMockup'
 import { Reveal } from '../components/Reveal'
 import { Skeleton } from '../components/Skeleton'
 import { SpotlightCard } from '../components/SpotlightCard'
+import { BRAND_NAME, pageTitle } from '../lib/brand'
 
 const PILLARS: { icon: LucideIcon; title: string; text: string }[] = [
   { icon: Film, title: 'Anime', text: 'Stream from multiple servers with Picture-in-Picture and caption translation for supported subtitles. Download episodes to watch offline.' },
@@ -58,19 +59,19 @@ const LIBRARY: { icon: LucideIcon; text: string }[] = [
   { icon: RefreshCw, text: 'Manga reading progress that stays in sync' },
   { icon: UserRound, text: 'Login and account support' },
   { icon: Users, text: 'Community built directly into the app' },
-  { icon: Palette, text: 'Customization to make Zenkai feel like yours' },
+  { icon: Palette, text: `Customization to make ${BRAND_NAME} feel like yours` },
 ]
 
 const STEPS = [
   { title: 'Download the APK', text: 'Tap the button and open the file when it finishes.' },
   { title: 'Allow the install', text: 'If Android asks, allow installs from your browser.' },
-  { title: 'Open Zenkai and sign in', text: 'You are sent back to the app automatically.' },
+  { title: `Open ${BRAND_NAME} and sign in`, text: 'You are sent back to the app automatically.' },
 ]
 
 const FAQ: { q: string; a: ReactNode }[] = [
   {
     q: 'Why is it an APK and not on an app store?',
-    a: 'Zenkai is distributed as an APK through GitHub releases. Android asks you to allow installs from your browser the first time, and only for this step.',
+    a: 'The Android APK is distributed through GitHub releases. Android asks you to allow installs from your browser the first time, and only for this step.',
   },
   {
     q: 'Is the file safe?',
@@ -81,13 +82,13 @@ const FAQ: { q: string; a: ReactNode }[] = [
     q: 'Is there an iPhone or desktop version?',
     a: (
       <>
-        The app is for Android. Everywhere else, use Zenkai in your browser: <Link to="/home" className="font-semibold underline underline-offset-4">go to the web app</Link>.
+        The app is for Android. Everywhere else, use {BRAND_NAME} in your browser: <Link to="/home" className="font-semibold underline underline-offset-4">go to the web app</Link>.
       </>
     ),
   },
   {
-    q: 'Does Zenkai host the videos?',
-    a: 'No. Zenkai hosts zero content and has no affiliation with the content providers available through the app.',
+    q: `Does ${BRAND_NAME} host the videos?`,
+    a: `No. ${BRAND_NAME} hosts zero content and has no affiliation with the content providers available through the app.`,
   },
   {
     q: 'Found a bug?',
@@ -183,7 +184,7 @@ export default function AppPage() {
   const waiting = !data && !failed
 
   useEffect(() => {
-    document.title = 'Zenkai for Android: download the APK'
+    document.title = pageTitle('Android app')
   }, [])
 
   return (
@@ -209,7 +210,7 @@ export default function AppPage() {
             </p>
             <BlurText text="Anime, manga and novels. One Android app." className="mt-5 max-w-3xl font-display text-5xl font-black leading-[0.98] tracking-tight [text-wrap:balance] sm:text-6xl lg:text-7xl" />
             <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
-              Zenkai puts anime streaming, manga and light novels in one focused app, with your library, downloads and account in sync.
+              {BRAND_NAME} puts anime streaming, manga and light novels in one focused app, with your library, downloads and account in sync.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <ApkButton large />

@@ -18,6 +18,7 @@ import {
 import { ErrorState } from '../components/ErrorState'
 import { Skeleton } from '../components/Skeleton'
 import NotFoundPage from './NotFoundPage'
+import { pageTitle } from '../lib/brand'
 
 const PREFS_KEY = 'zk:novel-prefs:v1'
 
@@ -70,7 +71,7 @@ function Reader({ source, slug, chapterSlug }: { source: NovelSource; slug: stri
   const goNext = useCallback(() => next && navigate(readUrl(next.slug)), [next, navigate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    document.title = `${current?.title ?? `${Unit} ${number}`.trim()} · ${detail.data?.title ?? 'Novel'} — Zenkai`
+    document.title = pageTitle(`${current?.title ?? `${Unit} ${number}`.trim()} · ${detail.data?.title ?? 'Novel'}`)
   }, [current?.title, number, detail.data?.title])
 
   /* new chapter: restore position if this is where the reader left off, otherwise start at the top */

@@ -11,6 +11,7 @@ import { ErrorState } from '../components/ErrorState'
 import { GradientText } from '../components/GradientText'
 import { CustomSelect, type Option } from '../components/CustomSelect'
 import { Skeleton } from '../components/Skeleton'
+import { pageTitle } from '../lib/brand'
 
 type Preset = 'trending' | 'popular' | 'top' | 'browse'
 
@@ -128,7 +129,7 @@ export default function CatalogPage({ preset }: { preset: Preset }) {
   }, [loading, hasNext, error, more, items.length])
 
   useEffect(() => {
-    document.title = `${copy.title} — Zenkai`
+    document.title = pageTitle(copy.title)
   }, [copy.title])
 
   const cards = useMemo(() => items.map(mediaToCard), [items])

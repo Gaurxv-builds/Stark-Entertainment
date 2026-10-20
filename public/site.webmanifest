@@ -1,0 +1,17 @@
+{
+  "name": "Gaurxv Verse",
+  "short_name": "Gaurxv Verse",
+  "description": "Your Digital Universe",
+  "display": "standalone",
+  "start_url": "/",
+  "background_color": "#0a0a0c",
+  "theme_color": "#00E5FF",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

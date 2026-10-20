@@ -9,6 +9,7 @@ import { useDebounced } from '../hooks/useDebounced'
 import { toMovieCard } from '../lib/movieCards'
 import { cn } from '../lib/utils'
 import { browse, MOVIE_GENRES, SORTS, TV_GENRES, type MediaType, type MovieItem, type SortId } from '../services/movies'
+import { pageTitle } from '../lib/brand'
 
 const YEARS = Array.from({ length: 40 }, (_, i) => String(new Date().getFullYear() - i))
 
@@ -45,7 +46,7 @@ export default function MoviesBrowsePage() {
   }, [term])
 
   useEffect(() => {
-    document.title = `${type === 'tv' ? 'TV Shows' : 'Movies'} — Zenkai`
+    document.title = pageTitle(type === 'tv' ? 'TV Shows' : 'Movies')
   }, [type])
 
   // Any filter change restarts the list; "Load more" appends the next page.

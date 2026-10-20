@@ -8,6 +8,7 @@ import { NOVEL_SOURCES, searchNovels } from '../services/novel'
 import { BookCard, type BookCardItem } from '../components/BookCard'
 import { Reveal } from '../components/Reveal'
 import NotFoundPage from './NotFoundPage'
+import { pageTitle } from '../lib/brand'
 
 type Kind = 'manga' | 'novel'
 interface Hit extends BookCardItem {
@@ -78,7 +79,7 @@ function Finder({ kind, title, alt, cover }: { kind: Kind; title: string; alt: s
   const [more, setMore] = useState(false)
 
   useEffect(() => {
-    document.title = `Read ${title} — Zenkai`
+    document.title = pageTitle(`Read ${title}`)
   }, [title])
 
   useEffect(() => {

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { finishAniListLogin } from '../lib/anilist'
 import { getProfile } from '../lib/profile'
 import { toast } from '../lib/toast'
+import { pageTitle } from '../lib/brand'
 
 /** Landing page for the AniList OAuth redirect. */
 export default function AniListCallbackPage() {
@@ -12,7 +13,7 @@ export default function AniListCallbackPage() {
   useEffect(() => {
     if (ran.current) return
     ran.current = true
-    document.title = 'Connecting AniList — Zenkai'
+    document.title = pageTitle('Connecting AniList')
     finishAniListLogin(location.hash, getProfile()).then((err) => {
       if (err) toast(err, 'error')
       else toast('AniList connected')

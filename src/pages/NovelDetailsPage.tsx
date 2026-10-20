@@ -13,6 +13,7 @@ import { ShimmerButton } from '../components/ShimmerButton'
 import { Skeleton } from '../components/Skeleton'
 import { StarBorder } from '../components/StarBorder'
 import NotFoundPage from './NotFoundPage'
+import { pageTitle } from '../lib/brand'
 
 const PAGE = 100
 
@@ -37,7 +38,7 @@ function Details({ source, slug }: { source: NovelSource; slug: string }) {
 
   const d = detail.data
   useEffect(() => {
-    document.title = `${d?.title ?? 'Novel'} — Zenkai`
+    document.title = pageTitle(d?.title ?? 'Novel')
     window.scrollTo({ top: 0 })
   }, [d?.title])
 

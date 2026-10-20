@@ -14,6 +14,7 @@ import { DiscoverHero } from '../components/DiscoverHero'
 import { ErrorState } from '../components/ErrorState'
 import { Tabs } from '../components/Tabs'
 import { cn } from '../lib/utils'
+import { pageTitle } from '../lib/brand'
 
 const SOURCE_KEY = 'zk:manga-source:v1'
 const storedSource = (): MangaScope => {
@@ -75,7 +76,7 @@ export default function MangaHomePage() {
   }
 
   useEffect(() => {
-    document.title = 'Manga — Zenkai'
+    document.title = pageTitle('Manga')
   }, [])
   useEffect(() => {
     if (params.get('search') === '1') document.getElementById('discover-search')?.focus()

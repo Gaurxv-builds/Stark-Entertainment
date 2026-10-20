@@ -18,6 +18,7 @@ import { useAsync } from '../hooks/useAsync'
 import { toMovieCard } from '../lib/movieCards'
 import { cn } from '../lib/utils'
 import { fetchDetails, fetchEpisodes, img, watchHref, type MediaType } from '../services/movies'
+import { pageTitle } from '../lib/brand'
 
 const runtime = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`)
 
@@ -33,7 +34,7 @@ export default function MovieDetailsPage() {
   const m = d.data
 
   useEffect(() => {
-    if (m) document.title = `${m.title} — Zenkai`
+    if (m) document.title = pageTitle(m.title)
   }, [m])
   useEffect(() => setSeason(1), [id])
 

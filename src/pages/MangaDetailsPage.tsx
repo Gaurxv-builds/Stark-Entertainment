@@ -14,6 +14,7 @@ import { ShimmerButton } from '../components/ShimmerButton'
 import { Skeleton } from '../components/Skeleton'
 import { StarBorder } from '../components/StarBorder'
 import NotFoundPage from './NotFoundPage'
+import { pageTitle } from '../lib/brand'
 
 const PAGE = 100
 
@@ -55,7 +56,7 @@ function Details({ id }: { id: string }) {
   const [missing, setMissing] = useState<MangaSourceId | null>(null)
 
   useEffect(() => {
-    document.title = `${title} — Zenkai`
+    document.title = pageTitle(title)
     window.scrollTo({ top: 0 })
   }, [title])
 

@@ -11,6 +11,7 @@ import { Tabs } from '../components/Tabs'
 import { useAsync } from '../hooks/useAsync'
 import { cn } from '../lib/utils'
 import { fetchDetails, fetchEpisodes, fetchProviders, movieHref, resolveProvider, type MediaType } from '../services/movies'
+import { pageTitle } from '../lib/brand'
 
 const PREF = 'zk:movie-server:v1'
 const readPref = () => {
@@ -47,7 +48,7 @@ export default function MovieWatchPage() {
   const [frameLoaded, setFrameLoaded] = useState(false)
   useEffect(() => setFrameLoaded(false), [src.data])
   useEffect(() => {
-    document.title = `${details.data?.title ?? 'Watch'} — Zenkai`
+    document.title = pageTitle(details.data?.title ?? 'Watch')
   }, [details.data?.title])
 
   function go(next: Record<string, string | number | null>) {

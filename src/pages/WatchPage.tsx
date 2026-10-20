@@ -23,6 +23,7 @@ import { ErrorState } from '../components/ErrorState'
 import { Skeleton } from '../components/Skeleton'
 import { LoadingGrid } from '../components/LoadingGrid'
 import { Tour, tourDone, tourSeen, type TourStep } from '../components/Tour'
+import { BRAND_NAME, pageTitle } from '../lib/brand'
 import { ServerPopup, type ServerOpt } from '../components/ServerPopup'
 
 
@@ -136,7 +137,7 @@ export default function WatchPage() {
     return () => window.clearTimeout(t)
   }, [a, ready, ep, server.id, server.audio, audio])
   useEffect(() => {
-    if (title) document.title = `${title} · Episode ${ep} — Zenkai`
+    if (title) document.title = pageTitle(`${title} · Episode ${ep}`)
   }, [title, ep])
 
   const playerServers = useMemo(() => SERVERS.filter((s) => s.id !== 'acdn' || acdn === true).map((s) => ({ id: s.id, name: s.name, note: s.note, disabled: s.kind === 'embed' && !s.url?.(ctx) })), [ctx, audio, acdn])
@@ -169,7 +170,7 @@ export default function WatchPage() {
     )
   }
 
-  const direct: ServerOpt[] = directList.map((s) => ({ id: s.id, name: s.name, label: s.multi ? 'Zenkai player · Multi audio' : 'Zenkai player', tags: ['SUB', 'DUB'] }))
+  const direct: ServerOpt[] = directList.map((s) => ({ id: s.id, name: s.name, label: s.multi ? `${BRAND_NAME} player · Multi audio` : `${BRAND_NAME} player`, tags: ['SUB', 'DUB'] }))
 
   return (
     <main className="relative pb-10">

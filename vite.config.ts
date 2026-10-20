@@ -68,7 +68,7 @@ function zenkaiSeo(): Plugin {
       const day = new Date().toISOString().slice(0, 10)
       const urls = PAGES.map(
         ([path, freq, pr]) =>
-          `  <url>\n    <loc>${SITE_URL}${path}</loc>\n    <lastmod>${day}</lastmod>\n    <changefreq>${freq}</changefreq>\n    <priority>${pr}</priority>${path === '/' ? `\n    <image:image>\n      <image:loc>${SITE_URL}/og-image.jpg</image:loc>\n      <image:title>Zenkai: watch anime and movies, read manga and novels</image:title>\n    </image:image>` : ''}\n  </url>`,
+          `  <url>\n    <loc>${SITE_URL}${path}</loc>\n    <lastmod>${day}</lastmod>\n    <changefreq>${freq}</changefreq>\n    <priority>${pr}</priority>${path === '/' ? `\n    <image:image>\n      <image:loc>${SITE_URL}/og-image.jpg</image:loc>\n      <image:title>Gaurxv Verse — Your Digital Universe</image:title>\n    </image:image>` : ''}\n  </url>`,
       ).join('\n')
       this.emitFile({
         type: 'asset',

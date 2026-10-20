@@ -30,20 +30,20 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
 const page = (next, error) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>Zenkai</title>
+<meta name="robots" content="noindex,nofollow"><title>Gaurxv Verse</title>
 <style>
 :root{color-scheme:dark}*{box-sizing:border-box}
-body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0c0c0f;color:#f4f4f5;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px}
-form{width:100%;max-width:340px;background:#17171b;border:1px solid #26262c;border-radius:16px;padding:28px}
-h1{margin:0 0 4px;font-size:24px;letter-spacing:-.02em}h1 span{color:#e8294c}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0a0a0c;color:#f4f4f5;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:16px}
+form{width:100%;max-width:340px;background:#101014;border:1px solid #26262c;border-radius:16px;padding:28px}
+h1{margin:0 0 4px;font-size:24px;letter-spacing:-.02em}h1 span{color:#00e5ff}
 p{margin:0 0 20px;color:#a1a1aa;font-size:14px}
-input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #33333a;background:#0c0c0f;color:inherit;font:inherit;outline:none}
-input:focus{border-color:#e8294c}
-button{width:100%;margin-top:12px;padding:12px;border:0;border-radius:10px;background:#e8294c;color:#fff;font:inherit;font-weight:600;cursor:pointer}
+input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid #33333a;background:#0a0a0c;color:inherit;font:inherit;outline:none}
+input:focus{border-color:#00e5ff}
+button{width:100%;margin-top:12px;padding:12px;border:0;border-radius:10px;background:#00e5ff;color:#0a0a0c;font:inherit;font-weight:600;cursor:pointer}
 .err{color:#f87171;font-size:14px;margin:10px 0 0}
 </style></head><body>
 <form method="post" action="/login">
-<h1>Zen<span>kai</span></h1><p>This site is private. Enter the password to continue.</p>
+<h1>Gaurxv Verse <span>⎊</span></h1><p>Your Digital Universe. This site is private. Enter the password to continue.</p>
 <input type="hidden" name="next" value="${esc(next)}">
 <input type="password" name="password" placeholder="Password" autocomplete="current-password" autofocus required>
 <button type="submit">Enter</button>

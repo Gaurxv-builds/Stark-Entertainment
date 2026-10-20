@@ -13,6 +13,7 @@ import { ErrorState } from '../components/ErrorState'
 import { GenreMarquee } from '../components/GenreMarquee'
 import { HeroCarousel } from '../components/HeroCarousel'
 import { Skeleton } from '../components/Skeleton'
+import { pageTitle } from '../lib/brand'
 
 export default function HomePage() {
   const home = useAsync(fetchHome, [])
@@ -20,7 +21,7 @@ export default function HomePage() {
   const { season, year } = getSeason()
 
   useEffect(() => {
-    document.title = 'Zenkai — Anime, beautifully'
+    document.title = pageTitle('Anime')
   }, [])
 
   const heroItems = useMemo(() => {

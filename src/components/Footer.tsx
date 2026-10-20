@@ -5,6 +5,7 @@ import { sectionOf } from '../lib/sections'
 import { cn } from '../lib/utils'
 import { CommunitySection } from './CommunitySection'
 import { DotPattern } from './DotPattern'
+import { BRAND_NAME } from '../lib/brand'
 import { Logo } from './Logo'
 
 /** The disclaimer, DMCA notice and data credits live on the Profile page. */
@@ -25,7 +26,7 @@ export function Footer() {
         <div className="max-w-sm">
           <Logo size={40} />
           <p className="mt-4 text-sm leading-relaxed text-muted">
-            Discover what to watch next. Zenkai brings the best of anime into one beautiful, fast place — on every screen.
+            Discover what to watch next. {BRAND_NAME} brings anime, movies, manga and novels into one place — on every screen.
           </p>
         </div>
 
@@ -82,7 +83,7 @@ export function Footer() {
       </div>
       <CommunitySection />
       <p className="relative mx-auto mt-12 max-w-7xl px-4 text-xs text-muted sm:px-6">
-        © {new Date().getFullYear()} Zenkai. <LegalLink />
+        © {new Date().getFullYear()} {BRAND_NAME}. <LegalLink />
       </p>
     </footer>
   )
@@ -126,7 +127,7 @@ function ReaderFooter({ kind }: { kind: 'novel' | 'manga' }) {
         </ul>
       </div>
       <p className="relative mx-auto mt-12 max-w-7xl px-4 text-xs text-muted sm:px-6">
-        © {new Date().getFullYear()} Zenkai. <LegalLink />
+        © {new Date().getFullYear()} {BRAND_NAME}. <LegalLink />
       </p>
     </footer>
   )
@@ -151,7 +152,7 @@ function MoviesFooter() {
         </ul>
       </div>
       <p className="relative mx-auto mt-12 max-w-7xl px-4 text-xs text-muted sm:px-6">
-        © {new Date().getFullYear()} Zenkai. <LegalLink />
+        © {new Date().getFullYear()} {BRAND_NAME}. <LegalLink />
       </p>
     </footer>
   )

@@ -8,6 +8,7 @@ import type { AniAiringEntry } from '../types/anime'
 import { ErrorState } from '../components/ErrorState'
 import { GradientText } from '../components/GradientText'
 import { Skeleton } from '../components/Skeleton'
+import { pageTitle } from '../lib/brand'
 
 const DAY = 86400
 const BEFORE = 3
@@ -83,7 +84,7 @@ export default function SchedulePage() {
   const strip = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    document.title = 'Schedule — Zenkai'
+    document.title = pageTitle('Schedule')
     const t = window.setInterval(() => setNow(Math.floor(Date.now() / 1000)), 30000)
     return () => window.clearInterval(t)
   }, [])

@@ -9,6 +9,7 @@ import { CustomSelect, type Option } from '../components/CustomSelect'
 import { ErrorState } from '../components/ErrorState'
 import { GradientText } from '../components/GradientText'
 import { Skeleton } from '../components/Skeleton'
+import { pageTitle } from '../lib/brand'
 
 const FORMATS: Option[] = [
   { value: '', label: 'Any format' },
@@ -132,7 +133,7 @@ export default function MangaBrowsePage() {
   }, [loading, hasNext, error, more, items.length])
 
   useEffect(() => {
-    document.title = 'Browse manga — Zenkai'
+    document.title = pageTitle('Browse manga')
   }, [])
 
   const cards = useMemo(() => items.map(toCard), [items])

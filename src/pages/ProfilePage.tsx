@@ -12,6 +12,7 @@ import { toast } from '../lib/toast'
 import { cn } from '../lib/utils'
 import { useTheme } from '../context/ThemeContext'
 import { useFlag } from '../hooks/useFlag'
+import { BRAND_NAME, pageTitle } from '../lib/brand'
 
 const card = 'rounded-3xl border border-border bg-card/60 p-5 sm:p-6'
 const h2 = 'font-display text-xl font-bold'
@@ -76,7 +77,7 @@ export default function ProfilePage() {
   const [maxQ, setMaxQ] = useStored('zp-q')
 
   useEffect(() => {
-    document.title = 'Profile — Zenkai'
+    document.title = pageTitle('Profile')
     document.documentElement.dataset.zkMono = ''
     if (location.hash === '#legal') window.setTimeout(() => document.getElementById('legal')?.scrollIntoView({ behavior: 'smooth' }), 150)
     return () => {
@@ -156,17 +157,17 @@ export default function ProfilePage() {
         <div>
           <h3 className="mb-1 font-semibold text-foreground">Disclaimer</h3>
           <p>
-            Zenkai does not host, upload or store any video, novel text or manga images. Streams, chapters and pages are provided by third-party services and are fetched at the moment you watch or read. Zenkai has no control over that
+            {BRAND_NAME} does not host, upload or store any video, novel text or manga images. Streams, chapters and pages are provided by third-party services and are fetched at the moment you watch or read. {BRAND_NAME} has no control over that
             content and is not affiliated with those services. All titles, artwork and trademarks belong to their respective owners.
           </p>
         </div>
         <div>
           <h3 className="mb-1 font-semibold text-foreground">DMCA / copyright</h3>
           <p>
-            If you own a work and believe something linked from Zenkai infringes your copyright, the file lives on the third-party host, so please contact that host first. To tell us as well, reach the maintainers through{' '}
+            If you own a work and believe something linked from {BRAND_NAME} infringes your copyright, the file lives on the third-party host, so please contact that host first. To tell us as well, reach the maintainers through{' '}
             <a href={REPO_URL + '/issues'} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2">GitHub</a>,{' '}
             <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2">Discord</a> or{' '}
-            <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2">Telegram</a>, and include: the work concerned, the exact Zenkai page or link, your contact details, a statement that you act in good faith, and a statement that your notice is accurate and you
+            <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2">Telegram</a>, and include: the work concerned, the exact {BRAND_NAME} page or link, your contact details, a statement that you act in good faith, and a statement that your notice is accurate and you
             are the owner or their authorised agent. We will review it and remove the link where appropriate.
           </p>
         </div>
@@ -178,7 +179,7 @@ export default function ProfilePage() {
           </p>
         </div>
         <p>
-          Your profile and preferences are kept in this browser only. Clearing site data removes them. <Link to="/home" className="text-foreground underline underline-offset-2">Back to Zenkai</Link>
+          Your profile and preferences are kept in this browser only. Clearing site data removes them. <Link to="/home" className="text-foreground underline underline-offset-2">Back to {BRAND_NAME}</Link>
         </p>
       </section>
     </main>

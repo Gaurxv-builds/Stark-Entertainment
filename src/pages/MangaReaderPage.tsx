@@ -10,6 +10,7 @@ import { fetchMangaChapters, fetchMangaPages, proxiedImage, type MangaChapterRef
 import { ErrorState } from '../components/ErrorState'
 import { Skeleton } from '../components/Skeleton'
 import NotFoundPage from './NotFoundPage'
+import { pageTitle } from '../lib/brand'
 
 const PREFS_KEY = 'zk:manga-prefs:v1'
 const BG: Record<MangaPrefs['bg'], { bg: string; fg: string; bar: string }> = {
@@ -142,7 +143,7 @@ function Reader({ id, chapterId }: { id: string; chapterId: string }) {
   }, [chapterId])
 
   useEffect(() => {
-    document.title = `${chapterLabel} · ${title} — Zenkai`
+    document.title = pageTitle(`${chapterLabel} · ${title}`)
   }, [chapterLabel, title])
 
   /* while a panel is open: lock page scroll. On close, always put the page back where it belongs. */
