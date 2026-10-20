@@ -26,7 +26,6 @@ const SchedulePage = lazy(() => import('./pages/SchedulePage'))
 const WatchPage = lazy(() => import('./pages/WatchPage'))
 const ListPage = lazy(() => import('./pages/ListPage'))
 const AppPage = lazy(() => import('./pages/AppPage'))
-const SelfHostPage = lazy(() => import('./pages/SelfHostPage'))
 const NovelHomePage = lazy(() => import('./pages/NovelHomePage'))
 const NovelDetailsPage = lazy(() => import('./pages/NovelDetailsPage'))
 const NovelReaderPage = lazy(() => import('./pages/NovelReaderPage'))
@@ -48,8 +47,7 @@ export default function App() {
   const { pathname } = useLocation()
   const gate = pathname === '/'
   const reader = isReaderPath(pathname) // Novel / manga readers are full-screen too
-  const guide = pathname === '/self-host' // the self-hosting guide has its own slim header
-  const bare = gate || reader || guide || isWatchPath(pathname)
+  const bare = gate || reader || isWatchPath(pathname)
   const section = sectionOf(pathname)
 
   useTrackHistory()
@@ -79,10 +77,9 @@ export default function App() {
           <Route path="/list" element={<ListPage />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/app" element={<AppPage />} />
-          <Route path="/self-host" element={<SelfHostPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/auth/anilist" element={<AniListCallbackPage />} />
- {/* Novels */}
+          {/* Novels */}
           <Route path="/novel" element={<NovelHomePage />} />
           <Route path="/novel/find" element={<FindPage />} />
           <Route path="/manga/find" element={<FindPage />} />

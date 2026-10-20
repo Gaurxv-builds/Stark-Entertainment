@@ -1,7 +1,7 @@
 {
   "name": "Gaurxv Verse",
   "short_name": "Gaurxv Verse",
-  "description": "Your Digital Universe",
+  "description": "Next-Gen Media Server",
   "display": "standalone",
   "start_url": "/",
   "background_color": "#0a0a0c",

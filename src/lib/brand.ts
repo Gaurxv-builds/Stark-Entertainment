@@ -2,6 +2,6 @@
 export const BRAND_NAME = 'Gaurxv Verse'
 export const BRAND_SYMBOL = '⎊'
 export const BRAND_MARK = 'Gaurxv Verse ⎊'
-export const BRAND_TAGLINE = 'Your Digital Universe'
+export const BRAND_TAGLINE = 'Next-Gen Media Server'
 
 export const pageTitle = (page?: string) => (page ? `${page} — ${BRAND_NAME}` : BRAND_MARK)

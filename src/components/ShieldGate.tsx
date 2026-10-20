@@ -3,6 +3,7 @@ import { Ban, Loader2, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { submitCaptcha, useShield } from '../lib/shield'
 import { cn } from '../lib/utils'
+import { BRAND_NAME } from '../lib/brand'
 import { BorderBeam } from './BorderBeam'
 import { DotPattern } from './DotPattern'
 import { ShinyText } from './ShinyText'
@@ -91,14 +92,14 @@ export function ShieldGate() {
       {bot ? (
         <Backdrop key="bot" z={400}>
           <Card icon={<ShieldAlert className="size-8" />} title="Automated Access Denied" tone="danger">
-            <p className="mt-2 text-sm leading-relaxed text-muted">Headless bots and scrapers can't use Zenkai.</p>
+            <p className="mt-2 text-sm leading-relaxed text-muted">Headless bots and scrapers cannot access {BRAND_NAME}.</p>
           </Card>
         </Backdrop>
       ) : devtools ? (
         <Backdrop key="dev" z={300}>
           <Card icon={<Ban className="size-8" />} title="Developer Tools Detected" tone="danger">
             <p className="mt-2 text-sm leading-relaxed text-muted">
-              Inspection tools are restricted on Zenkai to protect media streams.
+              Inspection tools are restricted on {BRAND_NAME} to protect media streams.
               <br />
               <strong className="text-foreground">Close Developer Tools to continue.</strong>
             </p>
@@ -109,7 +110,7 @@ export function ShieldGate() {
         </Backdrop>
       ) : captcha ? (
         <Backdrop key="captcha" z={200}>
-          <Card icon={<ShieldCheck className="size-8" />} title="Zenkai Shield">
+          <Card icon={<ShieldCheck className="size-8" />} title={`${BRAND_NAME} Shield`}>
             <CaptchaForm svg={captcha.svg} error={captcha.error} />
           </Card>
         </Backdrop>

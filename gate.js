@@ -43,7 +43,7 @@ button{width:100%;margin-top:12px;padding:12px;border:0;border-radius:10px;backg
 .err{color:#f87171;font-size:14px;margin:10px 0 0}
 </style></head><body>
 <form method="post" action="/login">
-<h1>Gaurxv Verse <span>⎊</span></h1><p>Your Digital Universe. This site is private. Enter the password to continue.</p>
+<h1>Gaurxv Verse <span>⎊</span></h1><p>Next-Gen Media Server. This site is private. Enter the password to continue.</p>
 <input type="hidden" name="next" value="${esc(next)}">
 <input type="password" name="password" placeholder="Password" autocomplete="current-password" autofocus required>
 <button type="submit">Enter</button>

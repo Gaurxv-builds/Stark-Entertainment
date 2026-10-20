@@ -4,9 +4,9 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 /** Serves /api/* and /proxy in dev with the same handler Cloudflare Pages Functions use in production. */
-function zenkaiApi(): Plugin {
+function verseApi(): Plugin {
   return {
-    name: 'zenkai-api',
+    name: 'verse-api',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         const url = req.url ?? ''
@@ -44,7 +44,6 @@ const PAGES: Array<[path: string, freq: string, priority: string]> = [
   ['/manga/browse', 'daily', '0.7'],
   ['/novel', 'daily', '0.9'],
   ['/app', 'monthly', '0.5'],
-  ['/self-host', 'monthly', '0.5'],
 ]
 
 /**
@@ -56,19 +55,19 @@ const SITE_URL = (
   loadEnv('', process.cwd(), 'VITE_SITE_URL').VITE_SITE_URL ||
   process.env.CF_PAGES_URL ||
   (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '') ||
-  'https://zenkai.pages.dev'
+  'https://gaurxv-verse.pages.dev'
 ).replace(/\/$/, '')
 
 /** Fills %SITE_URL% in index.html and writes sitemap.xml + robots.txt into the build. */
-function zenkaiSeo(): Plugin {
+function verseSeo(): Plugin {
   return {
-    name: 'zenkai-seo',
+    name: 'verse-seo',
     transformIndexHtml: (html) => html.split('%SITE_URL%').join(SITE_URL),
     generateBundle() {
       const day = new Date().toISOString().slice(0, 10)
       const urls = PAGES.map(
         ([path, freq, pr]) =>
-          `  <url>\n    <loc>${SITE_URL}${path}</loc>\n    <lastmod>${day}</lastmod>\n    <changefreq>${freq}</changefreq>\n    <priority>${pr}</priority>${path === '/' ? `\n    <image:image>\n      <image:loc>${SITE_URL}/og-image.jpg</image:loc>\n      <image:title>Gaurxv Verse — Your Digital Universe</image:title>\n    </image:image>` : ''}\n  </url>`,
+          `  <url>\n    <loc>${SITE_URL}${path}</loc>\n    <lastmod>${day}</lastmod>\n    <changefreq>${freq}</changefreq>\n    <priority>${pr}</priority>${path === '/' ? `\n    <image:image>\n      <image:loc>${SITE_URL}/og-image.jpg</image:loc>\n      <image:title>Gaurxv Verse — Next-Gen Media Server</image:title>\n    </image:image>` : ''}\n  </url>`,
       ).join('\n')
       this.emitFile({
         type: 'asset',
@@ -85,6 +84,6 @@ function zenkaiSeo(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), zenkaiApi(), zenkaiSeo()],
+  plugins: [react(), tailwindcss(), verseApi(), verseSeo()],
   server: { host: true },
 })

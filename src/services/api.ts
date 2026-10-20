@@ -1,6 +1,6 @@
 import { tmdbDirect, tmdbEpisodesDirect } from './tmdbDirect'
 
-/** Client for the Zenkai API (Cloudflare Pages Functions in production, Vite middleware in dev). */
+/** Client for the Gaurxv Verse API (Cloudflare Pages Functions in production, Vite middleware in dev). */
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? ''
 
 /** Root-relative API paths (e.g. the proxied HLS url) are prefixed with VITE_API_BASE when it is set. */
@@ -9,7 +9,7 @@ export const apiUrl = (path: string) => (path.startsWith('/') ? BASE + path : pa
 /** Cloudflare answers 429 (or its own HTML error page) once the free Workers quota is used up. */
 export const failMsg = (res: Response, data: { error?: string } | null) =>
   res.status === 429 || (res.status >= 500 && !data)
-    ? "We're on the free plan and today's usage limit is reached. Switch to an embed server, they work normally."
+    ? "Direct stream server is momentarily busy. Switch to an alternate server for immediate playback."
     : (data?.error ?? `Request failed (${res.status})`)
 
 export const tmdbImg = (path: string | null | undefined, size: 'w185' | 'w300' | 'w500' | 'w780' | 'w1280' | 'original' = 'w1280') =>

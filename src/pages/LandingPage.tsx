@@ -5,7 +5,6 @@ import { cn } from '../lib/utils'
 import { AuroraBackground } from '../components/AuroraBackground'
 import { BlurText } from '../components/BlurText'
 import { DotPattern } from '../components/DotPattern'
-import { FreePlanNotice } from '../components/FreePlanNotice'
 import { FadeSlideshow } from '../components/FadeSlideshow'
 import { Logo } from '../components/Logo'
 import { BRAND_MARK, BRAND_TAGLINE, pageTitle } from '../lib/brand'
@@ -78,8 +77,6 @@ export default function LandingPage() {
       </header>
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-5 sm:px-8 sm:py-8 lg:py-12">
-        <FreePlanNotice />
-
         <div className="text-center">
           <p className="font-display text-sm font-semibold tracking-[0.28em] text-accent uppercase">{BRAND_MARK}</p>
           <p className="mt-2 text-sm font-medium tracking-[0.18em] text-muted uppercase">{BRAND_TAGLINE}</p>

@@ -411,7 +411,7 @@ export default function AppPage() {
               <div>
                 <h2 id="security" className="font-display text-3xl font-black tracking-tight">Security and transparency</h2>
                 <p className="mt-3 max-w-2xl leading-relaxed text-muted">
-                  Zenkai releases are submitted to VirusTotal for independent antivirus analysis. Results can change as antivirus engines update their signatures, so the report linked from a release is the source of truth for that scan.
+                  Gaurxv Verse releases are submitted to VirusTotal for independent antivirus analysis. Results can change as antivirus engines update their signatures, so the report linked from a release is the source of truth for that scan.
                 </p>
                 <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold">
                   {rel?.virusTotal && (
@@ -481,7 +481,7 @@ export default function AppPage() {
                   Official site <ArrowUpRight className="size-5" />
                 </a>
               </div>
-              <p className="mx-auto mt-6 max-w-lg text-xs leading-relaxed text-muted">Zenkai hosts zero content and has no affiliation with the content providers available through the app.</p>
+              <p className="mx-auto mt-6 max-w-lg text-xs leading-relaxed text-muted">Gaurxv Verse hosts zero content and has no affiliation with the content providers available through the app.</p>
             </div>
           </Reveal>
         </section>

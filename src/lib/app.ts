@@ -1,19 +1,17 @@
-/** Where the Zenkai Android app lives. Everything release-related is read live from this repo. */
+/** Where the Gaurxv Verse Android app lives. Everything release-related is read live from this repo. */
 export const APP_REPO = 'Nyyrox/Zenkai'
 export const REPO_URL = `https://github.com/${APP_REPO}`
 export const LATEST_URL = `${REPO_URL}/releases/latest`
 export const RELEASES_URL = `${REPO_URL}/releases`
-export const ISSUES_URL = `${REPO_URL}/issues`
+export const ISSUES_URL = `https://github.com/Gaurxv-builds/Stark-Entertainment/issues`
 
 /** The "Know more" button on the home page opens this page in a new tab. */
 export const APP_INFO_URL = 'https://zenkai-auth-worker.ammhfoo.workers.dev/'
-/** The open-source web app (this site). Self-hosting instructions point here. */
-export const WEB_REPO_URL = 'https://github.com/nyyrox2/Zenkai'
+/** The open-source web app (this site). */
+export const WEB_REPO_URL = 'https://github.com/Gaurxv-builds/Stark-Entertainment'
 export const WEB_REPO_CLONE = `${WEB_REPO_URL}.git`
-/** Page with the self-hosting guide. */
-export const SELF_HOST_PATH = '/self-host'
 
-/** Invite links as published in the app's GitHub README. */
+/** Invite links as published in the community channels. */
 export const DISCORD_URL = 'https://discord.gg/kHxHzZtH7'
 export const TELEGRAM_URL = 'https://t.me/StreamverseOfc'
 
