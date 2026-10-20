@@ -104,7 +104,7 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
                   setUsername(e.target.value)
                   if (error) setError(false)
                 }}
-                placeholder="Username (e.g. gaurav or stark)"
+                placeholder="Enter your username or email"
                 autoFocus
                 autoComplete="username"
                 className="h-12 w-full bg-transparent px-3 text-sm font-medium outline-none placeholder:text-muted/60"
@@ -132,7 +132,7 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
                   setPassword(e.target.value)
                   if (error) setError(false)
                 }}
-                placeholder="Password (e.g. GAURXV-VERSE-2026)"
+                placeholder="Enter your password"
                 autoComplete="current-password"
                 className="h-12 w-full bg-transparent px-3 text-sm font-medium outline-none placeholder:text-muted/60"
               />
