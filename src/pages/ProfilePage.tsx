@@ -66,7 +66,7 @@ const langName = (c: string) => new Intl.DisplayNames(['en'], { type: 'language'
 
 export default function ProfilePage() {
   const me = useProfile()
-  const { lock } = useStarkAuth()
+  const { lock, user: authUser } = useStarkAuth()
   const { theme, setTheme } = useTheme()
   const [open, setOpen] = useState<Set<SectionKey>>(() => new Set(['avatar']))
 
@@ -111,7 +111,7 @@ export default function ProfilePage() {
       {/* Stark Security Gate */}
       <section className={card} aria-label="Security">
         <h2 className={cn(h2, 'mb-4')}>Stark Security Gate</h2>
-        <Row title="Protocol Status" hint="Gaurxv Verse security gate is currently unlocked on this browser">
+        <Row title="Protocol Status" hint={`Signed in as ${authUser || 'Operator'} · Stark Security Gate active`}>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
               <ShieldCheck className="size-3.5" />

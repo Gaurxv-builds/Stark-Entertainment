@@ -1,34 +1,30 @@
-import { useState, type FormEvent } from 'react'
+import { createElement, useState, type FormEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { KeyRound, Lock, Unlock, Eye, EyeOff, ShieldCheck, AlertCircle, ArrowRight } from 'lucide-react'
+import { User, KeyRound, Lock, Unlock, Eye, EyeOff, ShieldCheck, AlertCircle, ArrowRight, Mail } from 'lucide-react'
 import { BRAND_NAME, BRAND_SYMBOL } from '../lib/brand'
 import { AuroraBackground } from './AuroraBackground'
 import { BorderBeam } from './BorderBeam'
 import { DotPattern } from './DotPattern'
 import { Logo } from './Logo'
 
-// Support DotLottie custom web component in JSX
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      'dotlottie-wc': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
-        src?: string
-        autoplay?: boolean
-        loop?: boolean
-        speed?: number
-        mode?: string
-        style?: React.CSSProperties
-      }
-    }
-  }
+interface StarkLoginGateProps {
+  onUnlock: (username: string, passcode: string, remember: boolean) => boolean
 }
 
-interface StarkLoginGateProps {
-  onUnlock: (key: string, remember: boolean) => boolean
+/** DotLottie custom element rendered via createElement to prevent JSX type collision */
+function DotLottiePlayer({ src, className }: { src: string; className?: string }) {
+  return createElement('dotlottie-wc', {
+    src,
+    autoplay: true,
+    loop: true,
+    style: { width: '100%', height: '100%' },
+    class: className,
+  })
 }
 
 export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
-  const [passcode, setPasscode] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [showPasscode, setShowPasscode] = useState(false)
   const [remember, setRemember] = useState(true)
   const [error, setError] = useState(false)
@@ -37,14 +33,14 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (!passcode.trim() || loading || granted) return
+    if (!password.trim() || loading || granted) return
 
     setLoading(true)
     setError(false)
 
-    // Smooth verification delay
+    // Smooth verification feedback
     setTimeout(() => {
-      const ok = onUnlock(passcode, remember)
+      const ok = onUnlock(username, password, remember)
       if (ok) {
         setGranted(true)
       } else {
@@ -78,12 +74,7 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
 
           {/* Lottie Animation Display */}
           <div className="relative my-2 size-40 sm:size-48">
-            <dotlottie-wc
-              src="https://lottie.host/16e0b9f8-a741-4fb2-84bd-bca6bddbb939/tgQRFUHhy7.lottie"
-              autoplay
-              loop
-              style={{ width: '100%', height: '100%' }}
-            />
+            <DotLottiePlayer src="https://lottie.host/16e0b9f8-a741-4fb2-84bd-bca6bddbb939/tgQRFUHhy7.lottie" />
           </div>
 
           <h1 className="font-display text-2xl font-black tracking-tight sm:text-3xl">
@@ -93,15 +84,38 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
             </span>
           </h1>
           <p className="mt-1 text-xs text-muted sm:text-sm">
-            Enter your security access key to unlock the universe.
+            Sign in with your authorized credentials to unlock Gaurxv Verse.
           </p>
         </div>
 
         {/* Input Form */}
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          {/* Username / Identifier */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-muted uppercase tracking-wider">
-              Security Key or Authorized Email
+              Username or Email
+            </label>
+            <div className="relative flex items-center rounded-2xl border border-border bg-background/60 backdrop-blur transition-all duration-200 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
+              <User className="pointer-events-none ml-4 size-4 shrink-0 text-muted" />
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value)
+                  if (error) setError(false)
+                }}
+                placeholder="Username (e.g. gaurav or stark)"
+                autoFocus
+                autoComplete="username"
+                className="h-12 w-full bg-transparent px-3 text-sm font-medium outline-none placeholder:text-muted/60"
+              />
+            </div>
+          </div>
+
+          {/* Password / Access Key */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted uppercase tracking-wider">
+              Password or Security Key
             </label>
             <div
               className={`relative flex items-center rounded-2xl border bg-background/60 backdrop-blur transition-all duration-200 ${
@@ -113,13 +127,12 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
               <KeyRound className="pointer-events-none ml-4 size-4 shrink-0 text-muted" />
               <input
                 type={showPasscode ? 'text' : 'password'}
-                value={passcode}
+                value={password}
                 onChange={(e) => {
-                  setPasscode(e.target.value)
+                  setPassword(e.target.value)
                   if (error) setError(false)
                 }}
-                placeholder="Passcode (e.g. GAURXV-VERSE-2026)"
-                autoFocus
+                placeholder="Password (e.g. GAURXV-VERSE-2026)"
                 autoComplete="current-password"
                 className="h-12 w-full bg-transparent px-3 text-sm font-medium outline-none placeholder:text-muted/60"
               />
@@ -142,7 +155,7 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
                   className="flex items-center gap-1.5 pt-1 text-xs font-medium text-red-400"
                 >
                   <AlertCircle className="size-3.5" />
-                  <span>Access Denied: Invalid security key. Please try again.</span>
+                  <span>Access Denied: Invalid credentials. Please try again.</span>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -162,7 +175,7 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
 
           <button
             type="submit"
-            disabled={!passcode.trim() || loading || granted}
+            disabled={!password.trim() || loading || granted}
             className={`group relative flex h-12 w-full items-center justify-center gap-2 rounded-2xl font-display text-sm font-bold tracking-wide transition-all duration-300 ${
               granted
                 ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/25'
@@ -181,7 +194,7 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
                   transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
                   className="size-4 rounded-full border-2 border-accent-fg/30 border-t-accent-fg"
                 />
-                <span>AUTHENTICATING...</span>
+                <span>VERIFYING CREDENTIALS...</span>
               </>
             ) : (
               <>
@@ -193,11 +206,16 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
           </button>
         </form>
 
-        {/* Footer info */}
+        {/* Request Credentials Link (Redirects to mailto:work@gaurxv.eu.org) */}
         <div className="mt-6 border-t border-border/60 pt-4 text-center">
-          <p className="text-[11px] text-muted">
-            Protected by Stark Protocol · Encrypted local verification · 100% Free
-          </p>
+          <p className="mb-2.5 text-xs text-muted">Need an account or forgotten credentials?</p>
+          <a
+            href="mailto:work@gaurxv.eu.org?subject=Request%20Gaurxv%20Verse%20Access%20Credentials&body=Hi%20Gaurav,%0A%0AI%20would%20like%20to%20request%20access%20credentials%20for%20Gaurxv%20Verse%20%E2%8E%8A.%0A%0AUsername%20requested:%20%0AFull%20Name:%20%0AEmail:%20"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2.5 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent hover:text-accent-fg active:scale-[0.98]"
+          >
+            <Mail className="size-3.5" />
+            <span>Request Credentials (work@gaurxv.eu.org)</span>
+          </a>
         </div>
       </motion.div>
     </div>
