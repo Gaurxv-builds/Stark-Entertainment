@@ -15,13 +15,16 @@ import {
   Sparkles,
   ArrowLeft,
   Cloud,
+  RefreshCw,
 } from 'lucide-react'
 import {
   useStarkAuth,
   getAllCredentials,
   getCreatedCredentials,
   addCreatedCredential,
-  deleteCreatedCredential,
+  deleteAnyUser,
+  resetRevokedUsers,
+  getRevokedUsernames,
   type Credential,
 } from '../lib/starkAuth'
 import { toast } from '../lib/toast'
@@ -106,7 +109,7 @@ export default function AdminPage() {
 
   // Handle user deletion
   const handleDeleteUser = (username: string) => {
-    deleteCreatedCredential(username)
+    deleteAnyUser(username)
     setUsersList(getAllCredentials())
     toast(`Revoked clearance for @${username}`)
   }
@@ -270,6 +273,20 @@ export default function AdminPage() {
                 </p>
               </div>
             </div>
+            {getRevokedUsernames().length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  resetRevokedUsers()
+                  setUsersList(getAllCredentials())
+                  toast('Restored default users')
+                }}
+                className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-border bg-card/60 px-3 text-xs font-semibold text-muted transition hover:border-accent hover:text-foreground active:scale-95"
+              >
+                <RefreshCw className="size-3.5" />
+                <span>Reset Defaults</span>
+              </button>
+            )}
           </div>
 
           <div className="mt-6 divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/70 bg-background/40">
@@ -333,16 +350,14 @@ export default function AdminPage() {
                         <span>{isCopied ? 'Copied!' : 'Copy Credentials'}</span>
                       </button>
 
-                      {!isBuiltin && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteUser(c.username)}
-                          className="grid size-8 place-items-center rounded-xl border border-red-500/20 text-red-400 transition hover:bg-red-500/10 active:scale-90"
-                          title="Revoke clearance"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteUser(c.username)}
+                        className="grid size-8 place-items-center rounded-xl border border-red-500/20 text-red-400 transition hover:bg-red-500/10 active:scale-90"
+                        title={`Revoke and delete user @${c.username}`}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
                     </div>
                   </motion.div>
                 )

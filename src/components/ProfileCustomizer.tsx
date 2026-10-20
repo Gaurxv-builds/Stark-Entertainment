@@ -9,7 +9,7 @@ import { SpotlightCard } from './SpotlightCard'
 import { FRAMES, FRAME_GROUPS, frameById, frameGroup, frameUrl } from '../lib/frames'
 import { saveProfile, type Profile } from '../lib/profile'
 import { toast } from '../lib/toast'
-import { useAccessUser } from '../lib/cloudflareAccess'
+import { useStarkAuth } from '../lib/starkAuth'
 import { cn } from '../lib/utils'
 
 export type SectionKey = 'name' | 'avatar' | 'overlay' | 'banner'
@@ -22,7 +22,8 @@ const pill = 'inline-flex h-10 items-center gap-2 rounded-full border border-bor
 
 export function ProfileHero({ me, onEdit }: { me: Profile; onEdit: (k: SectionKey) => void }) {
   const frame = frameById(me.frame)
-  const { user } = useAccessUser()
+  const { user: authUser, isAdmin } = useStarkAuth()
+  const displayName = me.name && me.name !== 'Guest' ? me.name : (authUser || (isAdmin ? 'Administrator' : 'Guest'))
   return (
     <motion.section initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: 0.05 }} className="relative overflow-hidden rounded-3xl border border-border bg-card/60" aria-label="Profile preview">
       <div className="relative h-40 overflow-hidden bg-card-2 sm:h-56">
@@ -45,10 +46,10 @@ export function ProfileHero({ me, onEdit }: { me: Profile; onEdit: (k: SectionKe
         </motion.div>
         <div className="min-w-0 pb-2">
           <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: 0.35 }} className="truncate font-display text-2xl font-bold sm:text-4xl">
-            {me.name || 'Guest'}
+            {displayName}
           </motion.h1>
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }} className="mt-0.5 text-sm">
-            {user?.email ? <span className="font-medium text-accent">Zero Trust: {user.email} ⎊</span> : <span className="text-muted">Saved on this device only. No account needed.</span>}
+            {isAdmin ? <span className="font-semibold text-accent">Stark Protocol // System Administrator ⎊</span> : authUser ? <span className="font-medium text-accent">Stark Protocol // @{authUser} ⎊</span> : <span className="text-muted">Saved on this device only.</span>}
           </motion.p>
           <AnimatePresence mode="popLayout">
             {frame && (
@@ -161,6 +162,8 @@ function Gallery({ kind, current, onPick }: { kind: CropKind; current: string | 
 /* ------------------------------------------------------------ customizer */
 
 export function ProfileCustomizer({ me, open, setOpen }: { me: Profile; open: Set<SectionKey>; setOpen: (s: Set<SectionKey>) => void }) {
+  const { user: authUser, isAdmin } = useStarkAuth()
+  const defaultName = me.name && me.name !== 'Guest' ? me.name : (authUser || (isAdmin ? 'Administrator' : 'Guest'))
   const [crop, setCrop] = useState<{ src: string; kind: CropKind; revoke?: boolean } | null>(null)
   const [gallery, setGallery] = useState<CropKind | null>(null)
   const [err, setErr] = useState('')
@@ -198,7 +201,7 @@ export function ProfileCustomizer({ me, open, setOpen }: { me: Profile; open: Se
         <p className="mt-1 text-sm text-muted">Changes show in the preview above straight away.</p>
       </div>
 
-      <Section id="name" icon={UserRound} title="Display name" summary={me.name || 'Guest'} open={open.has('name')} onToggle={() => toggle('name')}>
+      <Section id="name" icon={UserRound} title="Display name" summary={defaultName} open={open.has('name')} onToggle={() => toggle('name')}>
         <label className="block">
           <span className="sr-only">Display name</span>
           <input value={me.name} maxLength={24} onChange={(e) => saveProfile({ name: e.target.value })} onBlur={() => me.name.trim() && toast('Name updated')} placeholder="What should we call you?" className="h-11 w-full rounded-full border border-border bg-card/60 px-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-accent" />
