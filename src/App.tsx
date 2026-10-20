@@ -40,6 +40,7 @@ const MoviesBrowsePage = lazy(() => import('./pages/MoviesBrowsePage'))
 const MovieDetailsPage = lazy(() => import('./pages/MovieDetailsPage'))
 const MovieWatchPage = lazy(() => import('./pages/MovieWatchPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const AdminPage = lazy(() => import('./pages/AdminPage'))
 const AniListCallbackPage = lazy(() => import('./pages/AniListCallbackPage'))
 const FindPage = lazy(() => import('./pages/FindPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
@@ -86,6 +87,7 @@ export default function App() {
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/app" element={<AppPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/admin" element={<AdminPage />} />
           <Route path="/auth/anilist" element={<AniListCallbackPage />} />
           {/* Novels */}
           <Route path="/novel" element={<NovelHomePage />} />

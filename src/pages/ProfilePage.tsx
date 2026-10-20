@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Moon, Sun, ShieldCheck, Lock } from 'lucide-react'
+import { Moon, Sun, ShieldCheck, Lock, ShieldAlert } from 'lucide-react'
 import { useStarkAuth } from '../lib/starkAuth'
 import { AniListCard } from '../components/AniListCard'
 import { ProfileCustomizer, ProfileHero, type SectionKey } from '../components/ProfileCustomizer'
@@ -66,7 +66,7 @@ const langName = (c: string) => new Intl.DisplayNames(['en'], { type: 'language'
 
 export default function ProfilePage() {
   const me = useProfile()
-  const { lock, user: authUser } = useStarkAuth()
+  const { lock, user: authUser, isAdmin } = useStarkAuth()
   const { theme, setTheme } = useTheme()
   const [open, setOpen] = useState<Set<SectionKey>>(() => new Set(['avatar']))
 
@@ -117,6 +117,14 @@ export default function ProfilePage() {
               <ShieldCheck className="size-3.5" />
               <span>Unlocked ⎊</span>
             </span>
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-xs font-bold text-accent transition hover:bg-accent hover:text-accent-fg active:scale-95"
+              >
+                <ShieldAlert className="size-3" /> Admin Console
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => {

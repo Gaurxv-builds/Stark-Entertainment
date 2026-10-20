@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Compass, Download, Search } from 'lucide-react'
+import { Compass, Download, Search, ShieldAlert } from 'lucide-react'
 import { MOVIE_LINKS, NAV_LINKS } from '../lib/constants'
 import { sectionOf } from '../lib/sections'
 import { cn } from '../lib/utils'
 import { useSearch } from '../context/SearchContext'
 import { Logo } from './Logo'
 import { ThemeToggle } from './ThemeToggle'
+import { useStarkAuth } from '../lib/starkAuth'
 import { Avatar } from './Avatar'
 import { useProfile } from '../lib/profile'
 
@@ -15,6 +16,7 @@ import { useProfile } from '../lib/profile'
 export function Navbar() {
   const { openSearch } = useSearch()
   const me = useProfile()
+  const { isAdmin } = useStarkAuth()
   const { pathname, search } = useLocation()
   const section = sectionOf(pathname)
   const anime = section === 'anime'
@@ -130,6 +132,19 @@ export function Navbar() {
             Get app
           </Link>}
             </>
+          )}
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className={cn(
+                'inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-xs font-bold text-accent transition hover:bg-accent hover:text-accent-fg active:scale-95',
+                pathname === '/admin' && 'bg-accent text-accent-fg'
+              )}
+              title="Stark Admin Console"
+            >
+              <ShieldAlert className="size-3.5" />
+              <span className="hidden sm:inline">Admin ⎊</span>
+            </Link>
           )}
           <ThemeToggle />
           <Link to="/profile" aria-label="Your profile" title={me.name || 'Profile'} className="ml-1 rounded-full transition active:scale-90">
