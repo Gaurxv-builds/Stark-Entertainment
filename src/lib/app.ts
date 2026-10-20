@@ -10,6 +10,8 @@ export const APP_INFO_URL = 'https://zenkai-auth-worker.ammhfoo.workers.dev/'
 /** The open-source web app (this site). */
 export const WEB_REPO_URL = 'https://github.com/Gaurxv-builds/Stark-Entertainment'
 export const WEB_REPO_CLONE = `${WEB_REPO_URL}.git`
+/** Legacy route helper for backwards compatibility */
+export const SELF_HOST_PATH = '/self-host'
 
 /** Invite links as published in the community channels. */
 export const DISCORD_URL = 'https://discord.gg/kHxHzZtH7'
