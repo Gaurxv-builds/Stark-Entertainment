@@ -22,6 +22,7 @@ const pill = 'inline-flex h-10 items-center gap-2 rounded-full border border-bor
 
 export function ProfileHero({ me, onEdit }: { me: Profile; onEdit: (k: SectionKey) => void }) {
   const frame = frameById(me.frame)
+  const { user } = useAccessUser()
   return (
     <motion.section initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: 0.05 }} className="relative overflow-hidden rounded-3xl border border-border bg-card/60" aria-label="Profile preview">
       <div className="relative h-40 overflow-hidden bg-card-2 sm:h-56">
