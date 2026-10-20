@@ -43,7 +43,7 @@ export function Navbar() {
           scrolled ? 'border-border bg-glass shadow-xl shadow-black/10 md:backdrop-blur-xl' : 'border-transparent bg-transparent',
         )}
       >
-        <Logo size={34} to={anime ? '/home' : `/${section}`} />
+        <Logo size={34} to="/" />
 
         {links && (
         <ul className="hidden items-center md:flex" onMouseLeave={() => setHovered(null)}>

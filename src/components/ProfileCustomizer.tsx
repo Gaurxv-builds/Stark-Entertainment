@@ -9,6 +9,7 @@ import { SpotlightCard } from './SpotlightCard'
 import { FRAMES, FRAME_GROUPS, frameById, frameGroup, frameUrl } from '../lib/frames'
 import { saveProfile, type Profile } from '../lib/profile'
 import { toast } from '../lib/toast'
+import { useAccessUser } from '../lib/cloudflareAccess'
 import { cn } from '../lib/utils'
 
 export type SectionKey = 'name' | 'avatar' | 'overlay' | 'banner'
@@ -46,7 +47,7 @@ export function ProfileHero({ me, onEdit }: { me: Profile; onEdit: (k: SectionKe
             {me.name || 'Guest'}
           </motion.h1>
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55 }} className="mt-0.5 text-sm">
-            <span className="text-muted">Saved on this device only. No account needed.</span>
+            {user?.email ? <span className="font-medium text-accent">Zero Trust: {user.email} ⎊</span> : <span className="text-muted">Saved on this device only. No account needed.</span>}
           </motion.p>
           <AnimatePresence mode="popLayout">
             {frame && (

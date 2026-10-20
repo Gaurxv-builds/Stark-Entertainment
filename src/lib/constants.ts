@@ -22,13 +22,14 @@ export const GENRES: { name: string }[] = [
 ]
 
 export const MOVIE_LINKS: { label: string; to: string }[] = [
-  { label: 'Home', to: '/movies' },
-  { label: 'Movies', to: '/movies/browse?type=movie' },
+  { label: 'Home', to: '/' },
+  { label: 'Movies', to: '/movies' },
   { label: 'TV Shows', to: '/movies/browse?type=tv' },
 ]
 
 export const NAV_LINKS: { label: string; to: string }[] = [
-  { label: 'Home', to: '/home' },
+  { label: 'Home', to: '/' },
+  { label: 'Anime', to: '/home' },
   { label: 'Trending', to: '/trending' },
   { label: 'Popular', to: '/popular' },
   { label: 'Browse', to: '/browse' },

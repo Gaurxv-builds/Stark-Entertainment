@@ -97,7 +97,7 @@ function ReaderFooter({ kind }: { kind: 'novel' | 'manga' }) {
       <DotPattern className="[mask-image:radial-gradient(500px_circle_at_center,white,transparent)]" />
       <div className="relative mx-auto flex max-w-7xl flex-col gap-10 px-4 sm:px-6 md:flex-row md:items-start md:justify-between">
         <div className="max-w-sm">
-          <Logo size={40} to={`/${kind}`} />
+          <Logo size={40} to="/" />
           <p className="mt-4 text-sm leading-relaxed text-muted">
             {novel
               ? 'Web novels and light novels, in a reader made for long sessions. Your place is saved on this device.'
@@ -140,7 +140,7 @@ function MoviesFooter() {
       <DotPattern className="[mask-image:radial-gradient(500px_circle_at_center,white,transparent)]" />
       <div className="relative mx-auto flex max-w-7xl flex-col gap-10 px-4 sm:px-6 md:flex-row md:items-start md:justify-between">
         <div className="max-w-sm">
-          <Logo size={40} to="/movies" />
+          <Logo size={40} to="/" />
           <p className="mt-4 text-sm leading-relaxed text-muted">Films and series from every server, one tap away. Switch servers any time if one is slow.</p>
         </div>
         <ul className="space-y-3 text-sm">

@@ -4,7 +4,7 @@ import { BRAND_MARK, BRAND_NAME, BRAND_SYMBOL } from '../lib/brand'
 import { LOGO_URL } from '../lib/constants'
 import { cn } from '../lib/utils'
 
-export function Logo({ size = 36, showText = true, className, to = '/home' }: { size?: number; showText?: boolean; className?: string; to?: string }) {
+export function Logo({ size = 36, showText = true, className, to = '/' }: { size?: number; showText?: boolean; className?: string; to?: string }) {
   const [failed, setFailed] = useState(false)
   return (
     <Link to={to} aria-label={`${BRAND_MARK} home`} className={cn('group inline-flex min-w-0 items-center gap-2.5', className)}>

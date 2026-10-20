@@ -179,7 +179,7 @@ export default function ProfilePage() {
           </p>
         </div>
         <p>
-          Your profile and preferences are kept in this browser only. Clearing site data removes them. <Link to="/home" className="text-foreground underline underline-offset-2">Back to {BRAND_NAME}</Link>
+          Your profile and preferences are kept in this browser only. Clearing site data removes them. <Link to="/" className="text-foreground underline underline-offset-2">Back to {BRAND_NAME}</Link>
         </p>
       </section>
     </main>
