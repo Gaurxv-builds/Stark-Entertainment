@@ -82,7 +82,7 @@ const FAQ: { q: string; a: ReactNode }[] = [
     q: 'Is there an iPhone or desktop version?',
     a: (
       <>
-        The app is for Android. Everywhere else, use {BRAND_NAME} in your browser: <Link to="/home" className="font-semibold underline underline-offset-4">go to the web app</Link>.
+        The app is for Android. Everywhere else, use {BRAND_NAME} in your browser: <Link to="/anime" className="font-semibold underline underline-offset-4">go to the web app</Link>.
       </>
     ),
   },
@@ -215,7 +215,7 @@ export default function AppPage() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <ApkButton large />
               <CopyLink className="hidden md:inline-flex" />
-              <Link to="/home" className="inline-flex h-14 items-center gap-2 rounded-full px-4 text-[15px] font-semibold text-muted transition hover:text-foreground">
+              <Link to="/anime" className="inline-flex h-14 items-center gap-2 rounded-full px-4 text-[15px] font-semibold text-muted transition hover:text-foreground">
                 Use the web app instead
               </Link>
             </div>

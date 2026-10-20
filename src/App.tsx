@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Footer } from './components/Footer'
 import { MobileDock } from './components/MobileDock'
 import { Navbar } from './components/Navbar'
@@ -69,7 +69,8 @@ export default function App() {
       <Suspense fallback={<div className="min-h-[70svh]" />}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
-          <Route path="/home" element={<HomePage />} />
+          <Route path="/anime" element={<HomePage />} />
+          <Route path="/home" element={<Navigate to="/anime" replace />} />
           <Route path="/trending" element={<CatalogPage preset="trending" />} />
           <Route path="/popular" element={<CatalogPage preset="popular" />} />
           <Route path="/top" element={<CatalogPage preset="top" />} />

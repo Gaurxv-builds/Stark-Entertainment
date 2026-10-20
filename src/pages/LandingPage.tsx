@@ -24,7 +24,7 @@ interface Section {
 }
 
 const SECTIONS: Section[] = [
-  { key: 'anime', name: 'Anime', icon: Film, text: 'Stream the latest shows, sub or dub.', to: '/home', badge: '', hint: '1' },
+  { key: 'anime', name: 'Anime', icon: Film, text: 'Stream the latest shows, sub or dub.', to: '/anime', badge: '', hint: '1' },
   { key: 'manga', name: 'Manga', icon: BookOpen, text: 'Read chapters, saved as you go.', to: '/manga', badge: '', hint: '2' },
   { key: 'novel', name: 'Novels', icon: Library, text: 'A calm reader for long stories.', to: '/novel', badge: '', hint: '3' },
   { key: 'movies', name: 'Movies', icon: Clapperboard, text: 'Films and series, on every server.', to: '/movies', badge: '', hint: '4' },

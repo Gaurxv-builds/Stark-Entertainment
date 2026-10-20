@@ -145,7 +145,7 @@ export default function DetailsPage() {
     [a],
   )
 
-  const goBack = useSmartBack('/home')
+  const goBack = useSmartBack('/anime')
 
   /* ------------------ loading / error ------------------ */
   if (anime.loading) return <DetailsSkeleton />

@@ -1,7 +1,7 @@
 export type Section = 'anime' | 'novel' | 'manga' | 'movies'
 
 export const SECTIONS: { id: Section; label: string; to: string }[] = [
-  { id: 'anime', label: 'Anime', to: '/home' },
+  { id: 'anime', label: 'Anime', to: '/anime' },
   { id: 'novel', label: 'Novels', to: '/novel' },
   { id: 'manga', label: 'Manga', to: '/manga' },
   { id: 'movies', label: 'Movies', to: '/movies' },

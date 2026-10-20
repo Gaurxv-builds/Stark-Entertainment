@@ -29,7 +29,7 @@ export const MOVIE_LINKS: { label: string; to: string }[] = [
 
 export const NAV_LINKS: { label: string; to: string }[] = [
   { label: 'Home', to: 'https://verse.gaurxv.eu.org/' },
-  { label: 'Anime', to: '/home' },
+  { label: 'Anime', to: '/anime' },
   { label: 'Trending', to: '/trending' },
   { label: 'Popular', to: '/popular' },
   { label: 'Browse', to: '/browse' },
