@@ -17,6 +17,8 @@ import { useApplyTvMode } from './lib/keys'
 import { useSpatialNav } from './lib/spatial'
 import { isDetailsPath, isReaderPath, isWatchPath, sectionOf } from './lib/sections'
 import LandingPage from './pages/LandingPage'
+import { StarkLoginGate } from './components/StarkLoginGate'
+import { useStarkAuth } from './lib/starkAuth'
 
 // Only the opening page is eager; everything else is split out; hls.js only ships with the player page.
 const HomePage = lazy(() => import('./pages/HomePage'))
@@ -44,6 +46,7 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 export default function App() {
   // The opening page is a clean full-screen picker: no navbar, dock, footer or search.
+  const { authenticated, unlock } = useStarkAuth()
   const { pathname } = useLocation()
   const gate = pathname === '/'
   const reader = isReaderPath(pathname) // Novel / manga readers are full-screen too
@@ -59,6 +62,10 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.section = section ?? 'hub'
   }, [section])
+
+  if (!authenticated) {
+    return <StarkLoginGate onUnlock={unlock} />
+  }
 
   return (
     <>

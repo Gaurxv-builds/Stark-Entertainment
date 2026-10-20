@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Moon, Sun } from 'lucide-react'
+import { Moon, Sun, ShieldCheck, Lock } from 'lucide-react'
+import { useStarkAuth } from '../lib/starkAuth'
 import { AniListCard } from '../components/AniListCard'
 import { ProfileCustomizer, ProfileHero, type SectionKey } from '../components/ProfileCustomizer'
 import { CustomSelect } from '../components/CustomSelect'
@@ -65,6 +66,7 @@ const langName = (c: string) => new Intl.DisplayNames(['en'], { type: 'language'
 
 export default function ProfilePage() {
   const me = useProfile()
+  const { lock } = useStarkAuth()
   const { theme, setTheme } = useTheme()
   const [open, setOpen] = useState<Set<SectionKey>>(() => new Set(['avatar']))
 
@@ -105,6 +107,30 @@ export default function ProfilePage() {
       <ProfileHero me={me} onEdit={edit} />
       <ProfileCustomizer me={me} open={open} setOpen={setOpen} />
       <AniListCard me={me} />
+
+      {/* Stark Security Gate */}
+      <section className={card} aria-label="Security">
+        <h2 className={cn(h2, 'mb-4')}>Stark Security Gate</h2>
+        <Row title="Protocol Status" hint="Gaurxv Verse security gate is currently unlocked on this browser">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+              <ShieldCheck className="size-3.5" />
+              <span>Unlocked ⎊</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                lock()
+                toast('Stark Security Gate locked')
+                window.location.reload()
+              }}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-3 text-xs font-semibold text-red-400 transition hover:bg-red-500/20 active:scale-95"
+            >
+              <Lock className="size-3" /> Lock Gate
+            </button>
+          </div>
+        </Row>
+      </section>
 
       {/* Preferences */}
       <section className={card} aria-label="Preferences">
