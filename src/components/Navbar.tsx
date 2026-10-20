@@ -43,7 +43,7 @@ export function Navbar() {
           scrolled ? 'border-border bg-glass shadow-xl shadow-black/10 md:backdrop-blur-xl' : 'border-transparent bg-transparent',
         )}
       >
-        <Logo size={34} to="/" />
+        <Logo size={34} to="https://verse.gaurxv.eu.org/" />
 
         {links && (
         <ul className="hidden items-center md:flex" onMouseLeave={() => setHovered(null)}>
@@ -56,15 +56,24 @@ export function Navbar() {
                   transition={{ type: 'spring', stiffness: 400, damping: 32 }}
                 />
               )}
-              <Link
-                to={l.to}
-                className={cn(
-                  'relative z-10 block px-4 py-2 text-sm font-medium transition-colors hover:text-foreground',
-                  pathname + (l.to.includes('?') ? search : '') === l.to ? 'text-foreground' : 'text-muted',
-                )}
-              >
-                {l.label}
-              </Link>
+              {l.to.startsWith('http') ? (
+                <a
+                  href={l.to}
+                  className="relative z-10 block px-4 py-2 text-sm font-medium text-muted transition-colors hover:text-foreground"
+                >
+                  {l.label}
+                </a>
+              ) : (
+                <Link
+                  to={l.to}
+                  className={cn(
+                    'relative z-10 block px-4 py-2 text-sm font-medium transition-colors hover:text-foreground',
+                    pathname + (l.to.includes('?') ? search : '') === l.to ? 'text-foreground' : 'text-muted',
+                  )}
+                >
+                  {l.label}
+                </Link>
+              )}
             </li>
           ))}
         </ul>

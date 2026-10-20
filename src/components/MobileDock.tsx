@@ -5,14 +5,14 @@ import { sectionOf } from '../lib/sections'
 import { cn } from '../lib/utils'
 
 const items: { label: string; to: string; icon: LucideIcon }[] = [
-  { label: 'Home', to: '/', icon: House },
+  { label: 'Home', to: 'https://verse.gaurxv.eu.org/', icon: House },
   { label: 'My List', to: '/list', icon: Bookmark },
   { label: 'Schedule', to: '/schedule', icon: CalendarDays },
   { label: 'Browse', to: '/browse', icon: Compass },
 ]
 
 const movieItems: { label: string; to: string; icon: LucideIcon }[] = [
-  { label: 'Home', to: '/', icon: House },
+  { label: 'Home', to: 'https://verse.gaurxv.eu.org/', icon: House },
   { label: 'Movies', to: '/movies/browse?type=movie', icon: Clapperboard },
   { label: 'TV Shows', to: '/movies/browse?type=tv', icon: Tv },
   { label: 'Top Rated', to: '/movies/browse?sort=vote_average.desc', icon: Star },
@@ -27,20 +27,30 @@ export function MobileDock() {
   const list = section === 'movies' ? movieItems : items
 
   const render = (it: (typeof items)[number]) => {
-    const active = section === 'movies' ? pathname + search === it.to : pathname === it.to
+    const isExt = it.to.startsWith('http')
+    const active = !isExt && (section === 'movies' ? pathname + search === it.to : pathname === it.to)
     const Icon = it.icon
+    const linkContent = (
+      <>
+        <Icon className={cn('size-5 transition-transform', active && 'scale-110')} />
+        {it.label}
+      </>
+    )
+    const linkClass = cn(
+      'flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-[10px] font-medium transition active:scale-90',
+      active ? 'text-foreground' : 'text-muted',
+    )
     return (
       <li key={it.label}>
-        <Link
-          to={it.to}
-          className={cn(
-            'flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 text-[10px] font-medium transition active:scale-90',
-            active ? 'text-foreground' : 'text-muted',
-          )}
-        >
-          <Icon className={cn('size-5 transition-transform', active && 'scale-110')} />
-          {it.label}
-        </Link>
+        {isExt ? (
+          <a href={it.to} className={linkClass}>
+            {linkContent}
+          </a>
+        ) : (
+          <Link to={it.to} className={linkClass}>
+            {linkContent}
+          </Link>
+        )}
       </li>
     )
   }
