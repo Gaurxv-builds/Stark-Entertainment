@@ -73,8 +73,7 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           {!anime && (
             <Link to={`/${section}`} className={cn('items-center gap-2 rounded-full border border-border bg-card/60 px-3.5 py-1.5 text-sm font-semibold backdrop-blur transition active:scale-95', movies ? 'hidden sm:inline-flex' : 'inline-flex')}>
-              <span className="font-display text-accent">{section === 'novel' ? '小説' : movies ? '映画' : '漫画'}</span>
-              {section === 'novel' ? 'Novels' : movies ? 'Movies' : 'Manga'}
+              <span className="font-display font-semibold text-accent">{section === 'novel' ? 'Novels' : movies ? 'Movies' : 'Manga'}</span>
             </Link>
           )}
           {(section === 'manga' || movies) && (

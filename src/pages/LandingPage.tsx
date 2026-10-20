@@ -15,7 +15,6 @@ import type { ShowcaseImage } from '../services/showcase'
 interface Section {
   key: 'anime' | 'manga' | 'novel' | 'movies'
   name: string
-  kanji: string
   icon: LucideIcon
   text: string
   /** where it goes; sections without a web home yet have none */
@@ -25,10 +24,10 @@ interface Section {
 }
 
 const SECTIONS: Section[] = [
-  { key: 'anime', name: 'Anime', kanji: 'アニメ', icon: Film, text: 'Stream the latest shows, sub or dub.', to: '/home', badge: '', hint: '1' },
-  { key: 'manga', name: 'Manga', kanji: 'マンガ', icon: BookOpen, text: 'Read chapters, saved as you go.', to: '/manga', badge: '', hint: '2' },
-  { key: 'novel', name: 'Novels', kanji: '小説', icon: Library, text: 'A calm reader for long stories.', to: '/novel', badge: '', hint: '3' },
-  { key: 'movies', name: 'Movies', kanji: '映画', icon: Clapperboard, text: 'Films and series, on every server.', to: '/movies', badge: '', hint: '4' },
+  { key: 'anime', name: 'Anime', icon: Film, text: 'Stream the latest shows, sub or dub.', to: '/home', badge: '', hint: '1' },
+  { key: 'manga', name: 'Manga', icon: BookOpen, text: 'Read chapters, saved as you go.', to: '/manga', badge: '', hint: '2' },
+  { key: 'novel', name: 'Novels', icon: Library, text: 'A calm reader for long stories.', to: '/novel', badge: '', hint: '3' },
+  { key: 'movies', name: 'Movies', icon: Clapperboard, text: 'Films and series, on every server.', to: '/movies', badge: '', hint: '4' },
 ]
 
 /** The opening page: pick what to dive into. Anime, Manga and Novels are all live. */

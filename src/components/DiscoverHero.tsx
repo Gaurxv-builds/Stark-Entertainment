@@ -14,6 +14,7 @@ export function DiscoverHero({
   title,
   accent,
   subtitle,
+  watermark,
   kanji,
   query,
   onQuery,
@@ -26,7 +27,8 @@ export function DiscoverHero({
   title: string
   accent: string
   subtitle: string
-  kanji: string
+  watermark?: string
+  kanji?: string
   query: string
   onQuery: (v: string) => void
   placeholder: string
@@ -47,7 +49,7 @@ export function DiscoverHero({
       <AuroraBackground />
       <Particles count={44} className="opacity-70" />
       <span aria-hidden className="pointer-events-none absolute -right-4 top-16 select-none font-display text-[9rem] font-black leading-none text-foreground/[0.04] sm:text-[16rem]">
-        {kanji}
+        {watermark ?? kanji}
       </span>
       <div className="relative mx-auto max-w-7xl">
         <p className="mb-3 eyebrow text-accent">

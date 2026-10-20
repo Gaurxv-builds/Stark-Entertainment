@@ -122,7 +122,7 @@ export default function MangaHomePage() {
         title="Binge the latest"
         accent="chapters, the moment they drop."
         subtitle="Manga, manhwa and manhua from five servers, or search them all at once. Webtoon scroll or paged reading, with your place saved automatically."
-        kanji="漫画"
+        watermark="MANGA"
         query={query}
         onQuery={setQuery}
         placeholder="Search manga…"

@@ -1,5 +1,5 @@
 export const LOGO_URL =
-  'https://voxeodunvjrhtbjvbbxt.supabase.co/storage/v1/object/public/Admin%20uploads/IMG_20260928_151609_577.jpg'
+  'https://img.icons8.com/?size=100&id=RekiHr6RHlKB&format=png&color=000000'
 
 export const GENRES: { name: string }[] = [
   { name: 'Action' },

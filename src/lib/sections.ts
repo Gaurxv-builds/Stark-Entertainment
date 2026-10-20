@@ -1,10 +1,10 @@
 export type Section = 'anime' | 'novel' | 'manga' | 'movies'
 
-export const SECTIONS: { id: Section; label: string; to: string; kanji: string }[] = [
-  { id: 'anime', label: 'Anime', to: '/home', kanji: 'アニメ' },
-  { id: 'novel', label: 'Novels', to: '/novel', kanji: '小説' },
-  { id: 'manga', label: 'Manga', to: '/manga', kanji: '漫画' },
-  { id: 'movies', label: 'Movies', to: '/movies', kanji: '映画' },
+export const SECTIONS: { id: Section; label: string; to: string }[] = [
+  { id: 'anime', label: 'Anime', to: '/home' },
+  { id: 'novel', label: 'Novels', to: '/novel' },
+  { id: 'manga', label: 'Manga', to: '/manga' },
+  { id: 'movies', label: 'Movies', to: '/movies' },
 ]
 
 /** Which part of the site a pathname belongs to (null on the opening page). */

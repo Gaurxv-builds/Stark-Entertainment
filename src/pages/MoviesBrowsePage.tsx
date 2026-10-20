@@ -95,7 +95,7 @@ export default function MoviesBrowsePage() {
     <main>
       <section className="relative overflow-hidden px-4 pb-8 pt-28 sm:px-6 sm:pb-10 sm:pt-36">
         <Meteors number={12} />
-        <span aria-hidden className="pointer-events-none absolute -right-4 top-16 select-none font-display text-[9rem] font-black leading-none text-foreground/[0.04] sm:text-[16rem]">映画</span>
+        <span aria-hidden className="pointer-events-none absolute -right-4 top-16 select-none font-display text-[9rem] font-black leading-none text-foreground/[0.04] sm:text-[16rem]">{type === 'tv' ? 'SERIES' : 'MOVIES'}</span>
         <div className="relative mx-auto max-w-7xl">
           <p className="mb-3 eyebrow text-accent">Browse</p>
           <h1 className="font-display text-4xl font-black tracking-tight sm:text-6xl">{type === 'tv' ? 'TV Shows' : 'Movies'}</h1>

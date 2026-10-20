@@ -77,7 +77,7 @@ export default function NovelHomePage() {
         title="Get lost in a"
         accent="story with no last page."
         subtitle="Web novels and illustrated light novels from four sources, searchable all at once, in a reader built for long sessions."
-        kanji="小説"
+        watermark="NOVELS"
         query={query}
         onQuery={setQuery}
         placeholder="Search novels…"
