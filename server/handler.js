@@ -562,7 +562,7 @@ export async function handle(request, env) {
       return json({
         success: true,
         kvConnected: isKvConnected,
-        users: kvUsers.length ? kvUsers : envUsers,
+        users: isKvConnected ? kvUsers : envUsers,
       });
     }
 

@@ -61,12 +61,6 @@ export function resetRevokedUsers() {
 export function getCustomCredentials(): Credential[] {
   const list: Credential[] = []
 
-  const envUser = (import.meta.env.VITE_ADMIN_USER as string | undefined)?.trim()
-  const envPass = (import.meta.env.VITE_ADMIN_PASS as string | undefined)?.trim()
-  if (envUser && envPass) {
-    list.push({ username: envUser, password: envPass, displayName: envUser })
-  }
-
   const envRaw = (import.meta.env.VITE_AUTH_CREDENTIALS as string | undefined)?.trim()
   if (envRaw) {
     try {
@@ -365,17 +359,23 @@ export async function syncCredentialsWithCloud(): Promise<{ kvConnected: boolean
     const res = await fetch('/api/auth/credentials')
     if (res.ok) {
       const data = await res.json()
-      if (data && data.success && Array.isArray(data.users)) {
-        let imported = 0
-        const current = getCreatedCredentials()
-        const currentUsers = new Set(current.map((c) => c.username.toLowerCase()))
-        for (const u of data.users) {
-          if (u && u.username && u.password && !currentUsers.has(String(u.username).toLowerCase())) {
-            addCreatedCredential(u, false)
-            imported++
+      if (data && data.success) {
+        if (data.kvConnected && Array.isArray(data.users)) {
+          // Cloudflare KV is authoritative master
+          localStorage.setItem(CREATED_CREDENTIALS_KEY, JSON.stringify(data.users))
+          return { kvConnected: true, count: data.users.length }
+        } else if (Array.isArray(data.users) && data.users.length > 0) {
+          const current = getCreatedCredentials()
+          const currentUsers = new Set(current.map((c) => c.username.toLowerCase()))
+          let imported = 0
+          for (const u of data.users) {
+            if (u && u.username && u.password && !currentUsers.has(String(u.username).toLowerCase())) {
+              addCreatedCredential(u, false)
+              imported++
+            }
           }
+          return { kvConnected: false, count: imported }
         }
-        return { kvConnected: Boolean(data.kvConnected), count: imported }
       }
     }
   } catch {}
