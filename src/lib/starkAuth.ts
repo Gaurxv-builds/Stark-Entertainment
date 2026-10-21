@@ -16,11 +16,7 @@ export interface Credential {
 }
 
 // Built-in created credentials (can be deleted/revoked by admin)
-export const BUILTIN_CREDENTIALS: Credential[] = [
-  { username: 'admin', password: 'GAURXV-VERSE-2026', displayName: 'Administrator' },
-  { username: 'stark', password: 'STARK-2026', displayName: 'Tony Stark' },
-  { username: 'gaurav', password: 'GAURXV-VERSE-2026', displayName: 'Gaurav' },
-]
+export const BUILTIN_CREDENTIALS: Credential[] = []
 
 // Built-in master passcodes
 const MASTER_PASSCODES = [
@@ -52,6 +48,8 @@ export function deleteAnyUser(username: string) {
     revoked.push(u)
     localStorage.setItem(REVOKED_CREDENTIALS_KEY, JSON.stringify(revoked))
   }
+
+  pushCredentialsToCloud(getCreatedCredentials())
 }
 
 /** Reset revoked users */
@@ -69,10 +67,13 @@ export function getCustomCredentials(): Credential[] {
     list.push({ username: envUser, password: envPass, displayName: envUser })
   }
 
-  const envJson = (import.meta.env.VITE_AUTH_CREDENTIALS as string | undefined)?.trim()
-  if (envJson) {
+  const envRaw = (import.meta.env.VITE_AUTH_CREDENTIALS as string | undefined)?.trim()
+  if (envRaw) {
     try {
-      const parsed = JSON.parse(envJson)
+      let parsed = JSON.parse(envRaw)
+      if (typeof parsed === 'string') {
+        parsed = JSON.parse(parsed)
+      }
       if (Array.isArray(parsed)) {
         for (const item of parsed) {
           if (item && item.username && item.password) {
@@ -84,7 +85,19 @@ export function getCustomCredentials(): Credential[] {
           }
         }
       }
-    } catch {}
+    } catch {
+      const entries = envRaw.split(/[;\n]/)
+      for (const entry of entries) {
+        const parts = entry.split(':')
+        if (parts.length >= 2) {
+          const u = parts[0].trim()
+          const p = parts.slice(1).join(':').trim()
+          if (u && p) {
+            list.push({ username: u, password: p, displayName: u })
+          }
+        }
+      }
+    }
   }
 
   return list
@@ -101,7 +114,7 @@ export function getCreatedCredentials(): Credential[] {
   return []
 }
 
-export function addCreatedCredential(cred: Credential) {
+export function addCreatedCredential(cred: Credential, syncToCloud = true) {
   const current = getCreatedCredentials()
   const u = cred.username.toLowerCase().trim()
 
@@ -115,6 +128,10 @@ export function addCreatedCredential(cred: Credential) {
     createdAt: cred.createdAt || new Date().toISOString(),
   })
   localStorage.setItem(CREATED_CREDENTIALS_KEY, JSON.stringify(filtered))
+
+  if (syncToCloud) {
+    pushCredentialsToCloud(filtered)
+  }
 }
 
 export function deleteCreatedCredential(username: string) {
@@ -270,6 +287,115 @@ export function isCurrentAdmin(): boolean {
   } catch {
     return false
   }
+}
+
+
+/** Generate 1-click device sync link */
+export function generateDeviceSyncUrl(): string {
+  const users = getCreatedCredentials()
+  const minified = users.map((u) => ({
+    username: u.username,
+    password: u.password,
+    displayName: u.displayName,
+  }))
+  const json = JSON.stringify(minified)
+  let b64 = ''
+  try {
+    b64 = btoa(unescape(encodeURIComponent(json)))
+  } catch {
+    b64 = btoa(json)
+  }
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://verse.gaurxv.eu.org'
+  return `${origin}/admin?sync=${encodeURIComponent(b64)}`
+}
+
+/** Check URL for incoming sync payload (?sync=...) and import credentials */
+export function checkAndImportSyncPayload(): number {
+  if (typeof window === 'undefined') return 0
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const syncData = params.get('sync')
+    if (!syncData) return 0
+
+    let jsonStr = ''
+    try {
+      jsonStr = decodeURIComponent(escape(atob(decodeURIComponent(syncData))))
+    } catch {
+      try {
+        jsonStr = atob(decodeURIComponent(syncData))
+      } catch {
+        jsonStr = syncData
+      }
+    }
+
+    let parsed = JSON.parse(jsonStr)
+    if (typeof parsed === 'string') parsed = JSON.parse(parsed)
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      let count = 0
+      for (const item of parsed) {
+        if (item && item.username && item.password) {
+          addCreatedCredential(
+            {
+              username: String(item.username).trim(),
+              password: String(item.password).trim(),
+              displayName: item.displayName ? String(item.displayName).trim() : undefined,
+            },
+            false
+          )
+          count++
+        }
+      }
+
+      // Clean sync param from URL without reload
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.delete('sync')
+      window.history.replaceState({}, '', newUrl.pathname + (newUrl.search ? newUrl.search : ''))
+
+      return count
+    }
+  } catch (err) {
+    console.warn('Failed to import sync credentials:', err)
+  }
+  return 0
+}
+
+/** Check if Cloudflare KV is connected and sync cloud credentials */
+export async function syncCredentialsWithCloud(): Promise<{ kvConnected: boolean; count: number }> {
+  try {
+    const res = await fetch('/api/auth/credentials')
+    if (res.ok) {
+      const data = await res.json()
+      if (data && data.success && Array.isArray(data.users)) {
+        let imported = 0
+        const current = getCreatedCredentials()
+        const currentUsers = new Set(current.map((c) => c.username.toLowerCase()))
+        for (const u of data.users) {
+          if (u && u.username && u.password && !currentUsers.has(String(u.username).toLowerCase())) {
+            addCreatedCredential(u, false)
+            imported++
+          }
+        }
+        return { kvConnected: Boolean(data.kvConnected), count: imported }
+      }
+    }
+  } catch {}
+  return { kvConnected: false, count: 0 }
+}
+
+/** Push credentials to Cloudflare KV */
+export async function pushCredentialsToCloud(users: Credential[]): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/credentials', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ users }),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      return Boolean(data.success)
+    }
+  } catch {}
+  return false
 }
 
 export function getAuthenticatedUser(): string {

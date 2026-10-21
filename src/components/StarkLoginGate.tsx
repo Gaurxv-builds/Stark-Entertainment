@@ -1,7 +1,8 @@
-import { createElement, useState, type FormEvent } from 'react'
+import { createElement, useEffect, useState, type FormEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { User, KeyRound, Lock, Unlock, Eye, EyeOff, ShieldCheck, AlertCircle, ArrowRight, Mail } from 'lucide-react'
 import { BRAND_NAME, BRAND_SYMBOL } from '../lib/brand'
+import { checkAndImportSyncPayload } from '../lib/starkAuth'
 import { AuroraBackground } from './AuroraBackground'
 import { BorderBeam } from './BorderBeam'
 import { DotPattern } from './DotPattern'
@@ -23,6 +24,9 @@ function DotLottiePlayer({ src, className }: { src: string; className?: string }
 }
 
 export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
+  useEffect(() => {
+    checkAndImportSyncPayload()
+  }, [])
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPasscode, setShowPasscode] = useState(false)

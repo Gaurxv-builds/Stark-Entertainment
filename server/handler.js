@@ -17,7 +17,7 @@ const OPENSUBS = "https://opensubtitles-v3.strem.io/subtitles";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "*",
-  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS, POST, PUT, DELETE",
   "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges",
 };
 
@@ -523,6 +523,63 @@ export async function handle(request, env) {
       return embedUrl ? json({ success: true, embedUrl }, 200, 1800) : json({ success: false, error: r.error || "Not found on AnimeSalt" }, 404);
     } catch (e) {
       return json({ success: false, error: e.message }, 500);
+    }
+  }
+
+  
+  /* ---------- Stark Protocol: Cloud Credentials Sync ---------- */
+  if (path === "/api/auth/credentials") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        headers: {
+          ...CORS,
+          "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS, POST, PUT, DELETE",
+        },
+      });
+    }
+
+    if (request.method === "GET") {
+      let kvUsers = [];
+      let isKvConnected = false;
+      if (env && env.STARK_KV) {
+        try {
+          const raw = await env.STARK_KV.get("stark_users");
+          if (raw) kvUsers = JSON.parse(raw);
+          isKvConnected = true;
+        } catch (e) {}
+      }
+
+      let envUsers = [];
+      const envRaw = (env?.VITE_AUTH_CREDENTIALS || env?.STARK_AUTH_CREDENTIALS)?.trim();
+      if (envRaw) {
+        try {
+          let parsed = JSON.parse(envRaw);
+          if (typeof parsed === "string") parsed = JSON.parse(parsed);
+          if (Array.isArray(parsed)) envUsers = parsed;
+        } catch (e) {}
+      }
+
+      return json({
+        success: true,
+        kvConnected: isKvConnected,
+        users: kvUsers.length ? kvUsers : envUsers,
+      });
+    }
+
+    if (request.method === "POST") {
+      if (!env || !env.STARK_KV) {
+        return json({ success: false, error: "STARK_KV not bound in Cloudflare" }, 200);
+      }
+      try {
+        const body = await request.json();
+        if (body && Array.isArray(body.users)) {
+          await env.STARK_KV.put("stark_users", JSON.stringify(body.users));
+          return json({ success: true, count: body.users.length });
+        }
+        return json({ success: false, error: "Invalid payload" }, 400);
+      } catch (e) {
+        return json({ success: false, error: String(e.message || e) }, 500);
+      }
     }
   }
 

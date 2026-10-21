@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -16,6 +16,8 @@ import {
   ArrowLeft,
   Cloud,
   RefreshCw,
+  Link2,
+  Smartphone,
 } from 'lucide-react'
 import {
   useStarkAuth,
@@ -25,6 +27,9 @@ import {
   deleteAnyUser,
   resetRevokedUsers,
   getRevokedUsernames,
+  generateDeviceSyncUrl,
+  checkAndImportSyncPayload,
+  syncCredentialsWithCloud,
   type Credential,
 } from '../lib/starkAuth'
 import { toast } from '../lib/toast'
@@ -46,6 +51,25 @@ export default function AdminPage() {
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({})
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [copiedEnv, setCopiedEnv] = useState(false)
+  const [copiedSyncUrl, setCopiedSyncUrl] = useState(false)
+  const [kvActive, setKvActive] = useState(false)
+
+  // On mount: check for ?sync=... parameter and sync from Cloudflare KV
+  useEffect(() => {
+    const imported = checkAndImportSyncPayload()
+    if (imported > 0) {
+      toast(`Synced ${imported} user(s) to this device!`)
+      setUsersList(getAllCredentials())
+    }
+
+    syncCredentialsWithCloud().then(({ kvConnected, count }) => {
+      setKvActive(kvConnected)
+      if (count > 0) {
+        setUsersList(getAllCredentials())
+        toast(`Synced ${count} user(s) from Cloudflare KV`)
+      }
+    })
+  }, [])
 
   // If not admin, access denied
   if (!isAdmin) {
@@ -123,22 +147,28 @@ export default function AdminPage() {
     setTimeout(() => setCopiedKey(null), 2500)
   }
 
-  // Copy Cloudflare VITE_AUTH_CREDENTIALS JSON
+  // Copy Cloudflare VITE_AUTH_CREDENTIALS compact single-line JSON
   const copyCloudflareEnv = () => {
     const created = getCreatedCredentials()
-    const jsonStr = JSON.stringify(
-      created.map((c) => ({
-        username: c.username,
-        password: c.password,
-        displayName: c.displayName,
-      })),
-      null,
-      2
-    )
+    const minified = created.map((c) => ({
+      username: c.username,
+      password: c.password,
+      displayName: c.displayName,
+    }))
+    const jsonStr = JSON.stringify(minified)
     navigator.clipboard.writeText(jsonStr)
     setCopiedEnv(true)
-    toast('Copied VITE_AUTH_CREDENTIALS JSON for Cloudflare!')
+    toast('Copied compact VITE_AUTH_CREDENTIALS JSON!')
     setTimeout(() => setCopiedEnv(false), 2500)
+  }
+
+  // Copy 1-Click Instant Device Sync Link
+  const copyDeviceSyncLink = () => {
+    const url = generateDeviceSyncUrl()
+    navigator.clipboard.writeText(url)
+    setCopiedSyncUrl(true)
+    toast('Copied Instant Device Sync Link to Clipboard!')
+    setTimeout(() => setCopiedSyncUrl(false), 2500)
   }
 
   return (
@@ -294,7 +324,7 @@ export default function AdminPage() {
               {usersList.map((c) => {
                 const isRevealed = revealedPasswords[c.username]
                 const isCopied = copiedKey === c.username
-                const isBuiltin = ['admin', 'stark', 'gaurav'].includes(c.username.toLowerCase())
+                const isAdminRole = c.username.toLowerCase() === 'admin'
 
                 return (
                   <motion.div
@@ -314,9 +344,9 @@ export default function AdminPage() {
                           <span className="rounded bg-accent/15 px-2 py-0.5 text-[11px] font-mono text-accent">
                             @{c.username}
                           </span>
-                          {isBuiltin && (
-                            <span className="rounded bg-foreground/10 px-1.5 py-0.5 text-[10px] font-semibold text-muted">
-                              Built-in
+                          {isAdminRole && (
+                            <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                              Admin
                             </span>
                           )}
                         </div>
@@ -366,36 +396,94 @@ export default function AdminPage() {
           </div>
         </section>
 
-        {/* Section 3: Cloudflare Sync Helper */}
-        <section className="overflow-hidden rounded-3xl border border-accent/30 bg-accent/5 p-6 backdrop-blur-xl sm:p-8">
-          <div className="flex items-start gap-3">
-            <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-accent text-accent-fg">
-              <Cloud className="size-5" />
-            </div>
-            <div className="space-y-1">
-              <h2 className="font-display text-lg font-bold">Cloudflare Global Sync Helper</h2>
-              <p className="text-xs text-muted leading-relaxed">
-                Want these users to work across all devices without having to re-create them? Copy this JSON and paste it into Cloudflare Pages:
-                <br />
-                <span className="font-semibold text-foreground">
-                  Pages Dashboard ➔ stark-entertainment ➔ Settings ➔ Environment variables ➔ VITE_AUTH_CREDENTIALS
-                </span>
-              </p>
+        {/* Section 3: Multi-Device & Cloud Sync */}
+        <section className="space-y-6">
+          {/* Method A: Instant 1-Click Sync Link */}
+          <div className="overflow-hidden rounded-3xl border border-accent/40 bg-accent/5 p-6 backdrop-blur-xl sm:p-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-accent text-accent-fg">
+                  <Smartphone className="size-5" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-display text-lg font-bold">1-Click Instant Device Sync</h2>
+                    <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent">
+                      Instant Sync
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted leading-relaxed max-w-xl">
+                    Want your created users to work on your phone, tablet, or another browser right now?
+                    Copy this link and open it once on that device. It automatically imports all authorized users in 1 second!
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={copyDeviceSyncLink}
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-4 text-xs font-bold text-accent-fg shadow-md shadow-accent/20 transition hover:brightness-110 active:scale-95"
+              >
+                {copiedSyncUrl ? <Check className="size-4" /> : <Link2 className="size-4" />}
+                <span>{copiedSyncUrl ? 'Link Copied!' : 'Copy Device Sync Link'}</span>
+              </button>
             </div>
           </div>
 
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <button
-              type="button"
-              onClick={copyCloudflareEnv}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-accent px-4 text-xs font-bold text-accent-fg shadow-md shadow-accent/20 transition hover:brightness-110 active:scale-95"
-            >
-              {copiedEnv ? <Check className="size-4" /> : <Copy className="size-4" />}
-              <span>{copiedEnv ? 'Copied JSON to Clipboard!' : 'Copy VITE_AUTH_CREDENTIALS JSON'}</span>
-            </button>
-            <span className="text-xs text-muted">
-              Includes {getCreatedCredentials().length} custom created user{getCreatedCredentials().length === 1 ? '' : 's'}
-            </span>
+          {/* Method B: Cloudflare Global Environment Variable */}
+          <div className="overflow-hidden rounded-3xl border border-border bg-card/80 p-6 backdrop-blur-xl sm:p-8">
+            <div className="flex items-start gap-3">
+              <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-foreground/10 text-foreground">
+                <Cloud className="size-5" />
+              </div>
+              <div className="space-y-1">
+                <h2 className="font-display text-lg font-bold">Cloudflare Global Sync (Environment Variable)</h2>
+                <p className="text-xs text-muted leading-relaxed">
+                  Bake these accounts permanently into your website build so anyone visiting gets them automatically:
+                </p>
+              </div>
+            </div>
+
+            {/* 3 Step Guide */}
+            <div className="mt-4 space-y-2 rounded-2xl border border-border/60 bg-background/50 p-4 text-xs">
+              <div className="flex items-start gap-2.5">
+                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-accent/20 font-bold text-accent">1</span>
+                <span>Copy the compact single-line JSON using the button below.</span>
+              </div>
+              <div className="flex items-start gap-2.5">
+                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-accent/20 font-bold text-accent">2</span>
+                <span>
+                  Go to <b>Cloudflare Pages Dashboard</b> ➔ <b>stark-entertainment</b> ➔ <b>Settings</b> ➔ <b>Environment variables</b> ➔ Add <b>VITE_AUTH_CREDENTIALS</b> and paste.
+                </span>
+              </div>
+              <div className="flex items-start gap-2.5 text-accent">
+                <span className="grid size-5 shrink-0 place-items-center rounded-full bg-accent text-accent-fg font-bold">3</span>
+                <span>
+                  <b>CRITICAL STEP:</b> Go to <b>Deployments</b> ➔ Click the <b>...</b> on your latest deployment ➔ Click <b>Retry deployment</b>. (Cloudflare Pages only applies environment variables to new builds!)
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                type="button"
+                onClick={copyCloudflareEnv}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card/70 px-4 text-xs font-bold transition hover:border-accent hover:text-accent active:scale-95"
+              >
+                {copiedEnv ? <Check className="size-4 text-emerald-400" /> : <Copy className="size-4" />}
+                <span>{copiedEnv ? 'Copied JSON to Clipboard!' : 'Copy VITE_AUTH_CREDENTIALS JSON'}</span>
+              </button>
+              <span className="text-xs text-muted">
+                Includes {getCreatedCredentials().length} custom created user{getCreatedCredentials().length === 1 ? '' : 's'}
+              </span>
+            </div>
+
+            {/* KV Status */}
+            <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-xs text-muted">
+              <span>Cloudflare KV Real-Time Sync:</span>
+              <span className={kvActive ? 'font-semibold text-emerald-400' : 'text-muted'}>
+                {kvActive ? '🟢 Active (Auto-syncs globally)' : '⚪ Inactive (Optional: bind STARK_KV in Cloudflare for zero-redeploy sync)'}
+              </span>
+            </div>
           </div>
         </section>
       </div>
