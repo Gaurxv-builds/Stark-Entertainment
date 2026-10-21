@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
-import { DISCORD_URL, REPO_URL, TELEGRAM_URL } from '../lib/app'
-import { DiscordIcon, GithubIcon, TelegramIcon } from './BrandIcons'
+import { GITHUB_PROFILE_URL, PORTFOLIO_URL, TELEGRAM_URL } from '../lib/app'
+import { GithubIcon, GlobeIcon, TelegramIcon } from './BrandIcons'
 
 const LINKS: { name: string; href: string; brand: string; icon: ReactNode }[] = [
-  { name: 'Discord', href: DISCORD_URL, brand: '#5865F2', icon: <DiscordIcon className="size-[18px]" /> },
-  { name: 'GitHub', href: REPO_URL, brand: '#8b949e', icon: <GithubIcon className="size-[18px]" /> },
+  { name: 'Portfolio', href: PORTFOLIO_URL, brand: '#06b6d4', icon: <GlobeIcon className="size-[18px]" /> },
+  { name: 'GitHub', href: GITHUB_PROFILE_URL, brand: '#8b949e', icon: <GithubIcon className="size-[18px]" /> },
   { name: 'Telegram', href: TELEGRAM_URL, brand: '#27A7E9', icon: <TelegramIcon className="size-[18px]" /> },
 ]
 

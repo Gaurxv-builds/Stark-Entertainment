@@ -5,7 +5,7 @@ import { useStarkAuth } from '../lib/starkAuth'
 import { AniListCard } from '../components/AniListCard'
 import { ProfileCustomizer, ProfileHero, type SectionKey } from '../components/ProfileCustomizer'
 import { CustomSelect } from '../components/CustomSelect'
-import { DISCORD_URL, REPO_URL, TELEGRAM_URL } from '../lib/app'
+import { GITHUB_PROFILE_URL, PORTFOLIO_URL, TELEGRAM_URL } from '../lib/app'
 import { getPrefs, savePrefs, type Audio } from '../lib/library'
 import { useProfile } from '../lib/profile'
 import { DIRECT } from '../lib/servers'
@@ -199,8 +199,8 @@ export default function ProfilePage() {
           <h3 className="mb-1 font-semibold text-foreground">DMCA / copyright</h3>
           <p>
             If you own a work and believe something linked from {BRAND_NAME} infringes your copyright, the file lives on the third-party host, so please contact that host first. To tell us as well, reach the maintainers through{' '}
-            <a href={REPO_URL + '/issues'} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2">GitHub</a>,{' '}
-            <a href={DISCORD_URL} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2">Discord</a> or{' '}
+            <a href={GITHUB_PROFILE_URL} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2">GitHub</a>,{' '}
+            <a href={PORTFOLIO_URL} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2">Portfolio</a> or{' '}
             <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-2">Telegram</a>, and include: the work concerned, the exact {BRAND_NAME} page or link, your contact details, a statement that you act in good faith, and a statement that your notice is accurate and you
             are the owner or their authorised agent. We will review it and remove the link where appropriate.
           </p>

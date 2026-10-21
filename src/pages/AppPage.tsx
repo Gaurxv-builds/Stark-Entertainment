@@ -25,12 +25,12 @@ import {
 import { fetchHome } from '../services/anilist'
 import { refreshRelease, useAppRelease, type AppRelease } from '../services/release'
 import { useAsync } from '../hooks/useAsync'
-import { APP_INFO_URL, DISCORD_URL, ISSUES_URL, RELEASES_URL, REPO_URL, TELEGRAM_URL, formatBytes, formatDay, timeAgo } from '../lib/app'
+import { APP_INFO_URL, GITHUB_PROFILE_URL, ISSUES_URL, PORTFOLIO_URL, RELEASES_URL, TELEGRAM_URL, formatBytes, formatDay, timeAgo } from '../lib/app'
 import { cn, compact } from '../lib/utils'
 import { ApkButton } from '../components/ApkButton'
 import { AuroraBackground } from '../components/AuroraBackground'
 import { BlurText } from '../components/BlurText'
-import { DiscordIcon, GithubIcon, TelegramIcon } from '../components/BrandIcons'
+import { GithubIcon, GlobeIcon, TelegramIcon } from '../components/BrandIcons'
 import { NumberTicker } from '../components/NumberTicker'
 import { PhoneMockup } from '../components/PhoneMockup'
 import { Reveal } from '../components/Reveal'
@@ -94,7 +94,7 @@ const FAQ: { q: string; a: ReactNode }[] = [
     q: 'Found a bug?',
     a: (
       <>
-        Open an issue on <a href={ISSUES_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline underline-offset-4">GitHub</a> or ask in the Discord.
+        Open an issue on <a href={ISSUES_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline underline-offset-4">GitHub</a> or contact on <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" className="font-semibold underline underline-offset-4">Telegram</a>.
       </>
     ),
   },
@@ -452,9 +452,9 @@ export default function AppPage() {
             <Heading id="community" title="Join the community" text="Get help, hear about updates first and follow the code." />
             <div className="grid gap-4 md:grid-cols-3">
               {[
-                { icon: DiscordIcon, name: 'Discord', text: 'Community, support and discussion', href: DISCORD_URL },
+                { icon: GlobeIcon, name: 'Portfolio', text: 'Creator website & portfolio', href: PORTFOLIO_URL },
                 { icon: TelegramIcon, name: 'Telegram', text: 'Updates and announcements', href: TELEGRAM_URL },
-                { icon: GithubIcon, name: 'GitHub', text: 'Source code and releases', href: REPO_URL },
+                { icon: GithubIcon, name: 'GitHub', text: 'Source code and developer profile', href: GITHUB_PROFILE_URL },
               ].map(({ icon: Icon, name, text, href }) => (
                 <a key={name} href={href} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-4 rounded-3xl border border-border bg-card/60 p-6 transition hover:bg-foreground hover:text-background">
                   <Icon className="size-8 shrink-0" />

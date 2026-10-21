@@ -15,7 +15,9 @@ export const SELF_HOST_PATH = '/self-host'
 
 /** Invite links as published in the community channels. */
 export const DISCORD_URL = 'https://discord.gg/kHxHzZtH7'
-export const TELEGRAM_URL = 'https://t.me/StreamverseOfc'
+export const TELEGRAM_URL = 'https://t.me/Stark_X_Backup'
+export const GITHUB_PROFILE_URL = 'https://github.com/Gaurxv-builds'
+export const PORTFOLIO_URL = 'https://gaurxv.eu.org'
 
 export function formatBytes(n: number): string {
   if (!n) return ''
