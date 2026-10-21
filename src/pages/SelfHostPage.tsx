@@ -14,10 +14,10 @@ import {
   Smartphone,
   type LucideIcon,
 } from 'lucide-react'
-import { GITHUB_PROFILE_URL, PORTFOLIO_URL, TELEGRAM_URL, WEB_REPO_CLONE, WEB_REPO_URL } from '../lib/app'
+import { DISCORD_URL, TELEGRAM_URL, WEB_REPO_CLONE, WEB_REPO_URL } from '../lib/app'
 import { cn } from '../lib/utils'
 import { AuroraBackground } from '../components/AuroraBackground'
-import { GithubIcon, GlobeIcon, TelegramIcon } from '../components/BrandIcons'
+import { DiscordIcon, GithubIcon, TelegramIcon } from '../components/BrandIcons'
 import { Logo } from '../components/Logo'
 import { Reveal } from '../components/Reveal'
 import { ThemeToggle } from '../components/ThemeToggle'
@@ -243,7 +243,7 @@ const FAQ: { q: string; a: ReactNode }[] = [
     q: 'Something broke. Where do I ask?',
     a: (
       <>
-        Open an issue on <a href={`${WEB_REPO_URL}/issues`} target="_blank" rel="noopener noreferrer" className={ext}>GitHub</a> or reach out on Telegram, and include the error from your terminal.
+        Open an issue on <a href={`${WEB_REPO_URL}/issues`} target="_blank" rel="noopener noreferrer" className={ext}>GitHub</a> or ask in the Discord, and include the error from your terminal.
       </>
     ),
   },
@@ -458,9 +458,9 @@ export default function SelfHostPage() {
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               {[
-                { icon: GlobeIcon, name: 'Portfolio', text: 'Creator website & portfolio', href: PORTFOLIO_URL },
+                { icon: DiscordIcon, name: 'Discord', text: 'Community, support and discussion', href: DISCORD_URL },
                 { icon: TelegramIcon, name: 'Telegram', text: 'Updates and announcements', href: TELEGRAM_URL },
-                { icon: GithubIcon, name: 'GitHub', text: 'Developer profile & source code', href: GITHUB_PROFILE_URL },
+                { icon: GithubIcon, name: 'GitHub', text: 'Source code and issues', href: WEB_REPO_URL },
               ].map(({ icon: Icon, name, text, href }) => (
                 <a key={name} href={href} target="_blank" rel="noopener noreferrer" className="group flex items-center gap-4 rounded-3xl border border-border bg-card/60 p-6 backdrop-blur transition hover:bg-foreground hover:text-background">
                   <Icon className="size-8 shrink-0" />
