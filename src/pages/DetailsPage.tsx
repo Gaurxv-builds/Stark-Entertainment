@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useMarkDetails, useSmartBack } from '../lib/backToDetails'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, CalendarDays, Crown, ExternalLink, Heart, Play, TrendingUp, Users } from 'lucide-react'
+import { ArrowLeft, CalendarDays, Crown, ExternalLink, Heart, House, Play, TrendingUp, Users } from 'lucide-react'
 import { fetchAnimeByMalId, fetchAnimeById, fetchWatchOrder } from '../services/anilist'
 import { tmdbImg } from '../services/api'
 import { fetchMalFull, fetchMalStats } from '../services/jikan'
@@ -223,13 +223,21 @@ export default function DetailsPage() {
         />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-background/70 via-background/10 to-background" />
         <DotPattern className="[mask-image:linear-gradient(to_bottom,white,transparent)]" />
-        <button
-          type="button"
-          onClick={goBack}
-          className="absolute left-4 top-6 inline-flex items-center gap-2 rounded-full border border-border bg-glass px-4 py-2 text-sm font-medium backdrop-blur-xl transition hover:scale-105 active:scale-95 sm:left-6"
-        >
-          <ArrowLeft className="size-4" /> Back
-        </button>
+        <div className="absolute left-4 top-6 z-10 flex items-center gap-2 sm:left-6">
+          <button
+            type="button"
+            onClick={goBack}
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-glass px-4 py-2 text-sm font-medium backdrop-blur-xl transition hover:scale-105 active:scale-95"
+          >
+            <ArrowLeft className="size-4" /> Back
+          </button>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 rounded-full border border-border bg-glass px-4 py-2 text-sm font-medium backdrop-blur-xl transition hover:scale-105 active:scale-95 text-foreground hover:text-accent"
+          >
+            <House className="size-4" /> Home
+          </Link>
+        </div>
       </div>
 
       {/* ---------- Body ---------- */}

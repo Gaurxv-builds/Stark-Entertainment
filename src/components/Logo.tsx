@@ -8,7 +8,7 @@ export function Logo({
   size = 36,
   showText = true,
   className,
-  to = 'https://verse.gaurxv.eu.org/',
+  to = '/',
 }: {
   size?: number
   showText?: boolean

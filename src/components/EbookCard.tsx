@@ -1,5 +1,6 @@
 import { memo, useRef, useState } from 'react'
-import { BookOpen, Download, ExternalLink, Library } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { BookOpen, Library } from 'lucide-react'
 import type { EbookItem } from '../services/ebooks'
 import { cn } from '../lib/utils'
 
@@ -17,7 +18,7 @@ export const EbookCard = memo(function EbookCard({
   const [loaded, setLoaded] = useState(false)
   const [failed, setFailed] = useState(false)
 
-  function onMove(e: React.PointerEvent<HTMLDivElement>) {
+  function onMove(e: React.PointerEvent<HTMLElement>) {
     if (e.pointerType !== 'mouse') return
     const r = e.currentTarget.getBoundingClientRect()
     const x = (e.clientX - r.left) / r.width
@@ -37,6 +38,7 @@ export const EbookCard = memo(function EbookCard({
 
   const showImg = !!item.cover && !failed
   const authorText = item.authors.join(', ')
+  const readPath = `/ebooks/read/${encodeURIComponent(item.id)}`
 
   return (
     <div
@@ -46,7 +48,7 @@ export const EbookCard = memo(function EbookCard({
       )}
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
     >
-      <div onPointerMove={onMove} onPointerLeave={onLeave} className="group block outline-none">
+      <Link to={readPath} onPointerMove={onMove} onPointerLeave={onLeave} className="group block outline-none">
         {/* Cover Artwork Container with 3D Tilt */}
         <div
           ref={tilt}
@@ -107,43 +109,12 @@ export const EbookCard = memo(function EbookCard({
 
             {/* Actions Buttons */}
             <div className="mt-2.5 flex flex-col gap-1.5">
-              {item.readUrl && (
-                <a
-                  href={item.readUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-7 items-center justify-center gap-1.5 rounded-lg bg-accent px-2 text-[11px] font-bold text-accent-fg shadow transition hover:brightness-110 active:scale-95"
-                >
-                  <BookOpen className="size-3" />
-                  <span>{item.access === 'borrow' ? 'Borrow & Read' : 'Read Online'}</span>
-                </a>
-              )}
-
-              {item.downloadUrl && (
-                <a
-                  href={item.downloadUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  download
-                  className="inline-flex h-7 items-center justify-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-2 text-[11px] font-semibold text-white backdrop-blur transition hover:bg-white/20 active:scale-95"
-                  title="Download EPUB format"
-                >
-                  <Download className="size-3" />
-                  <span>Download EPUB</span>
-                </a>
-              )}
-
-              {!item.downloadUrl && item.access === 'catalog' && (
-                <a
-                  href={item.externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex h-7 items-center justify-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-2 text-[11px] font-semibold text-white backdrop-blur transition hover:bg-white/20 active:scale-95"
-                >
-                  <ExternalLink className="size-3" />
-                  <span>View Details</span>
-                </a>
-              )}
+              <div
+                className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 text-[11px] font-bold text-accent-fg shadow transition hover:brightness-110 active:scale-95"
+              >
+                <BookOpen className="size-3.5" />
+                <span>{item.access === 'borrow' ? 'Borrow & Details' : 'Read Inside Verse'}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -153,7 +124,7 @@ export const EbookCard = memo(function EbookCard({
           {item.title}
         </h3>
         <p className="mt-1 truncate text-xs text-muted">{authorText}</p>
-      </div>
+      </Link>
     </div>
   )
 })

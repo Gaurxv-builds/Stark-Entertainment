@@ -1,3 +1,4 @@
+import { apiUrl } from './api'
 /**
  * Ebooks service integrating Project Gutenberg (via Gutendex) and Open Library.
  * Fully typed, cached, and resilient to API outages or partial metadata.
@@ -371,4 +372,33 @@ export async function fetchEbooksHome(scope: EbookScope = 'all'): Promise<EbookH
 
   cache.set(cacheKey, { time: Date.now(), data: out as unknown as EbookItem[] })
   return out
+}
+
+export interface EbookSection {
+  title: string
+  index: number
+}
+
+export interface EbookContent {
+  id: string
+  title: string
+  author: string
+  source: EbookSource
+  cover?: string | null
+  paragraphs: string[]
+  sections: EbookSection[]
+  access: EbookAccess
+  description?: string | null
+  borrowUrl?: string | null
+  message?: string | null
+  externalUrl?: string | null
+}
+
+export async function fetchEbookContent(id: string): Promise<EbookContent> {
+  const res = await fetch(apiUrl(`/api/ebooks/content?id=${encodeURIComponent(id)}`))
+  if (!res.ok) {
+    const err = await res.json().catch(() => null)
+    throw new Error(err?.error || `Failed to load ebook content (${res.status})`)
+  }
+  return (await res.json()) as EbookContent
 }

@@ -19,7 +19,8 @@ export function sectionOf(pathname: string): Section | null {
 }
 
 /** Full-screen readers hide the site chrome. */
-export const isReaderPath = (pathname: string) => /^\/(novel|manga)\/[^/]+(\/[^/]+)?\/read\//.test(pathname)
+export const isReaderPath = (pathname: string) =>
+  /^\/(novel|manga)\/[^/]+(\/[^/]+)?\/read\//.test(pathname) || /^\/ebooks\/read\//.test(pathname)
 
 /** The anime watch page is a full-bleed player: no navbar, dock or footer. */
 export const isWatchPath = (pathname: string) => /^\/watch\/\d+/.test(pathname)

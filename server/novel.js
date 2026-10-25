@@ -61,7 +61,8 @@ const fallbackNovels = [
 // 1. NOVELFIRE REPOSITORY
 // ─────────────────────────────────────────────────────────────────────────────
 const NovelFire = {
-  baseUrl: "https://novelfire.net",
+  baseUrl: "https://novelphoenix.com",
+  altBaseUrl: "https://novelfire.net",
 
   async fetchHtml(url) {
     const res = await fetch(url, {
@@ -72,7 +73,13 @@ const NovelFire = {
       }
     });
     if (!res.ok) throw new Error(`NovelFire fetch failed: ${res.status}`);
-    return await res.text();
+    const html = await res.text();
+    const jsRedirect = html.match(/window\.location\.href\s*=\s*["']([^"']+)["']/i);
+    if (jsRedirect) {
+      const target = jsRedirect[1].replace(/\\/g, "");
+      return await this.fetchHtml(target);
+    }
+    return html;
   },
 
   parseCards(html) {
@@ -82,9 +89,9 @@ const NovelFire = {
 
     for (const m of matches) {
       const block = m[1];
-      const linkMatch = block.match(/href=["'](\/book\/[^"']+)["']/i);
+      const linkMatch = block.match(/href=["'](\/book\/[^"']+|\/novel\/[^"']+)["']/i);
       if (!linkMatch) continue;
-      const slug = linkMatch[1].replace("/book/", "").split("/")[0].split("?")[0].trim();
+      const slug = linkMatch[1].replace(/^\/(?:book|novel)\//, "").split("/")[0].split("?")[0].trim();
       if (!slug) continue;
 
       const titleMatch = block.match(/<h[345][^>]*class=["'][^"']*novel-title[^"']*["'][^>]*>([\s\S]*?)<\/h[345]>/i)
@@ -118,7 +125,7 @@ const NovelFire = {
     }
 
     if (list.length === 0) {
-      const bookRegex = /<a[^>]+href=["']\/book\/([^"'\/?]+)["'][^>]*title=["']([^"']+)["'][^>]*>/gi;
+      const bookRegex = /<a[^>]+href=["']\/(?:book|novel)\/([^"'\/?]+)["'][^>]*title=["']([^"']+)["'][^>]*>/gi;
       let bMatch;
       const seen = new Set();
       while ((bMatch = bookRegex.exec(html)) !== null) {
@@ -172,7 +179,13 @@ const NovelFire = {
 
   async getDetail(slug) {
     try {
-      const html = await this.fetchHtml(`${this.baseUrl}/book/${slug}`);
+      let html = "";
+      for (const u of [`${this.baseUrl}/novel/${slug}`, `${this.baseUrl}/book/${slug}`, `${this.altBaseUrl}/book/${slug}`]) {
+        try {
+          html = await this.fetchHtml(u);
+          if (html && html.length > 500 && !html.includes("<title>Loading...</title>")) break;
+        } catch {}
+      }
       const titleMatch = html.match(/<h1[^>]*class=["'][^"']*novel-title[^"']*["'][^>]*>([\s\S]*?)<\/h1>/i)
         || html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
       const title = titleMatch ? cleanText(titleMatch[1]) : slug.replace(/-/g, " ");
@@ -222,8 +235,14 @@ const NovelFire = {
 
   async getChapters(slug, page = 1) {
     try {
-      const html = await this.fetchHtml(`${this.baseUrl}/book/${slug}/chapters?page=1`);
-      const chRegex = /<a[^>]+href=["']\/book\/[^"']+\/(chapter-(\d+)[^"'\/?]*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+      let html = "";
+      for (const u of [`${this.baseUrl}/novel/${slug}/chapters?page=1`, `${this.baseUrl}/novel/${slug}/chapters`, `${this.baseUrl}/book/${slug}/chapters?page=1`]) {
+        try {
+          html = await this.fetchHtml(u);
+          if (html && html.includes("chapter-")) break;
+        } catch {}
+      }
+      const chRegex = /<a[^>]+href=["']\/(?:book|novel)\/[^"']+\/(chapter-(\d+)[^"'\/?]*)["'][^>]*>([\s\S]*?)<\/a>/gi;
       const matches = [...html.matchAll(chRegex)];
 
       const knownChapters = new Map();
@@ -328,35 +347,70 @@ const NovelFire = {
 
   async getChapterContent(novelSlug, chapterSlug) {
     try {
-      const html = await this.fetchHtml(`${this.baseUrl}/book/${novelSlug}/${chapterSlug}`);
+      const urls = [
+        `${this.baseUrl}/novel/${novelSlug}/${chapterSlug}`,
+        `${this.baseUrl}/book/${novelSlug}/${chapterSlug}`,
+        `${this.altBaseUrl}/book/${novelSlug}/${chapterSlug}`
+      ];
+      let html = "";
+      for (const u of urls) {
+        try {
+          html = await this.fetchHtml(u);
+          if (html && html.includes("<p")) break;
+        } catch {}
+      }
 
-      const titleMatch = html.match(/<span[^>]*class=["'][^"']*chapter-title[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)
-        || html.match(/<h[12][^>]*class=["'][^"']*chapter-title[^"']*["'][^>]*>([\s\S]*?)<\/h[12]>/i)
-        || html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-      const title = titleMatch ? cleanText(titleMatch[1]) : chapterSlug.replace(/-/g, " ");
+      if (html) {
+        const titleMatch = html.match(/<span[^>]*class=["'][^"']*chapter-title[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)
+          || html.match(/<h[12][^>]*class=["'][^"']*chapter-title[^"']*["'][^>]*>([\s\S]*?)<\/h[12]>/i)
+          || html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+        const title = titleMatch ? cleanText(titleMatch[1]) : chapterSlug.replace(/-/g, " ");
 
-      const paragraphs = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
-        .map(m => cleanText(m[1]))
-        .filter(p => p.length > 20 && !p.startsWith("To comply with copyright") && !p.includes("NovelFire"));
+        const paragraphs = [...html.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)]
+          .map(m => cleanText(m[1]))
+          .filter(p => p.length > 20 && !p.startsWith("To comply with copyright") && !p.includes("NovelFire") && !p.includes("novelphoenix"));
 
-      const currentNum = parseInt(chapterSlug.replace("chapter-", ""), 10) || 1;
+        if (paragraphs.length > 0) {
+          const currentNum = parseInt(chapterSlug.replace(/\D/g, ""), 10) || 1;
+          return {
+            novelSlug,
+            chapterSlug,
+            title,
+            paragraphs,
+            prevChapterSlug: currentNum > 1 ? `chapter-${currentNum - 1}` : null,
+            nextChapterSlug: `chapter-${currentNum + 1}`,
+            source: "novelfire"
+          };
+        }
+      }
+
+      // Source fallback: attempt NovelFull
+      try {
+        const nfRes = await NovelFull.getChapterContent(novelSlug, chapterSlug);
+        if (nfRes.paragraphs && nfRes.paragraphs.length > 0) {
+          return { ...nfRes, source: "novelfire" };
+        }
+      } catch {}
+
+      const currentNum = parseInt(chapterSlug.replace(/\D/g, ""), 10) || 1;
       return {
         novelSlug,
         chapterSlug,
-        title,
-        paragraphs,
-        error: paragraphs.length ? undefined : "Chapter text could not be loaded from this source.",
+        title: `Chapter ${currentNum}`,
+        paragraphs: [],
+        error: "Chapter text could not be loaded from this source.",
         prevChapterSlug: currentNum > 1 ? `chapter-${currentNum - 1}` : null,
         nextChapterSlug: `chapter-${currentNum + 1}`,
         source: "novelfire"
       };
     } catch (err) {
-      const currentNum = parseInt(chapterSlug.replace("chapter-", ""), 10) || 1;
+      const currentNum = parseInt(chapterSlug.replace(/\D/g, ""), 10) || 1;
       return {
         novelSlug,
         chapterSlug,
         title: `Chapter ${currentNum}`,
-        paragraphs: [], error: "Chapter text could not be loaded from this source.",
+        paragraphs: [],
+        error: "Chapter text could not be loaded from this source.",
         prevChapterSlug: currentNum > 1 ? `chapter-${currentNum - 1}` : null,
         nextChapterSlug: `chapter-${currentNum + 1}`,
         source: "novelfire"

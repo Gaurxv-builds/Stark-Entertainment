@@ -5,14 +5,14 @@ import { sectionOf } from '../lib/sections'
 import { cn } from '../lib/utils'
 
 const items: { label: string; to: string; icon: LucideIcon }[] = [
-  { label: 'Home', to: 'https://verse.gaurxv.eu.org/', icon: House },
+  { label: 'Home', to: '/', icon: House },
   { label: 'My List', to: '/list', icon: Bookmark },
   { label: 'Schedule', to: '/schedule', icon: CalendarDays },
   { label: 'Browse', to: '/browse', icon: Compass },
 ]
 
 const movieItems: { label: string; to: string; icon: LucideIcon }[] = [
-  { label: 'Home', to: 'https://verse.gaurxv.eu.org/', icon: House },
+  { label: 'Home', to: '/', icon: House },
   { label: 'Movies', to: '/movies/browse?type=movie', icon: Clapperboard },
   { label: 'TV Shows', to: '/movies/browse?type=tv', icon: Tv },
   { label: 'Top Rated', to: '/movies/browse?sort=vote_average.desc', icon: Star },

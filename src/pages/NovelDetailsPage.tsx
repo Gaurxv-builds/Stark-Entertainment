@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMarkDetails, useSmartBack } from '../lib/backToDetails'
-import { ArrowLeft, ArrowUpDown, BookOpen, Search } from 'lucide-react'
+import { ArrowLeft, ArrowUpDown, BookOpen, House, Search } from 'lucide-react'
 import { useAsync } from '../hooks/useAsync'
 import { useReading } from '../lib/reading'
 import { cn } from '../lib/utils'
@@ -74,9 +74,14 @@ function Details({ source, slug }: { source: NovelSource; slug: string }) {
         <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/70 to-background" />
 
         <div className="relative mx-auto max-w-6xl">
-          <button type="button" onClick={back} className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-card active:scale-95">
-            <ArrowLeft className="size-4" /> Back
-          </button>
+          <div className="mb-6 flex items-center gap-2">
+            <button type="button" onClick={back} className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-card active:scale-95">
+              <ArrowLeft className="size-4" /> Back
+            </button>
+            <Link to="/" className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-card active:scale-95 text-foreground hover:text-accent">
+              <House className="size-4" /> Home
+            </Link>
+          </div>
 
           <div className="flex flex-col gap-8 md:flex-row md:gap-10">
             <div className="relative mx-auto aspect-[2/3] w-52 shrink-0 overflow-hidden rounded-3xl border border-border bg-card-2 shadow-2xl shadow-black/30 md:mx-0 md:w-64">

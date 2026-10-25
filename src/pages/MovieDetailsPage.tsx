@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMarkDetails, useSmartBack } from '../lib/backToDetails'
 import { motion } from 'framer-motion'
-import { Clock, Film, Play, Star, Tv, Clapperboard, ArrowLeft } from 'lucide-react'
+import { Clock, Film, Play, Star, Tv, Clapperboard, ArrowLeft, House } from 'lucide-react'
 import { BlurText } from '../components/BlurText'
 import { BookRow } from '../components/BookRow'
 import { ErrorState } from '../components/ErrorState'
@@ -45,9 +45,14 @@ export default function MovieDetailsPage() {
     <main className="pb-28 md:pb-20">
       {/* Backdrop */}
       <section className="relative isolate overflow-hidden bg-black text-white">
-        <button type="button" onClick={back} className="absolute left-4 top-6 z-10 inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-black/60 active:scale-95 sm:left-6">
-          <ArrowLeft className="size-4" /> Back
-        </button>
+        <div className="absolute left-4 top-6 z-10 flex items-center gap-2 sm:left-6">
+          <button type="button" onClick={back} className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-black/60 active:scale-95">
+            <ArrowLeft className="size-4" /> Back
+          </button>
+          <Link to="/" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-4 py-2 text-sm font-medium backdrop-blur transition hover:bg-black/60 active:scale-95 text-white hover:text-accent">
+            <House className="size-4" /> Home
+          </Link>
+        </div>
         {m?.backdrop ? <img src={img(m.backdrop, 'w1280') ?? ''} alt="" fetchPriority="high" className="animate-kenburns absolute inset-0 -z-20 h-full w-full object-cover object-[center_20%] grayscale-[0.3]" /> : <div className="skeleton absolute inset-0 -z-20" />}
         <span aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-t from-black via-black/60 to-black/40" />
         <span aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-r from-black/80 to-transparent" />

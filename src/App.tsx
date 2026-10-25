@@ -1,34 +1,28 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { Footer } from './components/Footer'
-import { MobileDock } from './components/MobileDock'
-import { Navbar } from './components/Navbar'
-import { ScrollProgress } from './components/ScrollProgress'
-import { ScrollToTop } from './components/ScrollToTop'
-import { TopLoader } from './components/TopLoader'
-import { ShieldGate } from './components/ShieldGate'
 import { ShortcutsHelp } from './components/ShortcutsHelp'
 import { Toaster } from './components/Toaster'
-import { MovieSearchModal } from './components/MovieSearchModal'
+import { ShieldGate } from './components/ShieldGate'
+import { Navbar } from './components/Navbar'
+import { Footer } from './components/Footer'
+import { MobileDock } from './components/MobileDock'
 import { SearchModal } from './components/SearchModal'
-import { useTrackHistory } from './lib/backToDetails'
-import { initAniListSync } from './lib/anilist'
-import { useApplyTvMode } from './lib/keys'
-import { useSpatialNav } from './lib/spatial'
+import { MovieSearchModal } from './components/MovieSearchModal'
+import { TopLoader } from './components/TopLoader'
+import { ScrollProgress } from './components/ScrollProgress'
+import { ScrollToTop } from './components/ScrollToTop'
 import { isDetailsPath, isReaderPath, isWatchPath, sectionOf } from './lib/sections'
-import LandingPage from './pages/LandingPage'
-import { StarkLoginGate } from './components/StarkLoginGate'
-import { useStarkAuth } from './lib/starkAuth'
 
-// Only the opening page is eager; everything else is split out; hls.js only ships with the player page.
+const LandingPage = lazy(() => import('./pages/LandingPage'))
 const HomePage = lazy(() => import('./pages/HomePage'))
-const DetailsPage = lazy(() => import('./pages/DetailsPage'))
 const CatalogPage = lazy(() => import('./pages/CatalogPage'))
-const SchedulePage = lazy(() => import('./pages/SchedulePage'))
+const DetailsPage = lazy(() => import('./pages/DetailsPage'))
 const WatchPage = lazy(() => import('./pages/WatchPage'))
 const ListPage = lazy(() => import('./pages/ListPage'))
+const SchedulePage = lazy(() => import('./pages/SchedulePage'))
 const AppPage = lazy(() => import('./pages/AppPage'))
 const EbooksHomePage = lazy(() => import('./pages/EbooksHomePage'))
+const EbookReaderPage = lazy(() => import('./pages/EbookReaderPage'))
 const NovelHomePage = lazy(() => import('./pages/NovelHomePage'))
 const NovelDetailsPage = lazy(() => import('./pages/NovelDetailsPage'))
 const NovelReaderPage = lazy(() => import('./pages/NovelReaderPage'))
@@ -48,25 +42,30 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 export default function App() {
   // The opening page is a clean full-screen picker: no navbar, dock, footer or search.
-  const { authenticated, unlock } = useStarkAuth()
   const { pathname } = useLocation()
-  const gate = pathname === '/'
-  const reader = isReaderPath(pathname) // Novel / manga readers are full-screen too
-  const bare = gate || reader || isWatchPath(pathname)
+  const bare = pathname === '/' || isReaderPath(pathname) || isWatchPath(pathname)
+  const isDetails = isDetailsPath(pathname)
+  const prevDetails = useRef(isDetails)
   const section = sectionOf(pathname)
 
-  useTrackHistory()
-  useApplyTvMode()
-  useSpatialNav()
-  useEffect(() => initAniListSync(), [])
+  // Details pages drop the top padding so the backdrop artwork can bleed up behind the browser chrome.
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('has-bleed-header', isDetails)
+    if (prevDetails.current !== isDetails) {
+      window.scrollTo(0, 0)
+      prevDetails.current = isDetails
+    }
+  }, [isDetails, pathname])
 
   // Each section has its own colour identity (see index.css).
   useEffect(() => {
     document.documentElement.dataset.section = section ?? 'hub'
   }, [section])
 
-  if (!authenticated) {
-    return <StarkLoginGate onUnlock={unlock} />
+  if (pathname.startsWith('/profile') || pathname.startsWith('/admin')) {
+    document.documentElement.dataset.zkMono = '1'
+  } else {
+    delete document.documentElement.dataset.zkMono
   }
 
   return (
@@ -92,6 +91,7 @@ export default function App() {
           <Route path="/auth/anilist" element={<AniListCallbackPage />} />
           {/* Ebooks */}
           <Route path="/ebooks" element={<EbooksHomePage />} />
+          <Route path="/ebooks/read/:id" element={<EbookReaderPage />} />
           {/* Novels */}
           <Route path="/novel" element={<NovelHomePage />} />
           <Route path="/novel/find" element={<FindPage />} />

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useBackToDetails } from '../lib/backToDetails'
-import { ArrowDownUp, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, List, Maximize, Minimize, RefreshCw, RotateCcw, Settings, X } from 'lucide-react'
+import { ArrowDownUp, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, House, List, Maximize, Minimize, RefreshCw, RotateCcw, Settings, X } from 'lucide-react'
 import { useAsync } from '../hooks/useAsync'
 import { mangaSourceInfo, readingKey, resolveMangaSource, sourceParams, type MangaSourceId } from '../lib/mangaModels'
 import { DEFAULT_MANGA, getReading, loadPrefs, savePrefs, saveReading, type MangaPrefs } from '../lib/reading'
@@ -353,8 +353,11 @@ function Reader({ id, chapterId }: { id: string; chapterId: string }) {
         style={{ background: theme.bar, borderColor: 'color-mix(in srgb, currentColor 14%, transparent)' }}
       >
         <div className="mx-auto flex h-14 max-w-4xl items-center gap-1 px-2 sm:px-5">
-          <Link to={details} onClick={backTo(details)} aria-label="Back to manga" className="grid size-10 shrink-0 place-items-center rounded-full transition hover:bg-black/10 active:scale-90">
+          <Link to={details} onClick={backTo(details)} aria-label="Back to manga" title="Back to details" className="grid size-10 shrink-0 place-items-center rounded-full transition hover:bg-black/10 active:scale-90">
             <ArrowLeft className="size-5" />
+          </Link>
+          <Link to="/" aria-label="Home" title="Return to Home Hub" className="grid size-10 shrink-0 place-items-center rounded-full transition hover:bg-black/10 active:scale-90 text-accent">
+            <House className="size-5" />
           </Link>
           <div className="min-w-0 flex-1 px-1">
             <p className="truncate text-sm font-semibold leading-tight">{title}</p>

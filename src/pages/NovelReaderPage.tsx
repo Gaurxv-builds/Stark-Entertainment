@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties }
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useBackToDetails } from '../lib/backToDetails'
 import { motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, List, Minus, Plus, Type, X, RefreshCw } from 'lucide-react'
+import { ArrowLeft, ArrowRight, House, List, Minus, Plus, Type, X, RefreshCw } from 'lucide-react'
 import { useAsync } from '../hooks/useAsync'
 import { DEFAULT_NOVEL, getReading, loadPrefs, savePrefs, saveReading, type NovelPrefs } from '../lib/reading'
 import { cn } from '../lib/utils'
@@ -179,9 +179,12 @@ function Reader({ source, slug, chapterSlug }: { source: NovelSource; slug: stri
         className={cn('fixed inset-x-0 top-0 z-50 border-b px-3 pt-[3px] backdrop-blur-xl transition-transform duration-300 sm:px-5', barVisible || panel !== 'none' ? 'translate-y-0' : '-translate-y-full')}
         style={{ background: theme.bar, borderColor: 'color-mix(in srgb, var(--rd-fg) 12%, transparent)' }}
       >
-        <div className="mx-auto flex h-14 max-w-4xl items-center gap-2">
-          <Link to={base} onClick={backTo(base)} aria-label="Back to novel" className="grid size-10 shrink-0 place-items-center rounded-full transition hover:bg-black/10 active:scale-90">
+        <div className="mx-auto flex h-14 max-w-4xl items-center gap-1.5 sm:gap-2">
+          <Link to={base} onClick={backTo(base)} aria-label="Back to novel" title="Back to Novel Details" className="grid size-10 shrink-0 place-items-center rounded-full transition hover:bg-black/10 active:scale-90">
             <ArrowLeft className="size-5" />
+          </Link>
+          <Link to="/" aria-label="Home" title="Return to Home Hub" className="grid size-10 shrink-0 place-items-center rounded-full transition hover:bg-black/10 active:scale-90 text-accent">
+            <House className="size-5" />
           </Link>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold leading-tight">{detail.data?.title ?? slug.replace(/-/g, ' ')}</p>

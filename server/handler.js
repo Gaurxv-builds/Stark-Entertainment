@@ -662,5 +662,140 @@ export async function handle(request, env) {
     return json({ error: "Unknown manga route" }, 404);
   }
 
+  /* ---------- Ebooks (Project Gutenberg & Open Library) ---------- */
+  if (path === "/api/ebooks/content") {
+    const id = q("id");
+    if (!id) return json({ error: "Missing book id" }, 400);
+
+    try {
+      const result = await cached(`ebook:${id}`, 6 * 3600e3, async () => {
+        // Project Gutenberg
+        if (id.startsWith("pg:") || /^\d+$/.test(id)) {
+          const gId = id.replace(/^pg:/, "");
+          const urls = [
+            `https://www.gutenberg.org/cache/epub/${gId}/pg${gId}-images.html`,
+            `https://www.gutenberg.org/cache/epub/${gId}/pg${gId}.txt`
+          ];
+
+          let text = "";
+          let isHtml = false;
+          for (const u of urls) {
+            try {
+              const res = await fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" } });
+              if (res.ok) {
+                text = await res.text();
+                isHtml = u.endsWith(".html");
+                break;
+              }
+            } catch {}
+          }
+
+          if (!text) throw new Error("Could not fetch Gutenberg ebook content");
+
+          // Extract title & author
+          let title = "Unknown Title";
+          let author = "Unknown Author";
+          const titleMatch = text.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i) || text.match(/<title>([\s\S]*?)<\/title>/i) || text.match(/Title:\s*([^\r\n]+)/i);
+          if (titleMatch) title = titleMatch[1].replace(/<[^>]+>/g, '').replace(/The Project Gutenberg eBook of\s*/i, '').trim();
+
+          const authorMatch = text.match(/Author:\s*([^\r\n]+)/i) || text.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
+          if (authorMatch) author = authorMatch[1].replace(/<[^>]+>/g, '').replace(/by\s+/i, '').trim();
+
+          const paragraphs = [];
+          const sections = [];
+
+          if (isHtml) {
+            const baseGutenberg = `https://www.gutenberg.org/cache/epub/${gId}/`;
+            const resolvedHtml = text.replace(/<img\b([^>]*?)src=["'](?!https?:\/\/)([^"']+)["']/gi, (match, prefix, src) => {
+              const absUrl = src.startsWith("/") ? `https://www.gutenberg.org${src}` : `${baseGutenberg}${src}`;
+              return `<img ${prefix}src="${absUrl}"`;
+            });
+
+            const tags = [...resolvedHtml.matchAll(/<(?:p|h[1-4]|blockquote)[^>]*>([\s\S]*?)<\/(?:p|h[1-4]|blockquote)>/gi)];
+            for (const m of tags) {
+              const rawTag = m[0];
+              const inner = m[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+              if (!inner || inner.length < 3) continue;
+              if (inner.includes("*** START OF") || inner.includes("*** END OF")) continue;
+
+              if (/^<h[1-4]/i.test(rawTag)) {
+                sections.push({ title: inner, index: paragraphs.length });
+                paragraphs.push(`## ${inner}`);
+              } else {
+                paragraphs.push(inner);
+              }
+            }
+          } else {
+            const lines = text.split(/\r?\n\r?\n/);
+            let inBody = false;
+            for (const block of lines) {
+              const clean = block.replace(/\s+/g, ' ').trim();
+              if (!clean) continue;
+              if (clean.includes("*** START OF THE PROJECT GUTENBERG")) { inBody = true; continue; }
+              if (clean.includes("*** END OF THE PROJECT GUTENBERG")) { inBody = false; break; }
+              if (!inBody && clean.length > 300) inBody = true;
+              if (inBody) {
+                if (/^(?:CHAPTER|LETTER|BOOK|PART|ACT|SCENE)\b/i.test(clean) && clean.length < 80) {
+                  sections.push({ title: clean, index: paragraphs.length });
+                  paragraphs.push(`## ${clean}`);
+                } else {
+                  paragraphs.push(clean);
+                }
+              }
+            }
+          }
+
+          return {
+            id: `pg:${gId}`,
+            title,
+            author,
+            source: "gutenberg",
+            cover: `https://www.gutenberg.org/cache/epub/${gId}/pg${gId}.cover.medium.jpg`,
+            paragraphs: paragraphs.slice(0, 3000),
+            sections: sections.slice(0, 100),
+            access: "read_and_download",
+            externalUrl: `https://www.gutenberg.org/ebooks/${gId}`
+          };
+        }
+
+        // Open Library / Internet Archive
+        const olKey = id.replace(/^ol:/, "").replace(/^\/works\//, "");
+        const olRes = await fetch(`https://openlibrary.org/works/${olKey}.json`, { headers: { "User-Agent": "Mozilla/5.0" } });
+        if (!olRes.ok) throw new Error(`Open Library fetch failed: ${olRes.status}`);
+        const olData = await olRes.json();
+
+        const title = olData.title || "Open Library Book";
+        let author = "Unknown Author";
+        if (olData.authors && olData.authors.length) {
+          try {
+            const aRes = await fetch(`https://openlibrary.org${olData.authors[0].author.key}.json`);
+            if (aRes.ok) {
+              const aData = await aRes.json();
+              if (aData.name) author = aData.name;
+            }
+          } catch {}
+        }
+
+        return {
+          id: `ol:${olKey}`,
+          title,
+          author,
+          source: "openlibrary",
+          cover: olData.covers?.[0] ? `https://covers.openlibrary.org/b/id/${olData.covers[0]}-L.jpg` : null,
+          access: "borrow",
+          description: typeof olData.description === "string" ? olData.description : olData.description?.value || "This edition is cataloged in the Open Library lending library.",
+          paragraphs: [],
+          sections: [],
+          borrowUrl: `https://openlibrary.org/works/${olKey}`,
+          message: "This title is in Open Library's digital lending collection and requires a free Internet Archive account to borrow."
+        };
+      });
+
+      return json(result, 200, 21600);
+    } catch (e) {
+      return json({ error: "Failed to load ebook content: " + e.message }, 502);
+    }
+  }
+
   return null;
 }

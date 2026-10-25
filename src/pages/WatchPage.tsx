@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useBackToDetails } from '../lib/backToDetails'
-import { AlertTriangle, ChevronLeft, ChevronRight, Info } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ChevronRight, House, Info } from 'lucide-react'
 import { fetchAnimeLite } from '../services/anilist'
 import { acdnMapped, fetchAnimeSalt, fetchStream } from '../services/api'
 import { useAsync } from '../hooks/useAsync'
@@ -274,9 +274,14 @@ export default function WatchPage() {
             <div className="min-w-0">
               {a ? (
                 <>
-                  <Link to={`/anime/${id}`} onClick={backTo(`/anime/${id}`)} className="mb-1 inline-flex items-center gap-1 text-xs font-semibold text-muted hover:text-accent">
-                    <ChevronLeft className="size-3.5" /> Details
-                  </Link>
+                  <div className="mb-1 flex items-center gap-3">
+                    <Link to={`/anime/${id}`} onClick={backTo(`/anime/${id}`)} className="inline-flex items-center gap-1 text-xs font-semibold text-muted hover:text-accent">
+                      <ChevronLeft className="size-3.5" /> Details
+                    </Link>
+                    <Link to="/" className="inline-flex items-center gap-1 text-xs font-semibold text-muted hover:text-accent">
+                      <House className="size-3.5" /> Home
+                    </Link>
+                  </div>
                   <br />
                   <Link to={`/anime/${id}`} onClick={backTo(`/anime/${id}`)} className="font-display text-2xl font-black tracking-tight transition-colors hover:text-accent sm:text-3xl">
                     {title}

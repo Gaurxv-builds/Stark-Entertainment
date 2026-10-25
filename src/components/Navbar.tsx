@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Compass, Download, Search, ShieldAlert } from 'lucide-react'
+import { Compass, Download, House, Search, ShieldAlert } from 'lucide-react'
 import { MOVIE_LINKS, NAV_LINKS } from '../lib/constants'
 import { sectionOf } from '../lib/sections'
 import { cn } from '../lib/utils'
@@ -45,7 +45,7 @@ export function Navbar() {
           scrolled ? 'border-border bg-glass shadow-xl shadow-black/10 md:backdrop-blur-xl' : 'border-transparent bg-transparent',
         )}
       >
-        <Logo size={34} to="https://verse.gaurxv.eu.org/" />
+        <Logo size={34} to="/" />
 
         {links && (
         <ul className="hidden items-center md:flex" onMouseLeave={() => setHovered(null)}>
@@ -82,6 +82,17 @@ export function Navbar() {
         )}
 
         <div className="flex items-center gap-2">
+          {/* Universal Home Button */}
+          <Link
+            to="/"
+            title="Return to Home Hub"
+            aria-label="Home"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1.5 text-xs font-semibold backdrop-blur transition hover:bg-card hover:text-accent active:scale-95"
+          >
+            <House className="size-4 text-accent" />
+            <span className="hidden sm:inline">Home</span>
+          </Link>
+
           {!anime && (
             <Link to={`/${section}`} className={cn('items-center gap-2 rounded-full border border-border bg-card/60 px-3.5 py-1.5 text-sm font-semibold backdrop-blur transition active:scale-95', movies ? 'hidden sm:inline-flex' : 'inline-flex')}>
               <span className="font-display font-semibold text-accent">{section === 'novel' ? 'Novels' : movies ? 'Movies' : section === 'ebooks' ? 'Ebooks' : 'Manga'}</span>
