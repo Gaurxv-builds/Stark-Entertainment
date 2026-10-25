@@ -7,6 +7,7 @@ import { BlurText } from '../components/BlurText'
 import { DotPattern } from '../components/DotPattern'
 import { FadeSlideshow } from '../components/FadeSlideshow'
 import { Logo } from '../components/Logo'
+import { Particles } from '../components/Particles'
 import { BRAND_MARK, BRAND_TAGLINE, pageTitle } from '../lib/brand'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { useCompact, useShowcase } from '../hooks/useShowcase'
@@ -70,6 +71,7 @@ export default function LandingPage() {
     <main className="relative isolate flex min-h-svh flex-col overflow-hidden">
       <AuroraBackground />
       <DotPattern className="-z-10 [mask-image:radial-gradient(700px_circle_at_50%_40%,white,transparent)]" />
+      <Particles count={50} className="-z-10 opacity-60" />
 
       <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-5 pt-5 sm:px-8 sm:pt-7">
         <Logo size={38} />

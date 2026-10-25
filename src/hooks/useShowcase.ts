@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
-import { fetchShowcase, type ShowcaseImage, type ShowcasePools } from '../services/showcase'
+import { DEFAULT_SHOWCASE, fetchShowcase, type ShowcaseImage, type ShowcasePools } from '../services/showcase'
 
-const EMPTY: ShowcasePools = { anime: [], manga: [], novel: [], movies: [], ebooks: [] }
-
-/** Artwork pools for the rotating images. Empty until loaded (and forever if every source is down). */
+/** Artwork pools for the rotating images. Defaults to curated art immediately, updated when live feeds arrive. */
 export function useShowcase(): ShowcasePools {
-  const [pools, setPools] = useState<ShowcasePools>(EMPTY)
+  const [pools, setPools] = useState<ShowcasePools>(DEFAULT_SHOWCASE)
   useEffect(() => {
     let live = true
     fetchShowcase().then((p) => live && setPools(p))
@@ -29,4 +27,4 @@ export function useCompact(query = '(max-width: 1023px)'): boolean {
   return on
 }
 
-export type { ShowcaseImage }
+export type { ShowcaseImage, ShowcasePools }
