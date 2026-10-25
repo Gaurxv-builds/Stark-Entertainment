@@ -83,7 +83,7 @@ export const EbookCard = memo(function EbookCard({
 
           {/* Source Badge */}
           <span className="absolute left-2 top-2 rounded-full bg-black/75 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur">
-            {item.source === 'gutenberg' ? 'Gutenberg' : 'Open Library'}
+            {item.source === 'gutenberg' ? 'Gutenberg' : item.source === 'internetarchive' ? 'Internet Archive' : 'Open Library'}
           </span>
 
           {/* Access / Year Badge */}
@@ -113,7 +113,7 @@ export const EbookCard = memo(function EbookCard({
                 className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-accent px-3 text-[11px] font-bold text-accent-fg shadow transition hover:brightness-110 active:scale-95"
               >
                 <BookOpen className="size-3.5" />
-                <span>{item.access === 'borrow' ? 'Borrow & Details' : 'Read Inside Verse'}</span>
+                <span>Read Inside Verse</span>
               </div>
             </div>
           </div>

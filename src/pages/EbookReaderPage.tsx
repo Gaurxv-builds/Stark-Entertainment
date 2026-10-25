@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowLeft, BookOpen, ExternalLink, House, List, Minus, Plus, Type, X } from 'lucide-react'
+import { ArrowLeft, House, List, Maximize, Minimize, Minus, Plus, Type, X } from 'lucide-react'
 import { useAsync } from '../hooks/useAsync'
 import { DEFAULT_NOVEL, loadPrefs, savePrefs, type NovelPrefs } from '../lib/reading'
 import { cn } from '../lib/utils'
@@ -33,6 +33,7 @@ function EbookReader({ bookId }: { bookId: string }) {
   const [panel, setPanel] = useState<'none' | 'sections' | 'settings'>('none')
   const [barVisible, setBarVisible] = useState(true)
   const [progress, setProgress] = useState(0)
+  const [fullscreen, setFullscreen] = useState(false)
 
   const content = useAsync(() => fetchEbookContent(bookId), [bookId])
   const theme = THEMES[prefs.theme]
@@ -79,14 +80,25 @@ function EbookReader({ bookId }: { bookId: string }) {
     }
   }, [panel])
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setFullscreen(true)).catch(() => {})
+    } else {
+      document.exitFullscreen().then(() => setFullscreen(false)).catch(() => {})
+    }
+  }
+
+  const isEmbedded = !!content.data?.embedUrl
   const vars = { '--rd-bg': theme.bg, '--rd-fg': theme.fg, '--rd-muted': theme.muted, '--rd-bar': theme.bar } as CSSProperties
 
   return (
     <div style={{ ...vars, background: theme.bg, color: theme.fg }} className="min-h-svh overflow-x-clip transition-colors duration-300">
-      {/* progress */}
-      <div className="fixed inset-x-0 top-0 z-[60] h-[3px] bg-transparent">
-        <div className="h-full origin-left bg-accent" style={{ transform: `scaleX(${progress})` }} />
-      </div>
+      {/* progress hairline */}
+      {!isEmbedded && (
+        <div className="fixed inset-x-0 top-0 z-[60] h-[3px] bg-transparent">
+          <div className="h-full origin-left bg-accent" style={{ transform: `scaleX(${progress})` }} />
+        </div>
+      )}
 
       {/* top bar */}
       <header
@@ -124,7 +136,17 @@ function EbookReader({ bookId }: { bookId: string }) {
           </div>
 
           <div className="flex shrink-0 items-center gap-1">
-            {content.data?.sections && content.data.sections.length > 0 && (
+            <button
+              type="button"
+              aria-label="Fullscreen"
+              title="Toggle Fullscreen"
+              onClick={toggleFullscreen}
+              className="grid size-9 place-items-center rounded-full transition hover:bg-black/10 active:scale-95"
+            >
+              {fullscreen ? <Minimize className="size-4.5" /> : <Maximize className="size-4.5" />}
+            </button>
+
+            {!isEmbedded && content.data?.sections && content.data.sections.length > 0 && (
               <button
                 type="button"
                 aria-label="Table of contents"
@@ -135,21 +157,24 @@ function EbookReader({ bookId }: { bookId: string }) {
                 <List className="size-5" />
               </button>
             )}
-            <button
-              type="button"
-              aria-label="Reader settings"
-              title="Display settings"
-              onClick={() => setPanel((p) => (p === 'settings' ? 'none' : 'settings'))}
-              className={cn('grid size-9 place-items-center rounded-full transition active:scale-95', panel === 'settings' ? 'bg-accent text-accent-fg' : 'hover:bg-black/10')}
-            >
-              <Type className="size-5" />
-            </button>
+
+            {!isEmbedded && (
+              <button
+                type="button"
+                aria-label="Reader settings"
+                title="Display settings"
+                onClick={() => setPanel((p) => (p === 'settings' ? 'none' : 'settings'))}
+                className={cn('grid size-9 place-items-center rounded-full transition active:scale-95', panel === 'settings' ? 'bg-accent text-accent-fg' : 'hover:bg-black/10')}
+              >
+                <Type className="size-5" />
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Reading View */}
-      <main className="relative px-4 pb-28 pt-24 sm:px-6 sm:pt-28" onClick={() => setPanel('none')}>
+      <main className="relative px-4 pb-20 pt-20 sm:px-6 sm:pt-24" onClick={() => setPanel('none')}>
         {content.loading ? (
           <div className="mx-auto space-y-4" style={{ maxWidth: WIDTHS[prefs.width] }}>
             <Skeleton className="h-10 w-3/4 rounded-xl" />
@@ -170,50 +195,28 @@ function EbookReader({ bookId }: { bookId: string }) {
             </p>
           </div>
         ) : content.data ? (
-          <div className="mx-auto" style={{ maxWidth: WIDTHS[prefs.width] }}>
-            {/* If borrow-only (Open Library), show dedicated borrow notice */}
-            {content.data.access === 'borrow' || content.data.paragraphs.length === 0 ? (
-              <div className="rounded-3xl border border-white/10 bg-card/60 p-6 sm:p-8 backdrop-blur-xl text-center shadow-xl">
-                {content.data.cover && (
-                  <img
-                    src={content.data.cover}
-                    alt={content.data.title}
-                    className="mx-auto mb-6 aspect-[2/3] w-40 rounded-2xl object-cover shadow-2xl ring-1 ring-white/10"
-                  />
-                )}
-                <h1 className="font-display text-2xl font-black sm:text-3xl">{content.data.title}</h1>
-                <p className="mt-1 text-sm opacity-70">by {content.data.author}</p>
-
-                <div className="mt-6 rounded-2xl bg-white/5 p-4 text-xs leading-relaxed opacity-85 sm:text-sm">
-                  {content.data.message || 'This title is part of the Open Library lending library.'}
-                </div>
-
-                {content.data.description && (
-                  <p className="mt-4 text-xs leading-relaxed opacity-75 sm:text-sm line-clamp-6 text-left">
-                    {content.data.description}
-                  </p>
-                )}
-
-                <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                  <a
-                    href={content.data.borrowUrl || content.data.externalUrl || `https://openlibrary.org`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-bold text-accent-fg shadow transition hover:brightness-110 active:scale-95"
-                  >
-                    <BookOpen className="size-4" />
-                    Borrow on Open Library <ExternalLink className="size-3.5" />
-                  </a>
-                  <Link
-                    to="/ebooks"
-                    className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold transition hover:bg-white/10 active:scale-95"
-                  >
-                    Browse Other Books
-                  </Link>
-                </div>
+          isEmbedded ? (
+            /* Mode 1: Interactive In-Browser BookReader for Internet Archive & Open Scans */
+            <div className="mx-auto w-full max-w-6xl">
+              <div className="relative aspect-[4/3] w-full min-h-[560px] sm:min-h-[720px] h-[calc(100svh-120px)] overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl shadow-black/50">
+                <iframe
+                  src={content.data.embedUrl!}
+                  title={content.data.title}
+                  className="size-full border-0"
+                  allow="fullscreen; autoplay; webkitallowfullscreen; mozallowfullscreen"
+                  allowFullScreen
+                />
               </div>
-            ) : (
-              /* Public Domain / Full Text Reader */
+              {content.data.description && (
+                <div className="mt-6 rounded-2xl border border-white/10 bg-card/60 p-6 backdrop-blur">
+                  <h3 className="font-display text-sm font-bold text-accent uppercase tracking-wider mb-2">About this Book</h3>
+                  <p className="text-xs text-muted leading-relaxed line-clamp-4">{content.data.description}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Mode 2: Clean Typography Reader for Project Gutenberg */
+            <div className="mx-auto" style={{ maxWidth: WIDTHS[prefs.width] }}>
               <motion.article initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
                 <header className="mb-10 text-center border-b pb-8" style={{ borderColor: 'color-mix(in srgb, var(--rd-fg) 10%, transparent)' }}>
                   <span className="rounded-full bg-accent/15 px-3 py-1 text-[11px] font-semibold text-accent uppercase tracking-wider">
@@ -255,153 +258,127 @@ function EbookReader({ bookId }: { bookId: string }) {
                   })}
                 </div>
 
-                {/* Footer Attribution */}
                 <footer className="mt-16 border-t pt-8 text-center text-xs opacity-60" style={{ borderColor: 'color-mix(in srgb, var(--rd-fg) 12%, transparent)' }}>
-                  <p>This work is in the public domain and provided by Project Gutenberg.</p>
-                  <p className="mt-1">
-                    <a href={content.data.externalUrl ?? '#'} target="_blank" rel="noopener noreferrer" className="text-accent underline">
-                      View Project Gutenberg catalog entry
-                    </a>
-                  </p>
+                  <p>This public domain work is provided by Project Gutenberg and formatted for online reading inside Gaurxv Verse.</p>
                 </footer>
               </motion.article>
-            )}
-          </div>
+            </div>
+          )
         ) : null}
       </main>
 
-      {/* Drawer: Table of Contents */}
-      {panel === 'sections' && content.data?.sections && (
-        <aside
-          role="dialog"
-          aria-label="Table of contents"
-          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l shadow-2xl backdrop-blur-2xl"
-          style={{ background: theme.bar, borderColor: 'color-mix(in srgb, var(--rd-fg) 12%, transparent)' }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex h-14 items-center justify-between border-b px-4" style={{ borderColor: 'color-mix(in srgb, var(--rd-fg) 10%, transparent)' }}>
-            <span className="font-display text-sm font-bold">Contents</span>
+      {/* Table of Contents Drawer */}
+      {panel === 'sections' && (
+        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-sm border-l p-6 shadow-2xl backdrop-blur-2xl transition-transform" style={{ background: theme.bar, borderColor: 'color-mix(in srgb, var(--rd-fg) 14%, transparent)' }}>
+          <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: 'color-mix(in srgb, var(--rd-fg) 10%, transparent)' }}>
+            <h3 className="font-display text-lg font-bold">Contents</h3>
             <button type="button" onClick={() => setPanel('none')} className="grid size-8 place-items-center rounded-full hover:bg-black/10">
-              <X className="size-4" />
+              <X className="size-5" />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2">
-            {content.data.sections.map((s, idx) => (
+          <div className="mt-4 max-h-[calc(100vh-120px)] space-y-1 overflow-y-auto pr-2">
+            {content.data?.sections?.map((sec, i) => (
               <button
-                key={idx}
+                key={i}
                 type="button"
                 onClick={() => {
-                  setPanel('none')
-                  const el = document.getElementById(`sec-${s.index}`)
+                  const el = document.getElementById(`sec-${sec.index}`)
                   if (el) el.scrollIntoView({ behavior: 'smooth' })
+                  setPanel('none')
                 }}
-                className="w-full rounded-xl px-3 py-2 text-left text-xs font-medium transition hover:bg-black/10 active:scale-98 truncate"
+                className="w-full rounded-xl px-3 py-2 text-left text-sm transition hover:bg-black/10 hover:text-accent"
               >
-                {s.title}
+                {sec.title}
               </button>
             ))}
           </div>
-        </aside>
+        </div>
       )}
 
-      {/* Drawer: Reading Settings */}
+      {/* Reader Settings Drawer */}
       {panel === 'settings' && (
-        <aside
-          role="dialog"
-          aria-label="Display settings"
-          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col border-l shadow-2xl backdrop-blur-2xl"
-          style={{ background: theme.bar, borderColor: 'color-mix(in srgb, var(--rd-fg) 12%, transparent)' }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex h-14 items-center justify-between border-b px-4" style={{ borderColor: 'color-mix(in srgb, var(--rd-fg) 10%, transparent)' }}>
-            <span className="font-display text-sm font-bold">Reader Settings</span>
+        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-sm border-l p-6 shadow-2xl backdrop-blur-2xl" style={{ background: theme.bar, borderColor: 'color-mix(in srgb, var(--rd-fg) 14%, transparent)' }}>
+          <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: 'color-mix(in srgb, var(--rd-fg) 10%, transparent)' }}>
+            <h3 className="font-display text-lg font-bold">Reading Preferences</h3>
             <button type="button" onClick={() => setPanel('none')} className="grid size-8 place-items-center rounded-full hover:bg-black/10">
-              <X className="size-4" />
+              <X className="size-5" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-5 space-y-6 text-sm">
+          <div className="mt-6 space-y-6">
             {/* Theme */}
             <div>
-              <p className="font-semibold text-xs uppercase tracking-wider opacity-70 mb-3">Theme</p>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider opacity-60">Color Theme</p>
               <div className="grid grid-cols-4 gap-2">
-                {(Object.keys(THEMES) as NovelPrefs['theme'][]).map((t) => (
+                {(Object.entries(THEMES) as [NovelPrefs['theme'], typeof THEMES['dark']][]).map(([k, t]) => (
                   <button
-                    key={t}
+                    key={k}
                     type="button"
-                    onClick={() => update({ theme: t })}
-                    className={cn('flex flex-col items-center gap-1.5 rounded-xl border p-2 transition', prefs.theme === t ? 'border-accent ring-2 ring-accent/30' : 'border-white/10 opacity-70 hover:opacity-100')}
+                    onClick={() => update({ theme: k })}
+                    className={cn('flex flex-col items-center gap-1.5 rounded-2xl border p-2 text-xs font-medium transition', prefs.theme === k ? 'border-accent ring-2 ring-accent/30' : 'border-border/60')}
                   >
-                    <span className="size-6 rounded-full border border-black/10 shadow" style={{ background: THEMES[t].swatch }} />
-                    <span className="text-[11px] font-medium">{THEMES[t].label}</span>
+                    <span className="size-6 rounded-full border shadow-sm" style={{ background: t.swatch }} />
+                    <span>{t.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Font */}
-            <div>
-              <p className="font-semibold text-xs uppercase tracking-wider opacity-70 mb-3">Typography</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => update({ font: 'serif' })}
-                  className={cn('rounded-xl border py-2.5 text-center font-serif transition', prefs.font === 'serif' ? 'border-accent bg-accent/15 text-accent font-bold' : 'border-white/10 opacity-70')}
-                >
-                  Serif
-                </button>
-                <button
-                  type="button"
-                  onClick={() => update({ font: 'sans' })}
-                  className={cn('rounded-xl border py-2.5 text-center font-sans transition', prefs.font === 'sans' ? 'border-accent bg-accent/15 text-accent font-bold' : 'border-white/10 opacity-70')}
-                >
-                  Sans-Serif
-                </button>
-              </div>
-            </div>
-
             {/* Font Size */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold text-xs uppercase tracking-wider opacity-70">Font Size</span>
-                <span className="text-xs font-semibold tabular-nums">{prefs.size}px</span>
-              </div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider opacity-60">Font Size ({prefs.size}px)</p>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => update({ size: Math.max(14, prefs.size - 1) })}
-                  className="grid size-9 place-items-center rounded-xl border border-white/10 hover:bg-black/10 active:scale-95"
+                  onClick={() => update({ size: Math.max(14, prefs.size - 2) })}
+                  className="grid size-10 place-items-center rounded-xl border border-border bg-card/60 transition active:scale-95"
                 >
                   <Minus className="size-4" />
                 </button>
-                <input
-                  type="range"
-                  min={14}
-                  max={28}
-                  value={prefs.size}
-                  onChange={(e) => update({ size: Number(e.target.value) })}
-                  className="flex-1 accent-accent"
-                />
+                <div className="h-2 flex-1 rounded-full bg-current/10">
+                  <div className="h-full rounded-full bg-accent" style={{ width: `${((prefs.size - 14) / 14) * 100}%` }} />
+                </div>
                 <button
                   type="button"
-                  onClick={() => update({ size: Math.min(28, prefs.size + 1) })}
-                  className="grid size-9 place-items-center rounded-xl border border-white/10 hover:bg-black/10 active:scale-95"
+                  onClick={() => update({ size: Math.min(28, prefs.size + 2) })}
+                  className="grid size-10 place-items-center rounded-xl border border-border bg-card/60 transition active:scale-95"
                 >
                   <Plus className="size-4" />
                 </button>
               </div>
             </div>
 
-            {/* Width */}
+            {/* Font Family */}
             <div>
-              <p className="font-semibold text-xs uppercase tracking-wider opacity-70 mb-3">Reading Width</p>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider opacity-60">Typeface</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => update({ font: 'serif' })}
+                  className={cn('rounded-xl border py-2.5 text-sm font-serif transition', prefs.font === 'serif' ? 'border-accent bg-accent/15 text-accent' : 'border-border/60')}
+                >
+                  Serif (Book)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => update({ font: 'sans' })}
+                  className={cn('rounded-xl border py-2.5 text-sm font-sans transition', prefs.font === 'sans' ? 'border-accent bg-accent/15 text-accent' : 'border-border/60')}
+                >
+                  Sans (Modern)
+                </button>
+              </div>
+            </div>
+
+            {/* Layout Width */}
+            <div>
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wider opacity-60">Reading Width</p>
               <div className="grid grid-cols-3 gap-2">
-                {(['narrow', 'normal', 'wide'] as NovelPrefs['width'][]).map((w) => (
+                {(['narrow', 'normal', 'wide'] as const).map((w) => (
                   <button
                     key={w}
                     type="button"
                     onClick={() => update({ width: w })}
-                    className={cn('rounded-xl border py-2 capitalize text-xs font-medium transition', prefs.width === w ? 'border-accent bg-accent/15 text-accent font-bold' : 'border-white/10 opacity-70')}
+                    className={cn('capitalize rounded-xl border py-2 text-xs font-medium transition', prefs.width === w ? 'border-accent bg-accent/15 text-accent' : 'border-border/60')}
                   >
                     {w}
                   </button>
@@ -409,7 +386,7 @@ function EbookReader({ bookId }: { bookId: string }) {
               </div>
             </div>
           </div>
-        </aside>
+        </div>
       )}
     </div>
   )

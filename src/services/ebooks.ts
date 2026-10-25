@@ -1,13 +1,17 @@
 import { apiUrl } from './api'
+
 /**
- * Ebooks service integrating Project Gutenberg (via Gutendex) and Open Library.
- * Fully typed, cached, and resilient to API outages or partial metadata.
+ * Ebooks service integrating Project Gutenberg (via Gutendex), Internet Archive,
+ * and Open Library public scans.
+ *
+ * Strict policy: ONLY books that are 100% available for complete, internal online reading
+ * are included. All borrow-only or lending-gated items are strictly filtered out.
  */
 
-export type EbookSource = 'gutenberg' | 'openlibrary'
+export type EbookSource = 'gutenberg' | 'internetarchive' | 'openlibrary'
 export type EbookScope = 'all' | EbookSource
 
-export type EbookAccess = 'read_and_download' | 'read_only' | 'borrow' | 'catalog'
+export type EbookAccess = 'read_and_download' | 'read_only'
 
 export interface EbookItem {
   id: string
@@ -19,8 +23,8 @@ export interface EbookItem {
   subjects?: string[]
   downloads?: number
   access: EbookAccess
-  readUrl?: string | null
-  downloadUrl?: string | null // EPUB direct file
+  readUrl: string
+  downloadUrl?: string | null
   externalUrl: string
   description?: string | null
 }
@@ -29,42 +33,51 @@ export interface EbookCategory {
   id: string
   label: string
   gutenbergTopic?: string
+  iaQuery?: string
   openLibrarySubject?: string
 }
 
 export const EBOOK_CATEGORIES: EbookCategory[] = [
-  { id: 'all', label: 'All' },
-  { id: 'fiction', label: 'Fiction', gutenbergTopic: 'fiction', openLibrarySubject: 'fiction' },
-  { id: 'fantasy', label: 'Fantasy', gutenbergTopic: 'fantasy', openLibrarySubject: 'fantasy' },
-  { id: 'science', label: 'Science', gutenbergTopic: 'science', openLibrarySubject: 'science' },
-  { id: 'history', label: 'History', gutenbergTopic: 'history', openLibrarySubject: 'history' },
-  { id: 'technology', label: 'Technology', gutenbergTopic: 'technology', openLibrarySubject: 'technology' },
-  { id: 'philosophy', label: 'Philosophy', gutenbergTopic: 'philosophy', openLibrarySubject: 'philosophy' },
-  { id: 'mystery', label: 'Mystery', gutenbergTopic: 'mystery', openLibrarySubject: 'mystery_and_detective_stories' },
+  { id: 'all', label: 'All Reads' },
+  { id: 'literature', label: 'Literature & Fiction', gutenbergTopic: 'fiction', iaQuery: '(subject:fiction OR subject:literature OR subject:novel)', openLibrarySubject: 'fiction' },
+  { id: 'textbooks', label: 'Academic & Textbooks', gutenbergTopic: 'education', iaQuery: '(subject:textbook OR title:textbook OR subject:"open educational resources")', openLibrarySubject: 'textbooks' },
+  { id: 'science', label: 'Science & Nature', gutenbergTopic: 'science', iaQuery: '(subject:science OR subject:physics OR subject:biology OR subject:chemistry OR subject:astronomy)', openLibrarySubject: 'science' },
+  { id: 'technology', label: 'Tech & Computing', gutenbergTopic: 'technology', iaQuery: '(subject:technology OR subject:computing OR subject:"computer science" OR subject:programming)', openLibrarySubject: 'computer_science' },
+  { id: 'history', label: 'History & Biography', gutenbergTopic: 'history', iaQuery: '(subject:history OR subject:biography OR subject:"world history")', openLibrarySubject: 'history' },
+  { id: 'philosophy', label: 'Philosophy & Ideas', gutenbergTopic: 'philosophy', iaQuery: '(subject:philosophy OR title:philosophy OR subject:ethics)', openLibrarySubject: 'philosophy' },
+  { id: 'mystery', label: 'Mystery & Thriller', gutenbergTopic: 'mystery', iaQuery: '(subject:mystery OR subject:detective OR subject:thriller)', openLibrarySubject: 'mystery_and_detective_stories' },
 ]
 
 export const EBOOK_SOURCES: { id: EbookScope; label: string }[] = [
-  { id: 'all', label: 'All Sources' },
+  { id: 'all', label: 'All Catalogs' },
   { id: 'gutenberg', label: 'Project Gutenberg' },
+  { id: 'internetarchive', label: 'Internet Archive' },
   { id: 'openlibrary', label: 'Open Library' },
 ]
 
-/* ---------- In-memory cache to prevent redundant fetches ---------- */
-const cache = new Map<string, { time: number; data: EbookItem[] }>()
+/* ---------- In-memory cache ---------- */
+const cache = new Map<string, { time: number; data: unknown }>()
 const CACHE_TTL = 10 * 60 * 1000 // 10 minutes
 
-function getCached(key: string): EbookItem[] | null {
+function getCached<T>(key: string): T | null {
   const hit = cache.get(key)
-  if (hit && Date.now() - hit.time < CACHE_TTL) return hit.data
+  if (hit && Date.now() - hit.time < CACHE_TTL) return hit.data as T
   return null
 }
 
-function setCache(key: string, data: EbookItem[]) {
+function setCache<T>(key: string, data: T) {
   cache.set(key, { time: Date.now(), data })
 }
 
-/* ---------- Normalizers ---------- */
+function cleanTitle(t: string): string {
+  return t
+    .replace(/\s+/g, ' ')
+    .replace(/^the project gutenberg (?:ebook|edition) of\s+/i, '')
+    .replace(/:\s*\$b\s*/g, ': ')
+    .trim()
+}
 
+/* ---------- Project Gutenberg (via Gutendex) ---------- */
 interface GutendexBook {
   id: number
   title: string
@@ -75,8 +88,14 @@ interface GutendexBook {
   download_count: number
 }
 
-function normalizeGutendex(b: GutendexBook): EbookItem {
-  // Format author names: "Austen, Jane" -> "Jane Austen"
+function normalizeGutendex(b: GutendexBook): EbookItem | null {
+  const epubUrl = b.formats['application/epub+zip'] || null
+  const htmlUrl = b.formats['text/html'] || b.formats['text/html; charset=utf-8'] || null
+  const txtUrl = b.formats['text/plain'] || b.formats['text/plain; charset=utf-8'] || null
+
+  // Ensure fully readable
+  if (!htmlUrl && !epubUrl && !txtUrl) return null
+
   const authors = (b.authors ?? []).map((a) => {
     if (a.name.includes(',')) {
       const [last, first] = a.name.split(',').map((s) => s.trim())
@@ -85,25 +104,124 @@ function normalizeGutendex(b: GutendexBook): EbookItem {
     return a.name
   })
 
-  const cover = b.formats['image/jpeg'] || null
-  const htmlUrl = b.formats['text/html'] || b.formats['text/html; charset=utf-8'] || null
-  const epubUrl = b.formats['application/epub+zip'] || null
+  const cover = b.formats['image/jpeg'] || `https://www.gutenberg.org/cache/epub/${b.id}/pg${b.id}.cover.medium.jpg`
 
   return {
     id: `pg:${b.id}`,
     source: 'gutenberg',
-    title: b.title,
+    title: cleanTitle(b.title),
     authors: authors.length > 0 ? authors : ['Unknown Author'],
     cover,
     subjects: b.subjects?.slice(0, 3) ?? [],
     downloads: b.download_count,
-    access: epubUrl || htmlUrl ? 'read_and_download' : 'catalog',
-    readUrl: htmlUrl || `https://www.gutenberg.org/ebooks/${b.id}`,
+    access: 'read_and_download',
+    readUrl: `/ebooks/read/${encodeURIComponent('pg:' + b.id)}`,
     downloadUrl: epubUrl,
     externalUrl: `https://www.gutenberg.org/ebooks/${b.id}`,
   }
 }
 
+export async function fetchGutenbergBooks(topic?: string, search?: string): Promise<EbookItem[]> {
+  const key = `pg:${topic ?? 'all'}:${search ?? ''}`
+  const cached = getCached<EbookItem[]>(key)
+  if (cached) return cached
+
+  const url = new URL('https://gutendex.com/books')
+  if (topic && topic !== 'all') url.searchParams.set('topic', topic)
+  if (search) url.searchParams.set('search', search)
+
+  try {
+    const res = await fetch(url.toString())
+    if (!res.ok) throw new Error(`Gutendex returned ${res.status}`)
+    const data = await res.json()
+    const results = (data.results ?? [])
+      .map(normalizeGutendex)
+      .filter((b: EbookItem | null): b is EbookItem => b !== null)
+
+    setCache(key, results)
+    return results
+  } catch (err) {
+    console.warn('Gutenberg fetch failed:', err)
+    return []
+  }
+}
+
+/* ---------- Internet Archive Texts & Open Books ---------- */
+interface IaDoc {
+  identifier: string
+  title?: string
+  creator?: string | string[]
+  year?: number | string
+  downloads?: number
+  subject?: string | string[]
+  description?: string | string[]
+}
+
+function normalizeIa(doc: IaDoc): EbookItem | null {
+  if (!doc.identifier || !doc.title) return null
+
+  let authors: string[] = ['Unknown Author']
+  if (doc.creator) {
+    if (Array.isArray(doc.creator)) authors = doc.creator.map((a) => a.trim()).filter(Boolean)
+    else authors = [doc.creator.trim()]
+  }
+
+  let subjects: string[] = []
+  if (doc.subject) {
+    if (Array.isArray(doc.subject)) subjects = doc.subject.slice(0, 3)
+    else subjects = [doc.subject]
+  }
+
+  return {
+    id: `ia:${doc.identifier}`,
+    source: 'internetarchive',
+    title: cleanTitle(doc.title),
+    authors: authors.length > 0 ? authors : ['Unknown Author'],
+    cover: `https://archive.org/services/img/${doc.identifier}`,
+    year: doc.year ? Number(doc.year) || null : null,
+    subjects,
+    downloads: typeof doc.downloads === 'number' ? doc.downloads : 0,
+    access: 'read_only',
+    readUrl: `/ebooks/read/${encodeURIComponent('ia:' + doc.identifier)}`,
+    externalUrl: `https://archive.org/details/${doc.identifier}`,
+    description: Array.isArray(doc.description) ? doc.description[0] : doc.description ?? null,
+  }
+}
+
+export async function fetchInternetArchive(query?: string, categoryQuery?: string): Promise<EbookItem[]> {
+  const key = `ia:${query ?? ''}:${categoryQuery ?? ''}`
+  const cached = getCached<EbookItem[]>(key)
+  if (cached) return cached
+
+  // Strictly exclude lendinglibrary and inlibrary to hide borrow-only works
+  let q = 'mediatype:texts AND NOT collection:(lendinglibrary) AND NOT collection:(inlibrary)'
+  if (query && query.trim()) {
+    q += ` AND (${query.trim()})`
+  }
+  if (categoryQuery) {
+    q += ` AND ${categoryQuery}`
+  }
+
+  const url = `https://archive.org/advancedsearch.php?q=${encodeURIComponent(q)}&fl[]=identifier,title,creator,year,downloads,subject,description&sort[]=downloads+desc&rows=28&page=1&output=json`
+
+  try {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Internet Archive returned ${res.status}`)
+    const data = await res.json()
+    const docs: IaDoc[] = data.response?.docs ?? []
+    const results = docs
+      .map(normalizeIa)
+      .filter((b: EbookItem | null): b is EbookItem => b !== null)
+
+    setCache(key, results)
+    return results
+  } catch (err) {
+    console.warn('Internet Archive fetch failed:', err)
+    return []
+  }
+}
+
+/* ---------- Open Library (Open Public Scans Only) ---------- */
 interface OpenLibraryDoc {
   key: string
   title: string
@@ -112,224 +230,142 @@ interface OpenLibraryDoc {
   cover_i?: number
   has_fulltext?: boolean
   ia?: string[]
-}
-
-function normalizeOpenLibrarySearch(doc: OpenLibraryDoc): EbookItem {
-  const key = doc.key.replace(/^\/works\//, '')
-  const cover = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null
-  const iaId = doc.ia?.[0]
-
-  let access: EbookAccess = 'catalog'
-  let readUrl: string | null = null
-
-  if (doc.has_fulltext && iaId) {
-    access = 'read_only'
-    readUrl = `https://archive.org/details/${iaId}/mode/2up`
-  } else {
-    readUrl = `https://openlibrary.org/works/${key}`
-  }
-
-  return {
-    id: `ol:${key}`,
-    source: 'openlibrary',
-    title: doc.title,
-    authors: doc.author_name?.length ? doc.author_name.slice(0, 2) : ['Unknown Author'],
-    cover,
-    year: doc.first_publish_year ?? null,
-    access,
-    readUrl,
-    externalUrl: `https://openlibrary.org/works/${key}`,
-  }
-}
-
-interface OpenLibraryWork {
-  key: string
-  title: string
-  authors?: { name: string }[]
-  first_publish_year?: number
-  cover_id?: number
   availability?: {
     status?: string
     is_readable?: boolean
-    is_lendable?: boolean
-    identifier?: string
   }
 }
 
-function normalizeOpenLibrarySubject(w: OpenLibraryWork): EbookItem {
-  const key = w.key.replace(/^\/works\//, '')
-  const cover = w.cover_id ? `https://covers.openlibrary.org/b/id/${w.cover_id}-M.jpg` : null
-  const av = w.availability
-  const iaId = av?.identifier
+function normalizeOpenLibrary(doc: OpenLibraryDoc): EbookItem | null {
+  // CRITICAL: Strictly hide borrow-only or unavailable books
+  if (!doc.has_fulltext || !doc.ia || !doc.ia.length) return null
+  if (doc.availability?.status === 'borrow_available') return null
 
-  let access: EbookAccess = 'catalog'
-  let readUrl: string | null = null
-
-  if (av?.status === 'open' || av?.is_readable) {
-    access = 'read_only'
-    readUrl = iaId ? `https://archive.org/details/${iaId}/mode/2up` : `https://openlibrary.org/works/${key}`
-  } else if (av?.is_lendable || av?.status === 'borrow_available') {
-    access = 'borrow'
-    readUrl = `https://openlibrary.org/works/${key}`
-  } else {
-    readUrl = `https://openlibrary.org/works/${key}`
-  }
+  const primaryIa = doc.ia[0]
+  const cover = doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : `https://archive.org/services/img/${primaryIa}`
 
   return {
-    id: `ol:${key}`,
+    id: `ia:${primaryIa}`,
     source: 'openlibrary',
-    title: w.title,
-    authors: w.authors?.length ? w.authors.map((a) => a.name).slice(0, 2) : ['Unknown Author'],
+    title: cleanTitle(doc.title),
+    authors: doc.author_name?.length ? doc.author_name : ['Unknown Author'],
     cover,
-    year: w.first_publish_year ?? null,
-    access,
-    readUrl,
-    externalUrl: `https://openlibrary.org/works/${key}`,
+    year: doc.first_publish_year ?? null,
+    subjects: ['Public Domain Scan'],
+    access: 'read_only',
+    readUrl: `/ebooks/read/${encodeURIComponent('ia:' + primaryIa)}`,
+    externalUrl: `https://archive.org/details/${primaryIa}`,
   }
 }
 
-/* ---------- API Fetchers ---------- */
-
-/** Fetch popular books from Project Gutenberg */
-export async function fetchGutenbergBooks(topic?: string): Promise<EbookItem[]> {
-  const cacheKey = `gutendex:${topic || 'popular'}`
-  const cached = getCached(cacheKey)
+export async function fetchOpenLibrary(query?: string, subject?: string): Promise<EbookItem[]> {
+  const key = `ol:${query ?? ''}:${subject ?? ''}`
+  const cached = getCached<EbookItem[]>(key)
   if (cached) return cached
 
-  const url = topic
-    ? `https://gutendex.com/books/?topic=${encodeURIComponent(topic)}`
-    : 'https://gutendex.com/books/?sort=popular'
+  const url = new URL('https://openlibrary.org/search.json')
+  url.searchParams.set('has_fulltext', 'true')
+  url.searchParams.set('mode', 'everything')
+  url.searchParams.set('limit', '28')
 
-  const res = await fetch(url, { headers: { Accept: 'application/json' } })
-  if (!res.ok) throw new Error(`Project Gutenberg error: ${res.status}`)
+  if (query && query.trim()) {
+    url.searchParams.set('q', query.trim())
+  } else if (subject) {
+    url.searchParams.set('subject', subject)
+  } else {
+    url.searchParams.set('subject', 'classic_literature')
+  }
 
-  const json = await res.json()
-  const items = (json.results as GutendexBook[]).map(normalizeGutendex)
-  setCache(cacheKey, items)
-  return items
+  try {
+    const res = await fetch(url.toString())
+    if (!res.ok) throw new Error(`Open Library returned ${res.status}`)
+    const data = await res.json()
+    const docs: OpenLibraryDoc[] = data.docs ?? []
+    const results = docs
+      .map(normalizeOpenLibrary)
+      .filter((b: EbookItem | null): b is EbookItem => b !== null)
+
+    setCache(key, results)
+    return results
+  } catch (err) {
+    console.warn('Open Library fetch failed:', err)
+    return []
+  }
 }
 
-/** Search Project Gutenberg by keyword */
-export async function searchGutenberg(query: string): Promise<EbookItem[]> {
-  const q = query.trim()
-  if (!q) return []
+/* ---------- Cross-Catalog Search & Deduplication ---------- */
+function dedupeBooks(items: EbookItem[]): EbookItem[] {
+  const seen = new Set<string>()
+  const out: EbookItem[] = []
 
-  const cacheKey = `gutendex:search:${q.toLowerCase()}`
-  const cached = getCached(cacheKey)
-  if (cached) return cached
+  for (const item of items) {
+    const norm = (item.title + ' ' + (item.authors[0] || ''))
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 36)
 
-  const url = `https://gutendex.com/books/?search=${encodeURIComponent(q)}`
-  const res = await fetch(url, { headers: { Accept: 'application/json' } })
-  if (!res.ok) throw new Error(`Project Gutenberg search error: ${res.status}`)
+    if (!seen.has(norm)) {
+      seen.add(norm)
+      out.push(item)
+    }
+  }
 
-  const json = await res.json()
-  const items = (json.results as GutendexBook[]).map(normalizeGutendex)
-  setCache(cacheKey, items)
-  return items
+  return out
 }
 
-/** Fetch books from Open Library by subject */
-export async function fetchOpenLibrarySubject(subject: string): Promise<EbookItem[]> {
-  const cacheKey = `openlibrary:subject:${subject}`
-  const cached = getCached(cacheKey)
-  if (cached) return cached
-
-  const url = `https://openlibrary.org/subjects/${encodeURIComponent(subject)}.json?limit=24`
-  const res = await fetch(url, { headers: { Accept: 'application/json' } })
-  if (!res.ok) throw new Error(`Open Library error: ${res.status}`)
-
-  const json = await res.json()
-  const items = (json.works as OpenLibraryWork[]).map(normalizeOpenLibrarySubject)
-  setCache(cacheKey, items)
-  return items
-}
-
-/** Search Open Library by keyword */
-export async function searchOpenLibrary(query: string): Promise<EbookItem[]> {
-  const q = query.trim()
-  if (!q) return []
-
-  const cacheKey = `openlibrary:search:${q.toLowerCase()}`
-  const cached = getCached(cacheKey)
-  if (cached) return cached
-
-  const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=24`
-  const res = await fetch(url, { headers: { Accept: 'application/json' } })
-  if (!res.ok) throw new Error(`Open Library search error: ${res.status}`)
-
-  const json = await res.json()
-  const items = (json.docs as OpenLibraryDoc[]).map(normalizeOpenLibrarySearch)
-  setCache(cacheKey, items)
-  return items
-}
-
-/** Unified Search across selected source */
 export async function searchEbooks(query: string, scope: EbookScope = 'all'): Promise<EbookItem[]> {
   const q = query.trim()
   if (!q) return []
 
-  if (scope === 'gutenberg') return searchGutenberg(q)
-  if (scope === 'openlibrary') return searchOpenLibrary(q)
+  if (scope === 'gutenberg') return fetchGutenbergBooks(undefined, q)
+  if (scope === 'internetarchive') return fetchInternetArchive(q)
+  if (scope === 'openlibrary') return fetchOpenLibrary(q)
 
-  // Fetch both concurrently with error tolerance
-  const [pg, ol] = await Promise.all([
-    searchGutenberg(q).catch(() => [] as EbookItem[]),
-    searchOpenLibrary(q).catch(() => [] as EbookItem[]),
+  // Unified Search Across All Catalogs
+  const [pg, ia, ol] = await Promise.all([
+    fetchGutenbergBooks(undefined, q).catch(() => [] as EbookItem[]),
+    fetchInternetArchive(q).catch(() => [] as EbookItem[]),
+    fetchOpenLibrary(q).catch(() => [] as EbookItem[]),
   ])
 
-  // Interleave results for source variety
-  const merged: EbookItem[] = []
-  const max = Math.max(pg.length, ol.length)
-  for (let i = 0; i < max; i++) {
-    if (i < pg.length) merged.push(pg[i])
-    if (i < ol.length) merged.push(ol[i])
-  }
-  return merged
+  return dedupeBooks([...pg, ...ia, ...ol])
 }
 
-/** Fetch books by category filter across selected source */
 export async function fetchEbooksByCategory(categoryId: string, scope: EbookScope = 'all'): Promise<EbookItem[]> {
-  const cat = EBOOK_CATEGORIES.find((c) => c.id === categoryId)
-  if (!cat || cat.id === 'all') {
-    return fetchEbooksHome(scope).then((h) => h.featured)
-  }
+  const cat = EBOOK_CATEGORIES.find((c) => c.id === categoryId) || EBOOK_CATEGORIES[0]
 
   if (scope === 'gutenberg') {
     return fetchGutenbergBooks(cat.gutenbergTopic || cat.id)
   }
+  if (scope === 'internetarchive') {
+    return fetchInternetArchive(undefined, cat.iaQuery)
+  }
   if (scope === 'openlibrary') {
-    return fetchOpenLibrarySubject(cat.openLibrarySubject || cat.id)
+    return fetchOpenLibrary(undefined, cat.openLibrarySubject || cat.id)
   }
 
-  const [pg, ol] = await Promise.all([
+  const [pg, ia, ol] = await Promise.all([
     fetchGutenbergBooks(cat.gutenbergTopic || cat.id).catch(() => [] as EbookItem[]),
-    fetchOpenLibrarySubject(cat.openLibrarySubject || cat.id).catch(() => [] as EbookItem[]),
+    fetchInternetArchive(undefined, cat.iaQuery).catch(() => [] as EbookItem[]),
+    fetchOpenLibrary(undefined, cat.openLibrarySubject || cat.id).catch(() => [] as EbookItem[]),
   ])
 
-  const merged: EbookItem[] = []
-  const max = Math.max(pg.length, ol.length)
-  for (let i = 0; i < max; i++) {
-    if (i < pg.length) merged.push(pg[i])
-    if (i < ol.length) merged.push(ol[i])
-  }
-  return merged
+  return dedupeBooks([...pg, ...ia, ...ol])
 }
 
+/* ---------- Curated Homepage Shelves ---------- */
 export interface EbookHomeData {
   featured: EbookItem[]
+  textbooks: EbookItem[]
   classics: EbookItem[]
   science: EbookItem[]
   philosophy: EbookItem[]
 }
 
-/** Fetch curated homepage shelves */
 export async function fetchEbooksHome(scope: EbookScope = 'all'): Promise<EbookHomeData> {
-  const cacheKey = `ebooks:home:${scope}`
-  const cached = cache.get(cacheKey)
-  if (cached && Date.now() - cached.time < CACHE_TTL) {
-    const d = cached.data as unknown as EbookHomeData
-    if (d.featured) return d
-  }
+  const cacheKey = `ebooks:home:v2:${scope}`
+  const cached = getCached<EbookHomeData>(cacheKey)
+  if (cached) return cached
 
   if (scope === 'gutenberg') {
     const [featured, classics, science, philosophy] = await Promise.all([
@@ -338,42 +374,52 @@ export async function fetchEbooksHome(scope: EbookScope = 'all'): Promise<EbookH
       fetchGutenbergBooks('science'),
       fetchGutenbergBooks('philosophy'),
     ])
-    const out: EbookHomeData = { featured, classics, science, philosophy }
-    cache.set(cacheKey, { time: Date.now(), data: out as unknown as EbookItem[] })
+    const out: EbookHomeData = {
+      featured,
+      textbooks: [],
+      classics,
+      science,
+      philosophy,
+    }
+    setCache(cacheKey, out)
     return out
   }
 
-  if (scope === 'openlibrary') {
-    const [featured, classics, science, philosophy] = await Promise.all([
-      fetchOpenLibrarySubject('classic_literature'),
-      fetchOpenLibrarySubject('fiction'),
-      fetchOpenLibrarySubject('science'),
-      fetchOpenLibrarySubject('philosophy'),
+  if (scope === 'internetarchive') {
+    const [featured, textbooks, classics, science, philosophy] = await Promise.all([
+      fetchInternetArchive('downloads:[50000 TO *]'),
+      fetchInternetArchive(undefined, '(subject:textbook OR title:textbook)'),
+      fetchInternetArchive(undefined, '(subject:fiction OR subject:classics)'),
+      fetchInternetArchive(undefined, '(subject:science OR subject:physics)'),
+      fetchInternetArchive(undefined, '(subject:philosophy OR title:philosophy)'),
     ])
-    const out: EbookHomeData = { featured, classics, science, philosophy }
-    cache.set(cacheKey, { time: Date.now(), data: out as unknown as EbookItem[] })
+    const out: EbookHomeData = { featured, textbooks, classics, science, philosophy }
+    setCache(cacheKey, out)
     return out
   }
 
-  // Combined sources
-  const [pgPop, olClassics, pgSci, olPhil] = await Promise.all([
+  // Unified Catalogs: Blend Gutenberg classics + IA open textbooks & science
+  const [pgPop, iaTextbooks, iaClassics, pgSci, iaPhil] = await Promise.all([
     fetchGutenbergBooks().catch(() => [] as EbookItem[]),
-    fetchOpenLibrarySubject('classic_literature').catch(() => [] as EbookItem[]),
+    fetchInternetArchive(undefined, '(subject:textbook OR title:textbook)').catch(() => [] as EbookItem[]),
+    fetchInternetArchive(undefined, '(subject:fiction OR subject:classics)').catch(() => [] as EbookItem[]),
     fetchGutenbergBooks('science').catch(() => [] as EbookItem[]),
-    fetchOpenLibrarySubject('philosophy').catch(() => [] as EbookItem[]),
+    fetchInternetArchive(undefined, '(subject:philosophy OR title:philosophy)').catch(() => [] as EbookItem[]),
   ])
 
   const out: EbookHomeData = {
-    featured: pgPop.slice(0, 18),
-    classics: olClassics.slice(0, 18),
-    science: pgSci.slice(0, 18),
-    philosophy: olPhil.slice(0, 18),
+    featured: dedupeBooks([...pgPop.slice(0, 14), ...iaClassics.slice(0, 10)]),
+    textbooks: iaTextbooks.slice(0, 20),
+    classics: pgPop.slice(0, 20),
+    science: dedupeBooks([...pgSci.slice(0, 12), ...iaTextbooks.filter((b) => b.subjects?.some((s) => s.toLowerCase().includes('chem') || s.toLowerCase().includes('phys'))).slice(0, 8)]),
+    philosophy: dedupeBooks([...iaPhil.slice(0, 16), ...pgPop.filter((b) => b.subjects?.some((s) => s.toLowerCase().includes('philosophy')))]),
   }
 
-  cache.set(cacheKey, { time: Date.now(), data: out as unknown as EbookItem[] })
+  setCache(cacheKey, out)
   return out
 }
 
+/* ---------- Content Endpoint ---------- */
 export interface EbookSection {
   title: string
   index: number
@@ -389,8 +435,7 @@ export interface EbookContent {
   sections: EbookSection[]
   access: EbookAccess
   description?: string | null
-  borrowUrl?: string | null
-  message?: string | null
+  embedUrl?: string | null
   externalUrl?: string | null
 }
 

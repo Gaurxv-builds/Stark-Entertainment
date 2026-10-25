@@ -22,13 +22,11 @@ export const GENRES: { name: string }[] = [
 ]
 
 export const MOVIE_LINKS: { label: string; to: string }[] = [
-  { label: 'Home', to: 'https://verse.gaurxv.eu.org/' },
   { label: 'Movies', to: '/movies' },
   { label: 'TV Shows', to: '/movies/browse?type=tv' },
 ]
 
 export const NAV_LINKS: { label: string; to: string }[] = [
-  { label: 'Home', to: 'https://verse.gaurxv.eu.org/' },
   { label: 'Anime', to: '/anime' },
   { label: 'Trending', to: '/trending' },
   { label: 'Popular', to: '/popular' },

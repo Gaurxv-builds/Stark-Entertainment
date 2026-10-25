@@ -93,9 +93,9 @@ export function Navbar() {
             <span className="hidden sm:inline">Home</span>
           </Link>
 
-          {!anime && (
-            <Link to={`/${section}`} className={cn('items-center gap-2 rounded-full border border-border bg-card/60 px-3.5 py-1.5 text-sm font-semibold backdrop-blur transition active:scale-95', movies ? 'hidden sm:inline-flex' : 'inline-flex')}>
-              <span className="font-display font-semibold text-accent">{section === 'novel' ? 'Novels' : movies ? 'Movies' : section === 'ebooks' ? 'Ebooks' : 'Manga'}</span>
+          {!anime && !movies && (
+            <Link to={`/${section}`} className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3.5 py-1.5 text-sm font-semibold backdrop-blur transition active:scale-95">
+              <span className="font-display font-semibold text-accent">{section === 'novel' ? 'Novels' : section === 'ebooks' ? 'Ebooks' : 'Manga'}</span>
             </Link>
           )}
           {(section === 'manga' || movies) && (

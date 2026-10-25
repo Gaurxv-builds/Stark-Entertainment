@@ -758,11 +758,42 @@ export async function handle(request, env) {
           };
         }
 
-        // Open Library / Internet Archive
+        // Internet Archive
+        if (id.startsWith("ia:")) {
+          const iaId = id.replace(/^ia:/, "");
+          const iaRes = await fetch(`https://archive.org/metadata/${iaId}`, {
+            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+          });
+          if (!iaRes.ok) throw new Error(`Internet Archive item not found: ${iaRes.status}`);
+          const iaData = await iaRes.json();
+          const meta = iaData.metadata || {};
+
+          let author = meta.creator || "Unknown Author";
+          if (Array.isArray(author)) author = author.join(", ");
+
+          return {
+            id: `ia:${iaId}`,
+            title: meta.title || iaId,
+            author,
+            source: "internetarchive",
+            cover: `https://archive.org/services/img/${iaId}`,
+            embedUrl: `https://archive.org/embed/${iaId}`,
+            paragraphs: [],
+            sections: [],
+            access: "read_only",
+            externalUrl: `https://archive.org/details/${iaId}`,
+            description: typeof meta.description === "string" ? meta.description : ""
+          };
+        }
+
+        // Open Library (resolves to open public scan on Internet Archive)
         const olKey = id.replace(/^ol:/, "").replace(/^\/works\//, "");
         const olRes = await fetch(`https://openlibrary.org/works/${olKey}.json`, { headers: { "User-Agent": "Mozilla/5.0" } });
         if (!olRes.ok) throw new Error(`Open Library fetch failed: ${olRes.status}`);
         const olData = await olRes.json();
+
+        // If Open Library links to an IA record, provide internal BookReader
+        const iaId = Array.isArray(olData.ia) && olData.ia[0] ? olData.ia[0] : null;
 
         const title = olData.title || "Open Library Book";
         let author = "Unknown Author";
@@ -776,18 +807,22 @@ export async function handle(request, env) {
           } catch {}
         }
 
+        if (!iaId) {
+          throw new Error("This edition does not have an open public scan available for full online reading.");
+        }
+
         return {
           id: `ol:${olKey}`,
           title,
           author,
           source: "openlibrary",
-          cover: olData.covers?.[0] ? `https://covers.openlibrary.org/b/id/${olData.covers[0]}-L.jpg` : null,
-          access: "borrow",
-          description: typeof olData.description === "string" ? olData.description : olData.description?.value || "This edition is cataloged in the Open Library lending library.",
+          cover: olData.covers?.[0] ? `https://covers.openlibrary.org/b/id/${olData.covers[0]}-L.jpg` : `https://archive.org/services/img/${iaId}`,
+          embedUrl: `https://archive.org/embed/${iaId}`,
+          access: "read_only",
           paragraphs: [],
           sections: [],
-          borrowUrl: `https://openlibrary.org/works/${olKey}`,
-          message: "This title is in Open Library's digital lending collection and requires a free Internet Archive account to borrow."
+          externalUrl: `https://openlibrary.org/works/${olKey}`,
+          description: typeof olData.description === "string" ? olData.description : olData.description?.value || ""
         };
       });
 

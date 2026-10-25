@@ -2,7 +2,7 @@ import { toast } from '../lib/toast'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useBackToDetails } from '../lib/backToDetails'
-import { ChevronLeft, ChevronRight, House, Loader2, TriangleAlert } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, TriangleAlert } from 'lucide-react'
 import { BorderBeam } from '../components/BorderBeam'
 import { ErrorState } from '../components/ErrorState'
 import { ServerMenu } from '../components/ServerMenu'
@@ -84,14 +84,9 @@ export default function MovieWatchPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-32 pt-24 sm:px-6 sm:pt-28 md:pb-20">
-      <div className="mb-4 flex items-center gap-3">
-        <Link to={movieHref({ type, id })} onClick={backTo(movieHref({ type, id }))} className="inline-flex items-center gap-1.5 text-sm text-muted transition hover:text-foreground">
-          <ChevronLeft className="size-4" /> Details
-        </Link>
-        <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted transition hover:text-foreground hover:text-accent">
-          <House className="size-4" /> Home
-        </Link>
-      </div>
+      <Link to={movieHref({ type, id })} onClick={backTo(movieHref({ type, id }))} className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted transition hover:text-foreground">
+        <ChevronLeft className="size-4" /> Details
+      </Link>
 
       {/* Player */}
       <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-black shadow-2xl shadow-black/30 sm:rounded-3xl">

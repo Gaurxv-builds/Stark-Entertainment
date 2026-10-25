@@ -24,7 +24,10 @@ import { BookMarked, Globe, Sparkles } from 'lucide-react'
 export default function EbooksHomePage() {
   const [params, setParams] = useSearchParams()
   const rawSource = params.get('source') ?? 'all'
-  const source: EbookScope = rawSource === 'gutenberg' || rawSource === 'openlibrary' ? rawSource : 'all'
+  const source: EbookScope =
+    rawSource === 'gutenberg' || rawSource === 'internetarchive' || rawSource === 'openlibrary'
+      ? rawSource
+      : 'all'
 
   const [query, setQuery] = useState('')
   const term = useDebounced(query.trim(), 400)
@@ -75,7 +78,7 @@ export default function EbooksHomePage() {
         eyebrow="YOUR DIGITAL LIBRARY"
         title="Every page, a"
         accent="new world."
-        subtitle="Discover free books to read, explore, and keep from Project Gutenberg and Open Library."
+        subtitle="Read thousands of free public domain classics, science, history, and textbooks directly in your browser."
         watermark="EBOOKS"
         query={query}
         onQuery={setQuery}
@@ -130,7 +133,7 @@ export default function EbooksHomePage() {
                   <>
                     Matches for “{term}”{' '}
                     <span className="text-sm font-normal text-muted">
-                      ({source === 'all' ? 'All Sources' : source === 'gutenberg' ? 'Project Gutenberg' : 'Open Library'})
+                      ({source === 'all' ? 'All Sources' : EBOOK_SOURCES.find((s) => s.id === source)?.label})
                     </span>
                   </>
                 ) : (
@@ -165,7 +168,7 @@ export default function EbooksHomePage() {
                 <BookMarked className="mx-auto mb-3 size-10 text-muted/60" />
                 <h3 className="font-display text-lg font-bold">No books found</h3>
                 <p className="mt-1 text-xs text-muted">
-                  Try a different search keyword, author name, or switch to All Sources.
+                  Try a different search keyword, author name, or switch to All Catalogs.
                 </p>
               </div>
             )}
@@ -181,6 +184,15 @@ export default function EbooksHomePage() {
               items={home.data?.featured}
               loading={home.loading}
             />
+
+            {home.data?.textbooks && home.data.textbooks.length > 0 && (
+              <EbookRow
+                eyebrow="Education &amp; Academia"
+                title="Academic &amp; College Textbooks"
+                items={home.data?.textbooks}
+                loading={home.loading}
+              />
+            )}
 
             <EbookRow
               eyebrow="Timeless Stories"
@@ -216,10 +228,8 @@ export default function EbooksHomePage() {
                 </div>
                 <h3 className="font-display text-lg font-bold">About Digital Book Sources</h3>
                 <p className="text-xs text-muted leading-relaxed max-w-2xl">
-                  Books in this digital library are provided through <b>Project Gutenberg</b> and{' '}
-                  <b>Open Library</b>. Project Gutenberg titles are public domain works freely available
-                  to read online and download as EPUB. Open Library materials provide bibliographic records
-                  and digital lending access in accordance with Internet Archive lending terms.
+                  All books in this digital library are 100% free and open to read in your browser. Titles are indexed from{' '}
+                  <b>Project Gutenberg</b> and <b>Internet Archive</b> public collections. Only works that are completely available for online reading without digital borrowing restrictions are included.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -231,6 +241,15 @@ export default function EbooksHomePage() {
                 >
                   <Globe className="size-3.5" />
                   <span>Project Gutenberg</span>
+                </a>
+                <a
+                  href="https://archive.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card/60 px-4 text-xs font-semibold transition hover:border-accent hover:text-accent"
+                >
+                  <Globe className="size-3.5" />
+                  <span>Internet Archive</span>
                 </a>
                 <a
                   href="https://openlibrary.org"
