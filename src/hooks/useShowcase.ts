@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchShowcase, type ShowcaseImage, type ShowcasePools } from '../services/showcase'
 
-const EMPTY: ShowcasePools = { anime: [], manga: [], novel: [], movies: [] }
+const EMPTY: ShowcasePools = { anime: [], manga: [], novel: [], movies: [], ebooks: [] }
 
 /** Artwork pools for the rotating images. Empty until loaded (and forever if every source is down). */
 export function useShowcase(): ShowcasePools {
