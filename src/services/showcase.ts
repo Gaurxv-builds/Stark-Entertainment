@@ -14,7 +14,7 @@ export interface ShowcaseImage {
   title: string
   color?: string | null
 }
-export type ShowcaseKind = 'anime' | 'manga' | 'novel' | 'movies'
+export type ShowcaseKind = 'anime' | 'manga' | 'novel' | 'movies' | 'ebooks'
 export type ShowcasePools = Record<ShowcaseKind, ShowcaseImage[]>
 
 const ENDPOINT = 'https://graphql.anilist.co'
@@ -121,13 +121,30 @@ async function loadMovies(): Promise<ShowcaseImage[]> {
   }
 }
 
+async function loadEbooksShowcase(): Promise<ShowcaseImage[]> {
+  try {
+    const res = await fetch('https://gutendex.com/books/?sort=popular')
+    if (!res.ok) return []
+    const json = await res.json()
+    return (json.results ?? [])
+      .filter((b: { formats?: Record<string, string> }) => b.formats?.['image/jpeg'])
+      .slice(0, 15)
+      .map((b: { title?: string; formats: Record<string, string> }) => ({
+        src: b.formats['image/jpeg'],
+        title: b.title ?? 'Ebook',
+      }))
+  } catch {
+    return []
+  }
+}
+
 let pools: Promise<ShowcasePools> | null = null
 
 /** One shared load for the whole page; a source that fails just yields an empty pool (the card keeps its plain look). */
 export function fetchShowcase(): Promise<ShowcasePools> {
   pools ??= (async () => {
-    const [ani, novel, movies] = await Promise.all([loadAniList().catch(() => ({ anime: [], manga: [] })), loadNovels(), loadMovies()])
-    return { anime: ani.anime, manga: ani.manga, novel, movies }
+    const [ani, novel, movies, ebooks] = await Promise.all([loadAniList().catch(() => ({ anime: [], manga: [] })), loadNovels(), loadMovies(), loadEbooksShowcase()])
+    return { anime: ani.anime, manga: ani.manga, novel, movies, ebooks }
   })()
   return pools
 }

@@ -47,6 +47,11 @@ export function Footer() {
               </li>
             ))}
             <li>
+              <Link to="/ebooks" className="transition-colors hover:text-accent">
+                Ebooks
+              </Link>
+            </li>
+            <li>
               <Link to="/app" className="transition-colors hover:text-accent">
                 Android app
               </Link>
@@ -82,6 +87,16 @@ export function Footer() {
             <li>
               <a href="https://www.themoviedb.org" target="_blank" rel="noreferrer noopener" className="transition-colors hover:text-accent">
                 TMDB
+              </a>
+            </li>
+            <li>
+              <a href="https://www.gutenberg.org" target="_blank" rel="noreferrer noopener" className="transition-colors hover:text-accent">
+                Project Gutenberg
+              </a>
+            </li>
+            <li>
+              <a href="https://openlibrary.org" target="_blank" rel="noreferrer noopener" className="transition-colors hover:text-accent">
+                Open Library
               </a>
             </li>
           </ul>

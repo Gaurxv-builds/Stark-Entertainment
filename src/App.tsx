@@ -28,6 +28,7 @@ const SchedulePage = lazy(() => import('./pages/SchedulePage'))
 const WatchPage = lazy(() => import('./pages/WatchPage'))
 const ListPage = lazy(() => import('./pages/ListPage'))
 const AppPage = lazy(() => import('./pages/AppPage'))
+const EbooksHomePage = lazy(() => import('./pages/EbooksHomePage'))
 const NovelHomePage = lazy(() => import('./pages/NovelHomePage'))
 const NovelDetailsPage = lazy(() => import('./pages/NovelDetailsPage'))
 const NovelReaderPage = lazy(() => import('./pages/NovelReaderPage'))
@@ -89,6 +90,8 @@ export default function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/auth/anilist" element={<AniListCallbackPage />} />
+          {/* Ebooks */}
+          <Route path="/ebooks" element={<EbooksHomePage />} />
           {/* Novels */}
           <Route path="/novel" element={<NovelHomePage />} />
           <Route path="/novel/find" element={<FindPage />} />
