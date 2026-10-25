@@ -214,9 +214,9 @@ function Reader({ source, slug, chapterSlug }: { source: NovelSource; slug: stri
               <Skeleton key={i} className={cn('h-4', i % 4 === 3 ? 'w-1/2' : 'w-full')} />
             ))}
           </div>
-        ) : content.error ? (
+        ) : content.error || (content.data && (!content.data.paragraphs || content.data.paragraphs.length === 0 || content.data.error)) ? (
           <div onClick={(e) => e.stopPropagation()} className="pt-10">
-            <ErrorState message={content.error.message} onRetry={content.reload} />
+            <ErrorState message={content.error?.message || content.data?.error || 'Chapter text could not be loaded from this source.'} onRetry={content.reload} />
             {alt.length > 0 && (
               <p className="mt-6 text-center text-sm" style={{ color: theme.muted }}>
                 Try another source:{' '}

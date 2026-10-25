@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react'
  * Local-only reading library for novels and manga: "continue reading" shelf + reader preferences.
  * Same approach as lib/library.ts — plain localStorage, shared across tabs, memory fallback when blocked.
  */
-export type ReadKind = 'novel' | 'manga'
+export type ReadKind = 'novel' | 'manga' | 'ebooks'
 
 export interface ReadingItem {
   kind: ReadKind

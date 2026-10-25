@@ -10,11 +10,13 @@ export function EbookRow({
   title,
   items,
   loading = false,
+  onSelect,
 }: {
   eyebrow?: string
   title: string
   items?: EbookItem[]
   loading?: boolean
+  onSelect?: (item: EbookItem) => void
 }) {
   const scroller = useRef<HTMLDivElement>(null)
   const scroll = (dir: 1 | -1) => {
@@ -60,7 +62,9 @@ export function EbookRow({
                 <Skeleton className="mt-2 h-3 w-1/2" />
               </div>
             ))
-          : items.map((item, i) => <EbookCard key={item.id} item={item} index={i} />)}
+          : items.map((item, i) => (
+              <EbookCard key={item.id} item={item} index={i} onSelect={onSelect} />
+            ))}
       </div>
     </section>
   )

@@ -13,6 +13,8 @@ import {
 } from '../services/ebooks'
 import { EbookCard } from '../components/EbookCard'
 import { EbookRow } from '../components/EbookRow'
+import { EbookPreviewModal } from '../components/EbookPreviewModal'
+import { ContinueReading } from '../components/ContinueReading'
 import { DiscoverHero } from '../components/DiscoverHero'
 import { ErrorState } from '../components/ErrorState'
 import { Skeleton } from '../components/Skeleton'
@@ -32,6 +34,7 @@ export default function EbooksHomePage() {
   const [query, setQuery] = useState('')
   const term = useDebounced(query.trim(), 400)
   const [category, setCategory] = useState<string>('all')
+  const [previewItem, setPreviewItem] = useState<EbookItem | null>(null)
 
   // Fetch Homepage Shelves
   const home = useAsync(() => fetchEbooksHome(source), [source])
@@ -121,6 +124,11 @@ export default function EbooksHomePage() {
           </div>
         </section>
 
+        {/* Continue Reading Shelf (when not actively searching) */}
+        {!isSearching && !isFiltering && (
+          <ContinueReading kind="ebooks" />
+        )}
+
         {/* View Mode 1: Search or Category Results Grid */}
         {isSearching || isFiltering ? (
           <section className="mx-auto w-full max-w-7xl px-4 sm:px-6">
@@ -160,7 +168,13 @@ export default function EbooksHomePage() {
             ) : results.data && results.data.length > 0 ? (
               <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {results.data.map((b: EbookItem, i: number) => (
-                  <EbookCard key={b.id} item={b} index={i} fluid />
+                  <EbookCard
+                    key={b.id}
+                    item={b}
+                    index={i}
+                    fluid
+                    onSelect={setPreviewItem}
+                  />
                 ))}
               </div>
             ) : (
@@ -183,6 +197,7 @@ export default function EbooksHomePage() {
               title="Featured Reads"
               items={home.data?.featured}
               loading={home.loading}
+              onSelect={setPreviewItem}
             />
 
             {home.data?.textbooks && home.data.textbooks.length > 0 && (
@@ -191,6 +206,7 @@ export default function EbooksHomePage() {
                 title="Academic &amp; College Textbooks"
                 items={home.data?.textbooks}
                 loading={home.loading}
+                onSelect={setPreviewItem}
               />
             )}
 
@@ -199,6 +215,7 @@ export default function EbooksHomePage() {
               title="Popular Classics"
               items={home.data?.classics}
               loading={home.loading}
+              onSelect={setPreviewItem}
             />
 
             <EbookRow
@@ -206,6 +223,7 @@ export default function EbooksHomePage() {
               title="Science &amp; Technology"
               items={home.data?.science}
               loading={home.loading}
+              onSelect={setPreviewItem}
             />
 
             <EbookRow
@@ -213,6 +231,7 @@ export default function EbooksHomePage() {
               title="Philosophy &amp; Ideas"
               items={home.data?.philosophy}
               loading={home.loading}
+              onSelect={setPreviewItem}
             />
           </>
         )}
@@ -265,6 +284,12 @@ export default function EbooksHomePage() {
           </div>
         </section>
       </div>
+
+      {/* Quick Preview Modal */}
+      <EbookPreviewModal
+        item={previewItem}
+        onClose={() => setPreviewItem(null)}
+      />
     </main>
   )
 }

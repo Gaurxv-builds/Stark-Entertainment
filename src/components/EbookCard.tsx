@@ -8,10 +8,12 @@ export const EbookCard = memo(function EbookCard({
   item,
   index = 0,
   fluid = false,
+  onSelect,
 }: {
   item: EbookItem
   index?: number
   fluid?: boolean
+  onSelect?: (item: EbookItem) => void
 }) {
   const tilt = useRef<HTMLDivElement>(null)
   const raf = useRef(0)
@@ -48,7 +50,7 @@ export const EbookCard = memo(function EbookCard({
       )}
       style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
     >
-      <Link to={readPath} onPointerMove={onMove} onPointerLeave={onLeave} className="group block outline-none">
+      <Link to={readPath} onClick={(e) => { if (onSelect) { e.preventDefault(); onSelect(item); } }} onPointerMove={onMove} onPointerLeave={onLeave} className="group block outline-none">
         {/* Cover Artwork Container with 3D Tilt */}
         <div
           ref={tilt}

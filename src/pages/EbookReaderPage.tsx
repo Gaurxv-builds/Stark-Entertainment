@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, House, List, Maximize, Minimize, Minus, Plus, Type, X } from 'lucide-react'
 import { useAsync } from '../hooks/useAsync'
-import { DEFAULT_NOVEL, loadPrefs, savePrefs, type NovelPrefs } from '../lib/reading'
+import { DEFAULT_NOVEL, getReading, loadPrefs, savePrefs, saveReading, type NovelPrefs } from '../lib/reading'
 import { cn } from '../lib/utils'
 import { fetchEbookContent } from '../services/ebooks'
 import { ErrorState } from '../components/ErrorState'
@@ -52,6 +52,21 @@ function EbookReader({ bookId }: { bookId: string }) {
     }
   }, [content.data?.title])
 
+  /* Restore reading position on initial load */
+  const restored = useRef('')
+  useEffect(() => {
+    if (!content.data || restored.current === bookId) return
+    restored.current = bookId
+    const saved = getReading('ebooks', bookId)
+    const y = saved && saved.progress > 0.02 && saved.progress < 0.98 ? saved.progress : 0
+    if (y > 0) {
+      requestAnimationFrame(() => {
+        const max = document.documentElement.scrollHeight - window.innerHeight
+        window.scrollTo({ top: y * max })
+      })
+    }
+  }, [content.data, bookId])
+
   /* Scroll handler for progress bar and auto-hiding top bar */
   const lastScrollY = useRef(0)
   useEffect(() => {
@@ -68,6 +83,46 @@ function EbookReader({ bookId }: { bookId: string }) {
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  /* Throttled reading progress persistence into zk:reading:v1 */
+  const latestProgress = useRef(0)
+  latestProgress.current = progress
+  useEffect(() => {
+    if (!content.data?.title) return
+    const d = content.data
+    const save = () => {
+      saveReading({
+        kind: 'ebooks',
+        id: bookId,
+        title: d.title,
+        cover: d.cover || '',
+        href: `/ebooks/read/${encodeURIComponent(bookId)}`,
+        resume: `/ebooks/read/${encodeURIComponent(bookId)}`,
+        label: d.author || 'Ebook',
+        progress: latestProgress.current,
+      })
+    }
+    save()
+    const timer = window.setInterval(save, 5000)
+    window.addEventListener('pagehide', save)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('pagehide', save)
+      save()
+    }
+  }, [content.data?.title, content.data?.cover, content.data?.author, bookId])
+
+  /* Keyboard shortcuts */
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (e.key === 'Escape') setPanel('none')
+      if (e.key === 'f' || e.key === 'F') toggleFullscreen()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   /* Freeze scroll when side panel is open */
