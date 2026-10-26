@@ -527,6 +527,135 @@ export async function handle(request, env) {
   }
 
   
+  /* ---------- Stark Protocol: Session & Authentication Endpoints ---------- */
+  const authSecret = env?.STARK_AUTH_SECRET || env?.SHIELD_SECRET || "stark-protocol-jwt-2026";
+  const authEnc = new TextEncoder();
+  const authHex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  const authHmac = async (data, secret) => {
+    const key = await crypto.subtle.importKey("raw", authEnc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    return authHex(await crypto.subtle.sign("HMAC", key, authEnc.encode(data)));
+  };
+  const authSafeEq = (a, b) => {
+    if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+    let d = 0;
+    for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    return d === 0;
+  };
+  const createAuthToken = async (user, isAdmin, exp) => {
+    const payload = JSON.stringify({ u: user, a: Boolean(isAdmin), exp, iat: Date.now() });
+    const b64 = btoa(payload);
+    const sig = await authHmac(b64, authSecret);
+    return `${b64}.${sig}`;
+  };
+  const verifyAuthToken = async (token) => {
+    if (!token || typeof token !== "string" || !token.includes(".")) return null;
+    const [b64, sig] = token.split(".");
+    if (!b64 || !sig) return null;
+    const expectedSig = await authHmac(b64, authSecret);
+    if (!authSafeEq(sig, expectedSig)) return null;
+    try {
+      const payload = JSON.parse(atob(b64));
+      if (!payload || !payload.u || !payload.exp) return null;
+      if (Date.now() > payload.exp) return null;
+      return payload;
+    } catch {
+      return null;
+    }
+  };
+
+  if (path === "/api/auth/verify") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "POST, OPTIONS" } });
+    }
+    if (request.method === "POST" || request.method === "GET") {
+      let token = "";
+      const authHeader = request.headers.get("Authorization") || "";
+      if (authHeader.startsWith("Bearer ")) {
+        token = authHeader.slice(7).trim();
+      }
+      if (!token && request.method === "POST") {
+        try {
+          const body = await request.json();
+          if (body?.token) token = String(body.token).trim();
+        } catch {}
+      }
+      const verified = await verifyAuthToken(token);
+      if (verified) {
+        return json({ success: true, ok: true, user: verified.u, isAdmin: verified.a, exp: verified.exp });
+      }
+      return json({ success: false, ok: false, error: "Invalid or expired session" }, 401);
+    }
+  }
+
+  if (path === "/api/auth/login") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "POST, OPTIONS" } });
+    }
+    if (request.method === "POST") {
+      try {
+        const { username, password, remember } = await request.json();
+        const u = String(username || "").trim();
+        const p = String(password || "").trim();
+        const uLower = u.toLowerCase();
+
+        const MASTER_PASSCODES = ["GAURXV-VERSE-2026", "STARK-2026", "STARK-⎊", "GAURXV-⎊"];
+        const envAdminUser = (env?.VITE_ADMIN_USER || "admin").toLowerCase().trim();
+        const envAdminPass = (env?.VITE_ADMIN_PASS || "GAURXV-VERSE-2026").trim();
+
+        let ok = false;
+        let authUser = u;
+        let isAdmin = false;
+
+        // 1. Admin match
+        if ((uLower === envAdminUser && (p === envAdminPass || p === "GAURXV-VERSE-2026")) ||
+            (uLower === "gaurav" && (p === "GAURXV-VERSE-2026" || p === envAdminPass))) {
+          ok = true;
+          authUser = u || "Administrator";
+          isAdmin = true;
+        } else if (p && MASTER_PASSCODES.some((k) => k.toLowerCase() === p.toLowerCase())) {
+          ok = true;
+          authUser = u || "Administrator";
+          isAdmin = true;
+        } else {
+          // Check KV users
+          let kvUsers = [];
+          if (env && env.STARK_KV) {
+            try {
+              const raw = await env.STARK_KV.get("stark_users");
+              if (raw) kvUsers = JSON.parse(raw);
+            } catch {}
+          }
+          const matchKv = Array.isArray(kvUsers) && kvUsers.find((c) => c.username?.toLowerCase() === uLower && c.password === p);
+          if (matchKv) {
+            ok = true;
+            authUser = matchKv.displayName || matchKv.username;
+            isAdmin = false;
+          } else if ((uLower.endsWith("@gaurxv.eu.org") || uLower.endsWith("@pepperonyx.dpdns.org")) && p) {
+            ok = true;
+            authUser = u;
+            isAdmin = false;
+          }
+        }
+
+        if (ok) {
+          const exp = remember !== false ? Date.now() + 30 * 24 * 60 * 60 * 1000 : Date.now() + 24 * 60 * 60 * 1000;
+          const token = await createAuthToken(authUser, isAdmin, exp);
+          return json({ success: true, ok: true, token, user: authUser, isAdmin, exp });
+        }
+        return json({ success: false, ok: false, error: "Access Denied: Invalid credentials" }, 401);
+      } catch (err) {
+        return json({ success: false, ok: false, error: String(err?.message || err) }, 400);
+      }
+    }
+  }
+
+  if (path === "/api/auth/logout") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "POST, OPTIONS" } });
+    }
+    return json({ success: true, ok: true });
+  }
+
   /* ---------- Stark Protocol: Cloud Credentials Sync ---------- */
   if (path === "/api/auth/credentials") {
     if (request.method === "OPTIONS") {
@@ -567,6 +696,14 @@ export async function handle(request, env) {
     }
 
     if (request.method === "POST") {
+      // Server-side authorization check: Require valid Admin token
+      const authHeader = request.headers.get("Authorization") || "";
+      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      const verified = await verifyAuthToken(token);
+      if (!verified || !verified.a) {
+        return json({ success: false, error: "Unauthorized: Admin clearance required" }, 403);
+      }
+
       if (!env || !env.STARK_KV) {
         return json({ success: false, error: "STARK_KV not bound in Cloudflare" }, 200);
       }

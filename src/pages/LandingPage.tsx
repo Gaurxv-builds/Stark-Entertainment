@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowUpRight, BookMarked, BookOpen, Clapperboard, Film, Library, type LucideIcon } from 'lucide-react'
+import { ArrowUpRight, BookMarked, BookOpen, Clapperboard, Film, Library, LogOut, ShieldAlert, User, type LucideIcon } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { AuroraBackground } from '../components/AuroraBackground'
 import { BlurText } from '../components/BlurText'
@@ -11,6 +11,7 @@ import { Particles } from '../components/Particles'
 import { BRAND_MARK, BRAND_TAGLINE, pageTitle } from '../lib/brand'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { useCompact, useShowcase } from '../hooks/useShowcase'
+import { useStarkAuth } from '../lib/starkAuth'
 import type { ShowcaseImage } from '../services/showcase'
 
 interface Section {
@@ -35,6 +36,7 @@ const SECTIONS: Section[] = [
 /** The opening page: pick what to dive into. Anime, Manga and Novels are all live. */
 export default function LandingPage() {
   const navigate = useNavigate()
+  const { user, isAdmin, logout } = useStarkAuth()
   const [shake, setShake] = useState<string | null>(null)
   const timers = useRef<number[]>([])
   const pools = useShowcase() // random Luffy / Naruto / cover art for each card
@@ -73,9 +75,42 @@ export default function LandingPage() {
       <DotPattern className="-z-10 [mask-image:radial-gradient(700px_circle_at_50%_40%,white,transparent)]" />
       <Particles count={50} className="-z-10 opacity-60" />
 
+      {/* Main Screen Header with Universal Logout */}
       <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-5 pt-5 sm:px-8 sm:pt-7">
         <Logo size={38} />
-        <ThemeToggle />
+        <div className="flex items-center gap-2 sm:gap-3">
+          {user && (
+            <Link
+              to="/profile"
+              title="Profile"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1.5 text-xs font-semibold backdrop-blur transition hover:bg-card hover:text-accent active:scale-95"
+            >
+              <User className="size-3.5 text-accent" />
+              <span className="hidden sm:inline">{user}</span>
+            </Link>
+          )}
+          {isAdmin && (
+            <Link
+              to="/admin"
+              title="Admin Console"
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-xs font-bold text-accent transition hover:bg-accent hover:text-accent-fg active:scale-95"
+            >
+              <ShieldAlert className="size-3.5" />
+              <span className="hidden sm:inline">Admin ⎊</span>
+            </Link>
+          )}
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => logout()}
+            title="Log out of Gaurxv Verse"
+            aria-label="Logout"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-3 text-xs font-semibold text-red-400 backdrop-blur transition hover:bg-red-500/20 hover:text-red-300 active:scale-95 sm:px-3.5"
+          >
+            <LogOut className="size-3.5" />
+            <span>Logout</span>
+          </button>
+        </div>
       </header>
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-5 sm:px-8 sm:py-8 lg:py-12">

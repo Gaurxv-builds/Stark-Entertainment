@@ -1,12 +1,16 @@
-import { useState } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { saveProfile, getProfile } from './profile'
+import { toast } from './toast'
 
 const AUTH_STORAGE_KEY = 'gaurxv_verse_auth'
+const AUTH_TOKEN_KEY = 'gaurxv_verse_auth_token'
 const AUTH_USER_KEY = 'gaurxv_verse_auth_user'
 const AUTH_IS_ADMIN_KEY = 'gaurxv_verse_is_admin'
 const AUTH_EXPIRY_KEY = 'gaurxv_verse_auth_exp'
 const CREATED_CREDENTIALS_KEY = 'gaurxv_created_credentials'
 const REVOKED_CREDENTIALS_KEY = 'gaurxv_revoked_credentials'
+
+const CLIENT_AUTH_SECRET = 'stark-protocol-jwt-2026'
 
 export interface Credential {
   username: string
@@ -15,16 +19,65 @@ export interface Credential {
   createdAt?: string
 }
 
-// Built-in created credentials (can be deleted/revoked by admin)
 export const BUILTIN_CREDENTIALS: Credential[] = []
 
-// Built-in master passcodes
 const MASTER_PASSCODES = [
   'GAURXV-VERSE-2026',
   'STARK-2026',
   'STARK-⎊',
   'GAURXV-⎊',
 ]
+
+/* ---------------- Web Crypto HMAC Helpers ---------------- */
+const enc = new TextEncoder()
+
+async function hmacSign(data: string, secret: string = CLIENT_AUTH_SECRET): Promise<string> {
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    )
+    const sig = await crypto.subtle.sign('HMAC', key, enc.encode(data))
+    return Array.from(new Uint8Array(sig))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+  } catch {
+    return ''
+  }
+}
+
+function safeEq(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false
+  let d = 0
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return d === 0
+}
+
+export async function createClientToken(user: string, isAdmin: boolean, exp: number): Promise<string> {
+  const payload = JSON.stringify({ u: user, a: Boolean(isAdmin), exp, iat: Date.now() })
+  const b64 = btoa(payload)
+  const sig = await hmacSign(b64)
+  return `${b64}.${sig}`
+}
+
+export async function verifyClientToken(token: string): Promise<{ u: string; a: boolean; exp: number } | null> {
+  if (!token || typeof token !== 'string' || !token.includes('.')) return null
+  const [b64, sig] = token.split('.')
+  if (!b64 || !sig) return null
+  const expectedSig = await hmacSign(b64)
+  if (!safeEq(sig, expectedSig)) return null
+  try {
+    const payload = JSON.parse(atob(b64))
+    if (!payload || !payload.u || !payload.exp) return null
+    if (Date.now() > payload.exp) return null
+    return payload
+  } catch {
+    return null
+  }
+}
 
 /** Get revoked/deleted usernames */
 export function getRevokedUsernames(): string[] {
@@ -112,7 +165,6 @@ export function addCreatedCredential(cred: Credential, syncToCloud = true) {
   const current = getCreatedCredentials()
   const u = cred.username.toLowerCase().trim()
 
-  // Un-revoke if it was previously revoked
   const revoked = getRevokedUsernames().filter((r) => r !== u)
   localStorage.setItem(REVOKED_CREDENTIALS_KEY, JSON.stringify(revoked))
 
@@ -136,26 +188,22 @@ export function deleteCreatedCredential(username: string) {
   localStorage.setItem(CREATED_CREDENTIALS_KEY, JSON.stringify(filtered))
 }
 
-/** Get all active credentials combined (Admin only) excluding deleted/revoked users */
 export function getAllCredentials(): Credential[] {
   const map = new Map<string, Credential>()
   const revoked = getRevokedUsernames()
 
-  // Built-in
   BUILTIN_CREDENTIALS.forEach((c) => {
     if (!revoked.includes(c.username.toLowerCase())) {
       map.set(c.username.toLowerCase(), c)
     }
   })
 
-  // From environment
   getCustomCredentials().forEach((c) => {
     if (!revoked.includes(c.username.toLowerCase())) {
       map.set(c.username.toLowerCase(), c)
     }
   })
 
-  // Created locally by Admin
   getCreatedCredentials().forEach((c) => {
     if (!revoked.includes(c.username.toLowerCase())) {
       map.set(c.username.toLowerCase(), c)
@@ -165,7 +213,6 @@ export function getAllCredentials(): Credential[] {
   return Array.from(map.values())
 }
 
-/** Verify username & password or standalone master passcode */
 export function verifyCredentials(
   username: string,
   password: string
@@ -175,7 +222,6 @@ export function verifyCredentials(
   const uLower = u.toLowerCase()
   const revoked = getRevokedUsernames()
 
-  // Block any deleted / revoked user
   if (u && revoked.includes(uLower)) {
     return { ok: false, user: '', isAdmin: false }
   }
@@ -227,7 +273,7 @@ export function verifyCredentials(
     return { ok: true, user: matchBuiltin.displayName || matchBuiltin.username, isAdmin: false }
   }
 
-  // 6. Check Authorized Email domain with non-empty password
+  // 6. Check Authorized Email domain
   if ((uLower.endsWith('@gaurxv.eu.org') || uLower.endsWith('@pepperonyx.dpdns.org')) && p) {
     return { ok: true, user: u, isAdmin: false }
   }
@@ -235,15 +281,17 @@ export function verifyCredentials(
   return { ok: false, user: '', isAdmin: false }
 }
 
-export function saveAuthSession(user: string, isAdmin: boolean, remember: boolean = true) {
+export function saveAuthSession(user: string, isAdmin: boolean, remember: boolean = true, token?: string) {
   try {
-    const expiresAt = remember ? Date.now() + 30 * 24 * 60 * 60 * 1000 : 0
+    const expiresAt = remember ? Date.now() + 30 * 24 * 60 * 60 * 1000 : Date.now() + 24 * 60 * 60 * 1000
     localStorage.setItem(AUTH_STORAGE_KEY, 'authorized')
     localStorage.setItem(AUTH_USER_KEY, user)
     localStorage.setItem(AUTH_IS_ADMIN_KEY, isAdmin ? 'true' : 'false')
     localStorage.setItem(AUTH_EXPIRY_KEY, String(expiresAt))
+    if (token) {
+      localStorage.setItem(AUTH_TOKEN_KEY, token)
+    }
 
-    // Automatically synchronize display name into profile if unset or default
     const p = getProfile()
     if (!p.name || p.name === 'Guest') {
       saveProfile({ name: user })
@@ -254,16 +302,26 @@ export function saveAuthSession(user: string, isAdmin: boolean, remember: boolea
 export function clearAuthSession() {
   try {
     localStorage.removeItem(AUTH_STORAGE_KEY)
+    localStorage.removeItem(AUTH_TOKEN_KEY)
     localStorage.removeItem(AUTH_USER_KEY)
     localStorage.removeItem(AUTH_IS_ADMIN_KEY)
     localStorage.removeItem(AUTH_EXPIRY_KEY)
   } catch {}
 }
 
+export function getAuthToken(): string {
+  try {
+    return localStorage.getItem(AUTH_TOKEN_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
 export function isSessionValid(): boolean {
   try {
-    const token = localStorage.getItem(AUTH_STORAGE_KEY)
-    if (!token) return false
+    const authFlag = localStorage.getItem(AUTH_STORAGE_KEY)
+    const token = localStorage.getItem(AUTH_TOKEN_KEY)
+    if (!authFlag && !token) return false
     const exp = Number(localStorage.getItem(AUTH_EXPIRY_KEY) || 0)
     if (exp > 0 && Date.now() > exp) {
       clearAuthSession()
@@ -283,8 +341,14 @@ export function isCurrentAdmin(): boolean {
   }
 }
 
+export function getAuthenticatedUser(): string {
+  try {
+    return localStorage.getItem(AUTH_USER_KEY) || (isCurrentAdmin() ? 'Administrator' : '')
+  } catch {
+    return ''
+  }
+}
 
-/** Generate 1-click device sync link */
 export function generateDeviceSyncUrl(): string {
   const users = getCreatedCredentials()
   const minified = users.map((u) => ({
@@ -303,7 +367,6 @@ export function generateDeviceSyncUrl(): string {
   return `${origin}/admin?sync=${encodeURIComponent(b64)}`
 }
 
-/** Check URL for incoming sync payload (?sync=...) and import credentials */
 export function checkAndImportSyncPayload(): number {
   if (typeof window === 'undefined') return 0
   try {
@@ -340,7 +403,6 @@ export function checkAndImportSyncPayload(): number {
         }
       }
 
-      // Clean sync param from URL without reload
       const newUrl = new URL(window.location.href)
       newUrl.searchParams.delete('sync')
       window.history.replaceState({}, '', newUrl.pathname + (newUrl.search ? newUrl.search : ''))
@@ -353,7 +415,6 @@ export function checkAndImportSyncPayload(): number {
   return 0
 }
 
-/** Check if Cloudflare KV is connected and sync cloud credentials */
 export async function syncCredentialsWithCloud(): Promise<{ kvConnected: boolean; count: number }> {
   try {
     const res = await fetch('/api/auth/credentials')
@@ -361,7 +422,6 @@ export async function syncCredentialsWithCloud(): Promise<{ kvConnected: boolean
       const data = await res.json()
       if (data && data.success) {
         if (data.kvConnected && Array.isArray(data.users)) {
-          // Cloudflare KV is authoritative master
           localStorage.setItem(CREATED_CREDENTIALS_KEY, JSON.stringify(data.users))
           return { kvConnected: true, count: data.users.length }
         } else if (Array.isArray(data.users) && data.users.length > 0) {
@@ -382,12 +442,15 @@ export async function syncCredentialsWithCloud(): Promise<{ kvConnected: boolean
   return { kvConnected: false, count: 0 }
 }
 
-/** Push credentials to Cloudflare KV */
 export async function pushCredentialsToCloud(users: Credential[]): Promise<boolean> {
   try {
+    const token = getAuthToken()
     const res = await fetch('/api/auth/credentials', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ users }),
     })
     if (res.ok) {
@@ -398,28 +461,184 @@ export async function pushCredentialsToCloud(users: Credential[]): Promise<boole
   return false
 }
 
-export function getAuthenticatedUser(): string {
-  try {
-    return localStorage.getItem(AUTH_USER_KEY) || (isCurrentAdmin() ? 'Administrator' : '')
-  } catch {
-    return ''
-  }
+/* ---------------- Centralized React Auth Context ---------------- */
+export interface StarkAuthContextType {
+  authenticated: boolean
+  loading: boolean
+  user: string
+  isAdmin: boolean
+  token: string
+  unlock: (username: string, password: string, remember?: boolean) => Promise<boolean>
+  lock: () => void
+  logout: () => Promise<void>
 }
 
-export function useStarkAuth() {
-  const [authenticated, setAuthenticated] = useState<boolean>(() => isSessionValid())
-  const [user, setUser] = useState<string>(() => getAuthenticatedUser())
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => isCurrentAdmin())
+const StarkAuthContext = createContext<StarkAuthContextType | null>(null)
 
-  const unlock = (username: string, password: string, remember: boolean = true): boolean => {
-    const res = verifyCredentials(username, password)
-    if (res.ok) {
-      saveAuthSession(res.user, res.isAdmin, remember)
-      setUser(res.user)
-      setIsAdmin(res.isAdmin)
-      setAuthenticated(true)
+export function StarkAuthProvider({ children }: { children: ReactNode }) {
+  const [authenticated, setAuthenticated] = useState<boolean>(false)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [user, setUser] = useState<string>('')
+  const [isAdmin, setIsAdmin] = useState<boolean>(false)
+  const [token, setToken] = useState<string>('')
+
+  // Startup verification: verify session before rendering protected content
+  useEffect(() => {
+    let cancelled = false
+
+    async function verifyStartupSession() {
+      if (!isSessionValid()) {
+        clearAuthSession()
+        if (!cancelled) {
+          setAuthenticated(false)
+          setUser('')
+          setIsAdmin(false)
+          setToken('')
+          setLoading(false)
+        }
+        return
+      }
+
+      const storedToken = getAuthToken()
+      const storedUser = getAuthenticatedUser()
+      const storedAdmin = isCurrentAdmin()
+
+      // If token exists, verify with backend endpoint
+      if (storedToken) {
+        try {
+          const res = await fetch('/api/auth/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${storedToken}`,
+            },
+            body: JSON.stringify({ token: storedToken }),
+          })
+
+          if (res.ok) {
+            const data = await res.json()
+            if (data && data.ok) {
+              if (!cancelled) {
+                setUser(data.user || storedUser)
+                setIsAdmin(Boolean(data.isAdmin ?? storedAdmin))
+                setToken(storedToken)
+                setAuthenticated(true)
+                setLoading(false)
+              }
+              return
+            }
+          } else if (res.status === 401 || res.status === 403) {
+            // Token explicitly rejected by server (expired, tampered, or revoked)
+            clearAuthSession()
+            if (!cancelled) {
+              setAuthenticated(false)
+              setUser('')
+              setIsAdmin(false)
+              setToken('')
+              setLoading(false)
+            }
+            return
+          }
+        } catch {
+          // Server offline or network unreachable; fallback to client verification
+        }
+
+        // Local token check fallback
+        const verifiedLocal = await verifyClientToken(storedToken)
+        if (verifiedLocal) {
+          if (!cancelled) {
+            setUser(verifiedLocal.u || storedUser)
+            setIsAdmin(verifiedLocal.a ?? storedAdmin)
+            setToken(storedToken)
+            setAuthenticated(true)
+            setLoading(false)
+          }
+          return
+        }
+      }
+
+      // If legacy session flag is present and not expired, generate new signed token
+      if (localStorage.getItem(AUTH_STORAGE_KEY) === 'authorized' && storedUser) {
+        const exp = Number(localStorage.getItem(AUTH_EXPIRY_KEY) || 0) || Date.now() + 30 * 24 * 60 * 60 * 1000
+        const newToken = await createClientToken(storedUser, storedAdmin, exp)
+        saveAuthSession(storedUser, storedAdmin, true, newToken)
+        if (!cancelled) {
+          setUser(storedUser)
+          setIsAdmin(storedAdmin)
+          setToken(newToken)
+          setAuthenticated(true)
+          setLoading(false)
+        }
+        return
+      }
+
+      clearAuthSession()
+      if (!cancelled) {
+        setAuthenticated(false)
+        setUser('')
+        setIsAdmin(false)
+        setToken('')
+        setLoading(false)
+      }
+    }
+
+    verifyStartupSession()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const unlock = async (username: string, password: string, remember: boolean = true): Promise<boolean> => {
+    const u = username.trim()
+    const p = password.trim()
+    if (!p) return false
+
+    // 1. Try server-side authentication endpoint
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p, remember }),
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        if (data && data.ok) {
+          const authUser = data.user || u
+          const adminFlag = Boolean(data.isAdmin)
+          const sessionToken = data.token || (await createClientToken(authUser, adminFlag, data.exp))
+          saveAuthSession(authUser, adminFlag, remember, sessionToken)
+          setUser(authUser)
+          setIsAdmin(adminFlag)
+          setToken(sessionToken)
+
+          // 500ms delay gives StarkLoginGate time to display ACCESS GRANTED animation
+          setTimeout(() => {
+            setAuthenticated(true)
+          }, 500)
+          return true
+        }
+      }
+    } catch {
+      // Backend not running or offline; proceed to verified local credentials check
+    }
+
+    // 2. Local verified credentials fallback (master passcodes, admin credentials, domain emails)
+    const localRes = verifyCredentials(u, p)
+    if (localRes.ok) {
+      const exp = remember ? Date.now() + 30 * 24 * 60 * 60 * 1000 : Date.now() + 24 * 60 * 60 * 1000
+      const sessionToken = await createClientToken(localRes.user, localRes.isAdmin, exp)
+      saveAuthSession(localRes.user, localRes.isAdmin, remember, sessionToken)
+      setUser(localRes.user)
+      setIsAdmin(localRes.isAdmin)
+      setToken(sessionToken)
+
+      setTimeout(() => {
+        setAuthenticated(true)
+      }, 500)
       return true
     }
+
     return false
   }
 
@@ -427,8 +646,59 @@ export function useStarkAuth() {
     clearAuthSession()
     setUser('')
     setIsAdmin(false)
+    setToken('')
     setAuthenticated(false)
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
   }
 
-  return { authenticated, user, isAdmin, unlock, lock }
+  const logout = async () => {
+    try {
+      lock()
+      toast('Signed out of Gaurxv Verse', 'info')
+    } catch {
+      toast('Logout encountered an issue, session cleared', 'error')
+    }
+  }
+
+  return (
+    <StarkAuthContext.Provider
+      value={{
+        authenticated,
+        loading,
+        user,
+        isAdmin,
+        token,
+        unlock,
+        lock,
+        logout,
+      }}
+    >
+      {children}
+    </StarkAuthContext.Provider>
+  )
+}
+
+/** Hook to access centralized Stark authentication state and methods */
+export function useStarkAuth(): StarkAuthContextType {
+  const ctx = useContext(StarkAuthContext)
+  if (ctx) return ctx
+
+  // Fallback if accessed outside Provider
+  return {
+    authenticated: isSessionValid(),
+    loading: false,
+    user: getAuthenticatedUser(),
+    isAdmin: isCurrentAdmin(),
+    token: getAuthToken(),
+    unlock: async (u, p, r) => {
+      const res = verifyCredentials(u, p)
+      if (res.ok) {
+        saveAuthSession(res.user, res.isAdmin, r)
+        return true
+      }
+      return false
+    },
+    lock: () => clearAuthSession(),
+    logout: async () => clearAuthSession(),
+  }
 }

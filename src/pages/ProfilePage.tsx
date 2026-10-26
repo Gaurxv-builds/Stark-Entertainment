@@ -130,7 +130,6 @@ export default function ProfilePage() {
               onClick={() => {
                 lock()
                 toast('Stark Security Gate locked')
-                window.location.reload()
               }}
               className="inline-flex h-8 items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-3 text-xs font-semibold text-red-400 transition hover:bg-red-500/20 active:scale-95"
             >

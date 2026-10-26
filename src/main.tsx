@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { SearchProvider } from './context/SearchContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { StarkAuthProvider } from './lib/starkAuth'
 import { startShield } from './lib/shield'
 import './index.css'
 
@@ -14,7 +15,9 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <ThemeProvider>
         <SearchProvider>
-          <App />
+          <StarkAuthProvider>
+            <App />
+          </StarkAuthProvider>
         </SearchProvider>
       </ThemeProvider>
     </BrowserRouter>

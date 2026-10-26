@@ -9,7 +9,7 @@ import { DotPattern } from './DotPattern'
 import { Logo } from './Logo'
 
 interface StarkLoginGateProps {
-  onUnlock: (username: string, passcode: string, remember: boolean) => boolean
+  onUnlock: (username: string, passcode: string, remember: boolean) => Promise<boolean> | boolean
 }
 
 /** DotLottie custom element rendered via createElement to prevent JSX type collision */
@@ -45,10 +45,10 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
 
     // Smooth verification feedback
     setTimeout(async () => {
-      let ok = onUnlock(username, password, remember)
+      let ok = await Promise.resolve(onUnlock(username, password, remember))
       if (!ok) {
         await syncCredentialsWithCloud()
-        ok = onUnlock(username, password, remember)
+        ok = await Promise.resolve(onUnlock(username, password, remember))
       }
       if (ok) {
         setGranted(true)

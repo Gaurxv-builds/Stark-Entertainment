@@ -11,6 +11,9 @@ import { MovieSearchModal } from './components/MovieSearchModal'
 import { TopLoader } from './components/TopLoader'
 import { ScrollProgress } from './components/ScrollProgress'
 import { ScrollToTop } from './components/ScrollToTop'
+import { StarkLoginGate } from './components/StarkLoginGate'
+import { StarkLoadingScreen } from './components/StarkLoadingScreen'
+import { useStarkAuth } from './lib/starkAuth'
 import { isDetailsPath, isReaderPath, isWatchPath, sectionOf } from './lib/sections'
 
 const LandingPage = lazy(() => import('./pages/LandingPage'))
@@ -41,7 +44,7 @@ const FindPage = lazy(() => import('./pages/FindPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 export default function App() {
-  // The opening page is a clean full-screen picker: no navbar, dock, footer or search.
+  const { authenticated, loading, unlock } = useStarkAuth()
   const { pathname } = useLocation()
   const bare = pathname === '/' || isReaderPath(pathname) || isWatchPath(pathname)
   const isDetails = isDetailsPath(pathname)
@@ -68,6 +71,30 @@ export default function App() {
     delete document.documentElement.dataset.zkMono
   }
 
+  // 1. Initial verification loading state: show security clearance verification screen
+  if (loading) {
+    return (
+      <>
+        <TopLoader />
+        <StarkLoadingScreen />
+        <ShieldGate />
+      </>
+    )
+  }
+
+  // 2. Unauthenticated state: display Stark Login Gate (blocks all protected content and subroutes)
+  if (!authenticated) {
+    return (
+      <>
+        <TopLoader />
+        <StarkLoginGate onUnlock={unlock} />
+        <Toaster />
+        <ShieldGate />
+      </>
+    )
+  }
+
+  // 3. Authenticated state: render normal application and protected routes
   return (
     <>
       <TopLoader />

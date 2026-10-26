@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Compass, Download, House, Search, ShieldAlert } from 'lucide-react'
+import { Compass, Download, House, LogOut, Search, ShieldAlert } from 'lucide-react'
 import { MOVIE_LINKS, NAV_LINKS } from '../lib/constants'
 import { sectionOf } from '../lib/sections'
 import { cn } from '../lib/utils'
@@ -16,7 +16,7 @@ import { useProfile } from '../lib/profile'
 export function Navbar() {
   const { openSearch } = useSearch()
   const me = useProfile()
-  const { isAdmin } = useStarkAuth()
+  const { isAdmin, logout } = useStarkAuth()
   const { pathname, search } = useLocation()
   const section = sectionOf(pathname)
   const anime = section === 'anime'
@@ -158,6 +158,16 @@ export function Navbar() {
             </Link>
           )}
           <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => logout()}
+            title="Log out of Gaurxv Verse"
+            aria-label="Logout"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 text-xs font-semibold text-red-400 transition hover:bg-red-500/20 hover:text-red-300 active:scale-95"
+          >
+            <LogOut className="size-3" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
           <Link to="/profile" aria-label="Your profile" title={me.name || 'Profile'} className="ml-1 rounded-full transition active:scale-90">
             <Avatar size={34} src={me.avatar} frame={me.frame} name={me.name} />
           </Link>

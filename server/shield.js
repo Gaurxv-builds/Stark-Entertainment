@@ -126,7 +126,7 @@ export async function shield(request, env, path, json) {
 
   // Media (hls.js / <img>) can't send headers: they only get the rate limit. The Android app is let through the same way.
   const app = /Aniverse\/|Zenkai/i.test(request.headers.get("User-Agent") || "") || request.headers.has("X-Zenkai-Client");
-  if (cat === "proxy" || app) return null;
+  if (cat === "proxy" || app || path.startsWith("/api/auth/")) return null;
 
   const token = request.headers.get("X-Zenkai-Shield");
   if (!token) return json({ error: "Verification required", code: "SHIELD_VERIFICATION_REQUIRED" }, 401);
