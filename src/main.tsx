@@ -9,7 +9,35 @@ import { StarkAuthProvider } from './lib/starkAuth'
 import { startShield } from './lib/shield'
 import './index.css'
 
-registerSW({ immediate: true })
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    updateSW(true)
+  },
+  onRegisteredSW(_swUrl, registration) {
+    if (registration) {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          registration.update().catch(() => {})
+        }
+      })
+      setInterval(() => {
+        registration.update().catch(() => {})
+      }, 60 * 1000)
+    }
+  },
+})
+
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  let refreshing = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true
+      window.location.reload()
+    }
+  })
+}
+
 startShield()
 
 createRoot(document.getElementById('root')!).render(
