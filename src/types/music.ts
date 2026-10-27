@@ -9,6 +9,8 @@ export interface Lyrics {
   source: string
 }
 
+export type MusicProvider = 'saavn' | 'piped' | 'archive' | 'ytmusic_exp' | 'monochrome_exp'
+
 export interface Track {
   id: string
   title: string
@@ -18,7 +20,7 @@ export interface Track {
   artworkUrl?: string
   duration: number // in seconds
   streamUrl?: string
-  provider: 'audius' | 'archive' | 'ytmusic_exp' | 'monochrome_exp'
+  provider: MusicProvider
   providerLabel: string
   isPreview?: boolean
   genre?: string
@@ -48,16 +50,17 @@ export interface MusicShelf {
 
 export interface MusicShelves {
   trending: Track[]
+  bollywood: Track[]
+  punjabi: Track[]
+  pop: Track[]
   lofi: Track[]
-  electronic: Track[]
   hiphop: Track[]
 }
 
 export interface MusicProviderSettings {
-  audius: boolean
-  archive: boolean
-  ytmusic_exp: boolean
-  monochrome_exp: boolean
+  saavn: boolean // Default: true
+  piped: boolean // Default: true
+  archive: boolean // Default: false
 }
 
 export interface MusicProviderInfo {

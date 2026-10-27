@@ -7,7 +7,12 @@ import {
   type ReactNode,
 } from 'react'
 import type { Track, Playlist, Lyrics, MusicProviderSettings } from '../types/music'
-import { resolveTrackLyrics, getMusicSettings, saveMusicSettings } from '../services/music'
+import {
+  resolveTrackLyrics,
+  getMusicSettings,
+  saveMusicSettings,
+  resolvePipedStreamUrl,
+} from '../services/music'
 import { toast } from '../lib/toast'
 
 const FAVORITES_KEY = 'zk:music:favorites:v1'
@@ -230,8 +235,17 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       setDuration(track.duration || 0)
       setLyrics(null)
 
-      if (track.streamUrl) {
-        audio.src = track.streamUrl
+      let stream = track.streamUrl
+      if (!stream && track.provider === 'piped') {
+        const videoId = track.id.replace(/^piped:/, '')
+        try {
+          const resolved = await resolvePipedStreamUrl(videoId)
+          if (resolved) stream = resolved
+        } catch {}
+      }
+
+      if (stream) {
+        audio.src = stream
         try {
           await audio.play()
         } catch (err) {
@@ -457,10 +471,9 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const updateProviderSettings = (newSettings: Partial<MusicProviderSettings>) => {
     setProviderSettings((prev) => {
       const next: MusicProviderSettings = {
-        audius: newSettings.audius ?? prev.audius,
+        saavn: newSettings.saavn ?? prev.saavn,
+        piped: newSettings.piped ?? prev.piped,
         archive: newSettings.archive ?? prev.archive,
-        ytmusic_exp: newSettings.ytmusic_exp ?? prev.ytmusic_exp,
-        monochrome_exp: newSettings.monochrome_exp ?? prev.monochrome_exp,
       }
       saveMusicSettings(next)
       return next

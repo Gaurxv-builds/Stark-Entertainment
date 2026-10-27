@@ -98,18 +98,33 @@ test('services/integrations exports Trakt, Jellyfin, and Komga connectors', () =
   assert(jellyfin.includes('isSafeServerUrl'), 'SSRF check function must exist in jellyfin.ts')
 })
 
-// 8. Music Engine Core Services & Types
-test('Music engine types and services exist with Audius and LRCLIB integration', () => {
+// 8. Music Engine Core Services & Types (JioSaavn & Piped)
+test('Music engine types and services exist with JioSaavn and Piped integration (Audius removed)', () => {
   assert(fs.existsSync('src/types/music.ts'), 'src/types/music.ts must exist')
-  assert(fs.existsSync('src/services/music/audius.ts'), 'audius.ts must exist')
+  assert(!fs.existsSync('src/services/music/audius.ts'), 'audius.ts must be deleted')
+  assert(fs.existsSync('src/services/music/saavn.ts'), 'saavn.ts must exist')
+  assert(fs.existsSync('src/services/music/piped.ts'), 'piped.ts must exist')
   assert(fs.existsSync('src/services/music/lyrics.ts'), 'lyrics.ts must exist')
   assert(fs.existsSync('src/services/music/archive.ts'), 'archive.ts must exist')
   assert(fs.existsSync('src/services/music/experimental.ts'), 'experimental.ts must exist')
   assert(fs.existsSync('src/services/music/index.ts'), 'index.ts must exist')
 
-  const audiusContent = fs.readFileSync('src/services/music/audius.ts', 'utf8')
-  assert(audiusContent.includes('searchAudiusTracks'), 'searchAudiusTracks must exist')
-  assert(audiusContent.includes('getAudiusTrending'), 'getAudiusTrending must exist')
+  const saavnContent = fs.readFileSync('src/services/music/saavn.ts', 'utf8')
+  assert(saavnContent.includes('searchSaavnTracks'), 'searchSaavnTracks must exist')
+  assert(saavnContent.includes('getSaavnTrending'), 'getSaavnTrending must exist')
+
+  const pipedContent = fs.readFileSync('src/services/music/piped.ts', 'utf8')
+  assert(pipedContent.includes('searchPipedTracks'), 'searchPipedTracks must exist')
+  assert(pipedContent.includes('getPipedTrending'), 'getPipedTrending must exist')
+
+  const indexContent = fs.readFileSync('src/services/music/index.ts', 'utf8')
+  assert(indexContent.includes('zk:music:providers:v2'), 'index.ts must use zk:music:providers:v2 storage key')
+  assert(!indexContent.includes('audius'), 'index.ts must not reference audius')
+
+  const typesContent = fs.readFileSync('src/types/music.ts', 'utf8')
+  assert(!typesContent.includes('audius'), 'types/music.ts must not reference audius')
+  assert(typesContent.includes('saavn: boolean'), 'MusicProviderSettings must support saavn')
+  assert(typesContent.includes('piped: boolean'), 'MusicProviderSettings must support piped')
 
   const lyricsContent = fs.readFileSync('src/services/music/lyrics.ts', 'utf8')
   assert(lyricsContent.includes('parseLrc'), 'parseLrc timestamp parser must exist')

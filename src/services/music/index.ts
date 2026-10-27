@@ -1,38 +1,50 @@
-import type { Track, Lyrics, MusicShelf, MusicShelves, MusicProviderSettings } from '../../types/music'
-import { searchAudiusTracks, getAudiusTrending } from './audius'
+import type {
+  Track,
+  Lyrics,
+  MusicShelf,
+  MusicShelves,
+  MusicProviderSettings,
+} from '../../types/music'
+import { searchSaavnTracks, getSaavnTrending } from './saavn'
+import { searchPipedTracks, getPipedTrending } from './piped'
 import { searchArchiveMusic } from './archive'
 import { fetchLyrics } from './lyrics'
-import { PROVIDER_REGISTRY } from './experimental'
 
 export * from '../../types/music'
-export * from './audius'
+export * from './saavn'
+export * from './piped'
 export * from './archive'
 export * from './lyrics'
 export * from './experimental'
 
-const MUSIC_SETTINGS_KEY = 'zk:music:providers:v1'
+const MUSIC_SETTINGS_KEY = 'zk:music:providers:v2'
 
-export function getProviderConfigs(): Record<string, boolean> {
+export const DEFAULT_MUSIC_SETTINGS: MusicProviderSettings = {
+  saavn: true,
+  piped: true,
+  archive: false,
+}
+
+export function getProviderConfigs(): MusicProviderSettings {
   if (typeof window === 'undefined') {
-    return Object.fromEntries(PROVIDER_REGISTRY.map((p) => [p.id, p.enabled]))
+    return { ...DEFAULT_MUSIC_SETTINGS }
   }
   try {
     const raw = localStorage.getItem(MUSIC_SETTINGS_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
       return {
-        audius: parsed.audius ?? true,
-        archive: parsed.archive ?? true,
-        ytmusic_exp: parsed.ytmusic_exp ?? false,
-        monochrome_exp: parsed.monochrome_exp ?? false,
+        saavn: parsed.saavn ?? DEFAULT_MUSIC_SETTINGS.saavn,
+        piped: parsed.piped ?? DEFAULT_MUSIC_SETTINGS.piped,
+        archive: parsed.archive ?? DEFAULT_MUSIC_SETTINGS.archive,
       }
     }
   } catch {}
 
-  return Object.fromEntries(PROVIDER_REGISTRY.map((p) => [p.id, p.enabled]))
+  return { ...DEFAULT_MUSIC_SETTINGS }
 }
 
-export function saveProviderConfigs(configs: Record<string, boolean>) {
+export function saveProviderConfigs(configs: MusicProviderSettings) {
   if (typeof window === 'undefined') return
   try {
     localStorage.setItem(MUSIC_SETTINGS_KEY, JSON.stringify(configs))
@@ -40,28 +52,17 @@ export function saveProviderConfigs(configs: Record<string, boolean>) {
 }
 
 export function getMusicSettings(): MusicProviderSettings {
-  const configs = getProviderConfigs()
-  return {
-    audius: !!configs.audius,
-    archive: !!configs.archive,
-    ytmusic_exp: !!configs.ytmusic_exp,
-    monochrome_exp: !!configs.monochrome_exp,
-  }
+  return getProviderConfigs()
 }
 
 export function saveMusicSettings(settings: MusicProviderSettings) {
-  saveProviderConfigs({
-    audius: settings.audius,
-    archive: settings.archive,
-    ytmusic_exp: settings.ytmusic_exp,
-    monochrome_exp: settings.monochrome_exp,
-  })
+  saveProviderConfigs(settings)
 }
 
 /**
  * Deduplicate track list by title and artist, preserving distinct remixes/editions.
  */
-function deduplicateTracks(tracks: Track[]): Track[] {
+export function deduplicateTracks(tracks: Track[]): Track[] {
   const seen = new Set<string>()
   const result: Track[] = []
 
@@ -78,11 +79,12 @@ function deduplicateTracks(tracks: Track[]): Track[] {
 
 /**
  * Unified search querying all active zero-ad music providers concurrently.
+ * Only queries providers currently toggled true in settings.
  */
 export async function searchAllMusic(
   query: string,
   settings?: MusicProviderSettings,
-  limit = 25,
+  limit = 25
 ): Promise<Track[]> {
   const q = query.trim()
   if (!q) return []
@@ -90,8 +92,11 @@ export async function searchAllMusic(
   const configs = settings || getProviderConfigs()
   const promises: Promise<Track[]>[] = []
 
-  if (configs.audius) {
-    promises.push(searchAudiusTracks(q, limit).catch(() => []))
+  if (configs.saavn) {
+    promises.push(searchSaavnTracks(q, limit).catch(() => []))
+  }
+  if (configs.piped) {
+    promises.push(searchPipedTracks(q, Math.min(15, limit)).catch(() => []))
   }
   if (configs.archive) {
     promises.push(searchArchiveMusic(q, Math.min(10, limit)).catch(() => []))
@@ -116,17 +121,25 @@ export async function getCuratedMusicShelves(): Promise<MusicShelves> {
   }
 
   try {
-    const [trending, lofi, electronic, hiphop] = await Promise.all([
-      getAudiusTrending(undefined, 12).catch(() => []),
-      searchAudiusTracks('lofi chill', 10).catch(() => []),
-      searchAudiusTracks('electronic bass synth', 10).catch(() => []),
-      searchAudiusTracks('hip hop beats', 10).catch(() => []),
-    ])
+    const [trendingSaavn, trendingPiped, bollywood, punjabi, pop, lofi, hiphop] =
+      await Promise.all([
+        getSaavnTrending(12).catch(() => []),
+        getPipedTrending(8).catch(() => []),
+        searchSaavnTracks('bollywood top hits', 10).catch(() => []),
+        searchSaavnTracks('punjabi latest', 10).catch(() => []),
+        searchSaavnTracks('english global pop', 10).catch(() => []),
+        searchSaavnTracks('lofi chill beats', 10).catch(() => []),
+        searchSaavnTracks('indian hip hop', 10).catch(() => []),
+      ])
+
+    const trending = deduplicateTracks([...trendingSaavn, ...trendingPiped])
 
     const out: MusicShelves = {
-      trending: deduplicateTracks(trending),
+      trending: trending.length > 0 ? trending : trendingSaavn,
+      bollywood: deduplicateTracks(bollywood),
+      punjabi: deduplicateTracks(punjabi),
+      pop: deduplicateTracks(pop),
       lofi: deduplicateTracks(lofi),
-      electronic: deduplicateTracks(electronic),
       hiphop: deduplicateTracks(hiphop),
     }
 
@@ -135,7 +148,14 @@ export async function getCuratedMusicShelves(): Promise<MusicShelves> {
     return out
   } catch (err) {
     console.error('[Music] Failed to load shelves:', err)
-    return { trending: [], lofi: [], electronic: [], hiphop: [] }
+    return {
+      trending: [],
+      bollywood: [],
+      punjabi: [],
+      pop: [],
+      lofi: [],
+      hiphop: [],
+    }
   }
 }
 
@@ -147,26 +167,38 @@ export async function fetchMusicShelves(): Promise<MusicShelf[]> {
   return [
     {
       id: 'trending',
-      title: 'Trending Tracks',
-      description: 'Popular community tracks streaming now with zero ads',
+      title: 'Trending Today',
+      description: 'Hot hits streaming now across JioSaavn and Piped with zero ads',
       tracks: data.trending,
+    },
+    {
+      id: 'bollywood',
+      title: 'Bollywood Hits',
+      description: 'The biggest Hindi film songs and chart-toppers',
+      tracks: data.bollywood,
+    },
+    {
+      id: 'punjabi',
+      title: 'Punjabi Vibes',
+      description: 'High-energy beats, Bhangra rhythms, and Punjabi pop',
+      tracks: data.punjabi,
+    },
+    {
+      id: 'pop',
+      title: 'Global Pop',
+      description: 'Top international pop anthems and radio favorites',
+      tracks: data.pop,
     },
     {
       id: 'lofi',
       title: 'Lo-Fi Chill & Focus',
-      description: 'Relaxing study beats and mellow rhythms',
+      description: 'Relaxing study beats and mellow ambient soundscapes',
       tracks: data.lofi,
     },
     {
-      id: 'electronic',
-      title: 'Electronic & Bass',
-      description: 'Future bass, synthwave, and vibrant club energy',
-      tracks: data.electronic,
-    },
-    {
       id: 'hiphop',
-      title: 'Hip-Hop & Urban Beats',
-      description: 'Underground flow, trap instrumentals, and groove',
+      title: 'Hip-Hop & Rap',
+      description: 'Urban flow, Desi hip-hop, and hard-hitting basslines',
       tracks: data.hiphop,
     },
   ]
