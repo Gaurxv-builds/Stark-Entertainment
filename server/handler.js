@@ -7,6 +7,7 @@ import { validateProxyUrl } from "./ssrf.js";
 import { shield } from "./shield.js";
 import novelEngine from "./novel.js";
 import * as manga from "./manga.js";
+import { searchSaavn, getTrendingSaavn } from "./music.js";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const TMDB = "https://aniversee.vercel.app/api/tmdb";
@@ -1045,5 +1046,29 @@ export async function handle(request, env) {
     }
   }
 
+  /* ---------- Music Engine (JioSaavn Gateway) ---------- */
+  if (path.startsWith("/api/music/")) {
+    if (path === "/api/music/search") {
+      const term = q("q") || q("query");
+      const limit = parseInt(q("limit", "20"), 10) || 20;
+      if (!term) return json({ success: true, results: [] });
+      try {
+        const results = await cached(`saavn:search:${term}:${limit}`, 3600e3, () => searchSaavn(term, limit));
+        return json({ success: true, results: results || [] }, 200, 1800);
+      } catch (e) {
+        return json({ success: false, error: e.message, results: [] }, 502);
+      }
+    }
+    if (path === "/api/music/trending") {
+      const limit = parseInt(q("limit", "20"), 10) || 20;
+      try {
+        const results = await cached(`saavn:trending:${limit}`, 3600e3, () => getTrendingSaavn(limit));
+        return json({ success: true, results: results || [] }, 200, 3600);
+      } catch (e) {
+        return json({ success: false, error: e.message, results: [] }, 502);
+      }
+    }
+    return json({ error: "Unknown music endpoint" }, 404);
+  }
   return null;
 }

@@ -35,7 +35,7 @@ function extractVideoId(urlOrId: string): string {
 }
 
 /**
- * Resolves a direct audio stream URL for a Piped/YouTube video.
+ * Resolves a direct audio stream URL for a Piped/YouTube video with timeout.
  */
 export async function resolvePipedStreamUrl(videoId: string): Promise<string | null> {
   const cleanId = extractVideoId(videoId)
@@ -43,16 +43,19 @@ export async function resolvePipedStreamUrl(videoId: string): Promise<string | n
 
   for (const instance of PIPED_INSTANCES) {
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 2500)
       const res = await fetch(`${instance}/streams/${cleanId}`, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         },
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
       if (!res.ok) continue
       const data = await res.json()
       if (Array.isArray(data.audioStreams) && data.audioStreams.length > 0) {
-        // Find best audio stream (m4a or opus)
         const bestAudio =
           data.audioStreams.find((s: any) => s.mimeType?.includes('audio/mp4') || s.format === 'M4A') ||
           data.audioStreams[0]
@@ -80,7 +83,7 @@ function mapPipedItemToTrack(item: any): Track {
     artwork: thumbnail,
     artworkUrl: thumbnail,
     duration,
-    streamUrl: undefined, // Lazy-resolved when played or via stream resolver
+    streamUrl: undefined,
     provider: 'piped',
     providerLabel: 'YouTube (Piped)',
     isPreview: false,
@@ -91,7 +94,7 @@ function mapPipedItemToTrack(item: any): Track {
 }
 
 /**
- * Executes a search across public Piped instances with failover.
+ * Executes a search across public Piped instances with failover and per-request timeout.
  */
 export async function searchPipedTracks(
   query: string,
@@ -102,13 +105,17 @@ export async function searchPipedTracks(
 
   for (const instance of PIPED_INSTANCES) {
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 2000)
       const url = `${instance}/search?q=${encodeURIComponent(q)}&filter=music_songs`
       const res = await fetch(url, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         },
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
       if (!res.ok) continue
       const data = await res.json()
       const items = Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : []
@@ -132,13 +139,17 @@ export async function searchPipedTracks(
 export async function getPipedTrending(limit = 20): Promise<Track[]> {
   for (const instance of PIPED_INSTANCES) {
     try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 2000)
       const url = `${instance}/trending?region=IN`
       const res = await fetch(url, {
         headers: {
           Accept: 'application/json',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         },
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
       if (!res.ok) continue
       const data = await res.json()
       const items = Array.isArray(data) ? data : Array.isArray(data.items) ? data.items : []
@@ -152,6 +163,5 @@ export async function getPipedTrending(limit = 20): Promise<Track[]> {
     }
   }
 
-  // Fallback to searching popular hits
-  return searchPipedTracks('popular music hits', limit)
+  return []
 }

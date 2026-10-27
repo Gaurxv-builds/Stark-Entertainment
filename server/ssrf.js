@@ -55,7 +55,10 @@ const ALLOWED_STREAM_DOMAINS = [
   "image.tmdb.org",
   "gutenberg.org",
   "archive.org",
-  "openlibrary.org"
+  "openlibrary.org",
+  "jiosaavn.com",
+  "saavn.com",
+  "saavncdn.com"
 ];
 export function validateProxyUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") {
