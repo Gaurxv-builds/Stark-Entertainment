@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play,
@@ -13,7 +12,6 @@ import {
   Repeat1,
   X,
   ListMusic,
-  FileText,
   Disc3,
 } from 'lucide-react'
 import { useMusic } from '../../context/MusicContext'
@@ -49,23 +47,11 @@ export function MusicPlayerExpanded() {
     queue,
     removeFromQueue,
     clearQueue,
-    lyrics,
-    activeLyricIndex,
     isExpanded,
     setExpanded,
   } = useMusic()
 
-  const [activeTab, setActiveTab] = useState<'lyrics' | 'queue'>('lyrics')
-  const lyricsContainerRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll lyrics to active line
-  useEffect(() => {
-    if (activeLyricIndex < 0 || !lyricsContainerRef.current) return
-    const activeEl = document.getElementById(`lyric-line-${activeLyricIndex}`)
-    if (activeEl) {
-      activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-  }, [activeLyricIndex])
 
   if (!isExpanded || !currentTrack) return null
 
@@ -92,29 +78,9 @@ export function MusicPlayerExpanded() {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="flex rounded-xl border border-white/10 bg-white/5 p-1 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('lyrics')}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-lg px-3 py-1 font-semibold transition',
-                    activeTab === 'lyrics' ? 'bg-purple-600 text-white' : 'text-muted hover:text-foreground'
-                  )}
-                >
-                  <FileText className="size-3.5" />
-                  <span>Lyrics</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('queue')}
-                  className={cn(
-                    'flex items-center gap-1.5 rounded-lg px-3 py-1 font-semibold transition',
-                    activeTab === 'queue' ? 'bg-purple-600 text-white' : 'text-muted hover:text-foreground'
-                  )}
-                >
-                  <ListMusic className="size-3.5" />
-                  <span>Queue ({queue.length})</span>
-                </button>
+              <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-purple-400">
+                <ListMusic className="size-3.5" />
+                <span>Up Next ({queue.length})</span>
               </div>
 
               <button
@@ -259,104 +225,59 @@ export function MusicPlayerExpanded() {
               </div>
             </div>
 
-            {/* Right: Lyrics / Queue Drawer */}
+            {/* Right: Dedicated Queue Drawer */}
             <div className="hidden border-l border-white/10 p-6 lg:flex lg:flex-col lg:overflow-hidden">
-              {activeTab === 'lyrics' ? (
-                <div className="flex flex-1 flex-col overflow-hidden">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="font-display text-sm font-bold uppercase tracking-wider text-muted">
-                      Lyrics
-                    </h3>
-                    {lyrics?.source && (
-                      <span className="text-[11px] text-muted">Source: {lyrics.source}</span>
-                    )}
-                  </div>
-
-                  <div
-                    ref={lyricsContainerRef}
-                    className="flex-1 space-y-4 overflow-y-auto pr-2 scroll-smooth text-center"
-                  >
-                    {lyrics?.synced && lyrics.synced.length > 0 ? (
-                      lyrics.synced.map((line, idx) => (
-                        <p
-                          key={idx}
-                          id={`lyric-line-${idx}`}
-                          onClick={() => seek(line.time)}
-                          className={cn(
-                            'cursor-pointer py-1.5 text-base font-semibold transition-all duration-300',
-                            activeLyricIndex === idx
-                              ? 'scale-105 text-purple-400 font-bold'
-                              : 'text-muted/60 hover:text-foreground'
-                          )}
-                        >
-                          {line.text || '♪'}
-                        </p>
-                      ))
-                    ) : lyrics?.plain ? (
-                      <div className="whitespace-pre-line text-sm leading-relaxed text-muted">
-                        {lyrics.plain}
-                      </div>
-                    ) : (
-                      <div className="flex h-full flex-col items-center justify-center text-muted">
-                        <FileText className="size-10 mb-2 opacity-40" />
-                        <p className="text-xs">No lyrics found for this track.</p>
-                      </div>
-                    )}
-                  </div>
+              <div className="flex flex-1 flex-col overflow-hidden">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-display text-sm font-bold uppercase tracking-wider text-muted">
+                    Up Next ({queue.length})
+                  </h3>
+                  {queue.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearQueue}
+                      className="text-xs font-semibold text-red-400 hover:underline"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <div className="flex flex-1 flex-col overflow-hidden">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="font-display text-sm font-bold uppercase tracking-wider text-muted">
-                      Up Next ({queue.length})
-                    </h3>
-                    {queue.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={clearQueue}
-                        className="text-xs font-semibold text-red-400 hover:underline"
+
+                <div className="flex-1 space-y-2 overflow-y-auto pr-2">
+                  {queue.length > 0 ? (
+                    queue.map((track, idx) => (
+                      <div
+                        key={`${track.id}-${idx}`}
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/5 p-2.5 transition hover:border-white/15"
                       >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex-1 space-y-2 overflow-y-auto pr-2">
-                    {queue.length > 0 ? (
-                      queue.map((track, idx) => (
-                        <div
-                          key={`${track.id}-${idx}`}
-                          className="flex items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/5 p-2.5 transition hover:border-white/15"
-                        >
-                          <div className="flex min-w-0 items-center gap-3">
-                            <span className="text-xs font-bold text-muted w-4 text-center">
-                              {idx + 1}
-                            </span>
-                            <div className="min-w-0">
-                              <p className="truncate text-xs font-bold text-foreground">
-                                {track.title}
-                              </p>
-                              <p className="truncate text-[11px] text-muted">{track.artist}</p>
-                            </div>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="text-xs font-bold text-muted w-4 text-center">
+                            {idx + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-bold text-foreground">
+                              {track.title}
+                            </p>
+                            <p className="truncate text-[11px] text-muted">{track.artist}</p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => removeFromQueue(idx)}
-                            className="grid size-7 place-items-center rounded-lg text-muted hover:text-red-400 transition"
-                          >
-                            <X className="size-3.5" />
-                          </button>
                         </div>
-                      ))
-                    ) : (
-                      <div className="flex h-full flex-col items-center justify-center text-muted">
-                        <ListMusic className="size-10 mb-2 opacity-40" />
-                        <p className="text-xs">Queue is currently empty.</p>
+                        <button
+                          type="button"
+                          onClick={() => removeFromQueue(idx)}
+                          className="grid size-7 place-items-center rounded-lg text-muted hover:text-red-400 transition"
+                        >
+                          <X className="size-3.5" />
+                        </button>
                       </div>
-                    )}
-                  </div>
+                    ))
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center text-muted">
+                      <ListMusic className="size-10 mb-2 opacity-40" />
+                      <p className="text-xs">Queue is currently empty.</p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </motion.div>

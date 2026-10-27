@@ -8,7 +8,6 @@ import {
 } from 'react'
 import type { Track, Playlist, Lyrics, MusicProviderSettings } from '../types/music'
 import {
-  resolveTrackLyrics,
   getMusicSettings,
   saveMusicSettings,
   resolvePipedStreamUrl,
@@ -96,7 +95,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
   const [repeatMode, setRepeatMode] = useState<'off' | 'all' | 'one'>('off')
   const [shuffle, setShuffle] = useState(false)
   const [lyrics, setLyrics] = useState<Lyrics | null>(null)
-  const [activeLyricIndex, setActiveLyricIndex] = useState(-1)
+  const activeLyricIndex = -1
   const [isExpanded, setExpanded] = useState(false)
   const [providerSettings, setProviderSettings] = useState<MusicProviderSettings>(() => getMusicSettings())
 
@@ -153,24 +152,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Sync lyrics highlight with playback time
-  useEffect(() => {
-    if (!lyrics?.synced || lyrics.synced.length === 0) {
-      setActiveLyricIndex(-1)
-      return
-    }
 
-    const t = currentTime
-    let active = -1
-    for (let i = 0; i < lyrics.synced.length; i++) {
-      if (t >= lyrics.synced[i].time) {
-        active = i
-      } else {
-        break
-      }
-    }
-    setActiveLyricIndex(active)
-  }, [currentTime, lyrics])
 
   // Setup Media Session API (lockscreen, keyboards, mobile controls)
   useEffect(() => {
@@ -254,11 +236,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       }
 
       // Fetch lyrics asynchronously
-      resolveTrackLyrics(track)
-        .then((lyr) => {
-          if (lyr) setLyrics(lyr)
-        })
-        .catch(() => {})
+      /* Lyrics fetching disabled for optimized audio performance */
     } else {
       try {
         await audio.play()

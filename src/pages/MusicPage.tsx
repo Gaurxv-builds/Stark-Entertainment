@@ -196,10 +196,10 @@ export default function MusicPage() {
         eyebrow="YOUR AUDIO UNIVERSE"
         title="Sound Without"
         accent="Limits."
-        subtitle="Stream millions of Bollywood, regional Indian, and global English tracks with synchronized lyrics and zero ads."
+        subtitle="Stream millions of Bollywood, regional Indian, and global English tracks with high-fidelity audio and zero ads."
         query={searchQuery}
         onQuery={setSearchQuery}
-        placeholder="Search songs, artists, albums, or lyrics..."
+        placeholder="Search songs, artists, albums, or genres..."
         backdrop={backdrop}
         blurBackdrop
       >

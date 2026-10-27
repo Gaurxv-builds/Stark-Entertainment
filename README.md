@@ -6,7 +6,7 @@
 
 **Next-Gen Media Server & Reader**
 
-*Stream anime, movies & series. Read manga, light novels & ebooks. Listen to ad-free music with synced lyrics. Zero tracking, zero ads, zero compromise.*
+*Stream anime, movies & series. Read manga, light novels & ebooks. Listen to high-fidelity ad-free music. Zero tracking, zero ads, zero compromise.*
 
 [![Repository](https://img.shields.io/badge/GitHub-Stark--Entertainment-00E5FF?style=for-the-badge&logo=github)](https://github.com/Gaurxv-builds/Stark-Entertainment)
 [![Branch](https://img.shields.io/badge/Branch-stark--features-7c3aed?style=for-the-badge&logo=git)](https://github.com/Gaurxv-builds/Stark-Entertainment/tree/stark-features)
@@ -38,7 +38,7 @@
 | **Manga** (漫画) | `/manga` | Indigo | Multi-source reader (ComicK, Manhua, Asura Scans, WeebCentral, MangaDex) with customizable layouts (Webtoon, Left-to-Right, Right-to-Left). |
 | **Light Novels** (小説) | `/novel` | Amber | Clean, distraction-free light novel and web novel reader with chapter caching and typography customization. |
 | **Ebooks & Documents** (電子書籍) | `/ebooks` | Emerald | Project Gutenberg & Open Library indexing with native **EPUB (`EpubReader`)** and **PDF (`PdfReader`)** readers, progress tracking, and **Indian Voice Read Aloud** (strictly 6 voices across Hindi, Indian English, and Sanskrit). |
-| **Music Engine** (音楽) | `/music` | Violet | Free, high-fidelity music streaming powered by **JioSaavn** (320kbps AAC audio & 500x500 artwork) and **YouTube (Piped)**, time-synced karaoke lyrics via LRCLIB, persistent audio player, and anti-conflict video pausing. |
+| **Music Engine** (音楽) | `/music` | Violet | Free, high-fidelity music streaming powered by **JioSaavn** (320kbps AAC audio & 500x500 artwork) and **YouTube (Piped)**, centered floating miniplayer, dedicated queue management, and anti-conflict video pausing. |
 
 ---
 
@@ -65,9 +65,10 @@
   *Includes automatic EPUB metadata language detection, Devanagari verse chunking (danda `।` and double-danda `॥`), and phonetic fallback mappings.*
 
 ### 4. Gaurxv Verse Music Engine
-- **JioSaavn Gateway:** Native 320kbps / 160kbps AAC streaming audio, 500x500 high-resolution album artwork, Bollywood, regional Indian (Hindi, Punjabi, Tamil, Telugu, etc.), and trending global tracks.
-- **Piped (YouTube) Gateway:** Secondary privacy-respecting audio resolver with automated instance failover.
-- **LRCLIB Synced Lyrics:** Real-time synchronized karaoke lyrics with millisecond line highlighting.
+- **JioSaavn Gateway:** Native 320kbps / 160kbps AAC direct streaming audio, 500x500 high-resolution album artwork, Bollywood, regional Indian (Hindi, Punjabi, Tamil, Telugu, etc.), and trending global tracks.
+- **Centered Floating Miniplayer:** Sits cleanly centered at the bottom of the viewport with responsive progress bar scrubbing, favorites, and instant playback controls.
+- **Dedicated Queue Management:** High-performance expanded queue drawer to view upcoming tracks, remove individual entries, or clear the queue with zero latency.
+- **Piped (YouTube) Gateway:** Secondary privacy-respecting audio resolver with automated instance failover and request timeout guardrails.
 - **Persistent Global Audio Engine:** Global playback that continues uninterrupted as you browse. Features intelligent anti-conflict handling that automatically pauses music when you start watching anime or movies.
 - **Customizable Provider Settings:** Toggle individual music providers on or off in the provider drawer (`localStorage: zk:music:providers:v2`).
 
@@ -146,7 +147,8 @@ Copy `.env.example` to `.env` to customize settings:
 | Route | Page Component | Purpose |
 | :--- | :--- | :--- |
 | `/` | `LandingPage` | Universe Hub: Gate login status, profile display, and 6 media pillars entry points. |
-| `/home` · `/anime` | `HomePage` | Anime home feed with trending, top rated, and current season. |
+| `/home` | `LandingPage` | Universe Hub: Gate login status, profile display, and 6 media pillars entry points. |
+| `/anime` | `HomePage` | Anime home feed with trending, top rated, and current season. |
 | `/trending` · `/popular` · `/top` | `CatalogPage` | Infinite-scroll ranked anime collections with comprehensive filters. |
 | `/browse` | `CatalogPage` | Advanced anime search by genre, season, format, and status. |
 | `/schedule` | `SchedulePage` | Live airing calendar synchronized to user's local timezone. |
@@ -161,7 +163,7 @@ Copy `.env.example` to `.env` to customize settings:
 | `/novel/:source/:slug/read/:chapter` | `NovelReaderPage` | Focused, clean text reader with night mode and chapter navigation. |
 | `/ebooks` | `EbooksHomePage` | Digital ebook library with Project Gutenberg & Open Library indexing. |
 | `/ebooks/read/:id` | `EbookReaderPage` | Full-screen EPUB/PDF reader with strict 6-voice Indian Read Aloud. |
-| `/music` | `MusicPage` | Ad-free music discovery, search, lyrics, and audio player engine. |
+| `/music` | `MusicPage` | Ad-free music discovery, search, centered miniplayer, and audio player engine. |
 | `/list` · `/profile` | `ListPage` / `ProfilePage` | User profile, watchlist, continue-reading shelf, and AniList / Supabase sync. |
 | `/admin` | `AdminPage` | Secure Stark Gate credential management console. |
 | `/app` | `AppPage` | Android application release notes, APK downloads, and updates. |

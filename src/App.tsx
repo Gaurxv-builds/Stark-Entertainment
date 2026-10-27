@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef } from 'react'
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { Route, Routes, useLocation } from 'react-router-dom'
 import { ShortcutsHelp } from './components/ShortcutsHelp'
 import { Toaster } from './components/Toaster'
 import { ShieldGate } from './components/ShieldGate'
@@ -110,7 +110,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/anime" element={<HomePage />} />
-          <Route path="/home" element={<Navigate to="/anime" replace />} />
+          <Route path="/home" element={<LandingPage />} />
           <Route path="/trending" element={<CatalogPage preset="trending" />} />
           <Route path="/popular" element={<CatalogPage preset="popular" />} />
           <Route path="/top" element={<CatalogPage preset="top" />} />

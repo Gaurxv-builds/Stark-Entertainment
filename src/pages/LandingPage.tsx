@@ -34,7 +34,7 @@ const SECTIONS: Section[] = [
   { key: 'novel', name: 'Novels', icon: Library, text: 'A calm reader for long stories.', to: '/novel', badge: '', hint: '3' },
   { key: 'movies', name: 'Movies', icon: Clapperboard, text: 'Films and series, on every server.', to: '/movies', badge: '', hint: '4' },
   { key: 'ebooks', name: 'Ebooks', icon: BookMarked, text: 'Discover free books to read, explore, and keep.', to: '/ebooks', badge: '', hint: '5' },
-  { key: 'music', name: 'Music', icon: Music, text: 'Stream tracks, synced lyrics, and ad-free queues.', to: '/music', badge: '', hint: '6' },
+  { key: 'music', name: 'Music', icon: Music, text: 'Stream millions of tracks with ad-free queues.', to: '/music', badge: '', hint: '6' },
 ]
 
 /** The opening page: pick what to dive into. Anime, Manga and Novels are all live. */

@@ -46,7 +46,7 @@ export function MusicMiniPlayer() {
         exit={{ y: 80, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className={cn(
-          'fixed inset-x-3 z-40 sm:inset-x-6 md:left-auto md:right-6 md:w-[440px]',
+          'fixed z-40 left-1/2 -translate-x-1/2 w-[calc(100%-24px)] max-w-lg md:max-w-xl',
           'bottom-20 md:bottom-6' // Sits above MobileDock on phone, floating card on desktop
         )}
       >
@@ -154,8 +154,8 @@ export function MusicMiniPlayer() {
                 <button
                   type="button"
                   onClick={() => setExpanded(true)}
-                  aria-label="View Lyrics & Queue"
-                  title="View Lyrics & Queue"
+                  aria-label="View Queue"
+                  title="View Queue"
                   className="grid size-8 place-items-center rounded-lg text-muted transition hover:text-foreground active:scale-95"
                 >
                   <ListMusic className="size-4" />
