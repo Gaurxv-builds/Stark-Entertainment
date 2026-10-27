@@ -35,6 +35,10 @@
 :root[data-section="ebooks"] { --accent: #d97706; --glow: rgba(217, 119, 6, 0.16); }
 .dark[data-section="ebooks"] { --accent: #f59e0b; --accent-fg: #1c1304; --glow: rgba(245, 158, 11, 0.22); }
 
+/* Music: Electric violet & purple accent */
+:root[data-section="music"] { --accent: #9333ea; --glow: rgba(147, 51, 234, 0.16); }
+.dark[data-section="music"] { --accent: #c084fc; --accent-fg: #150826; --glow: rgba(192, 132, 252, 0.22); }
+
 /* Per-section identity: hub/anime use brand cyan; novels amber; manga indigo. */
 :root[data-section="novel"] { --accent: #b45f06; --glow: rgba(180, 95, 6, 0.16); }
 .dark[data-section="novel"] { --accent: #f0a63a; --accent-fg: #1a1205; --glow: rgba(240, 166, 58, 0.2); }

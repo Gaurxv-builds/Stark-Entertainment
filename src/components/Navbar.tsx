@@ -95,7 +95,7 @@ export function Navbar() {
 
           {!anime && !movies && (
             <Link to={`/${section}`} className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3.5 py-1.5 text-sm font-semibold backdrop-blur transition active:scale-95">
-              <span className="font-display font-semibold text-accent">{section === 'novel' ? 'Novels' : section === 'ebooks' ? 'Ebooks' : 'Manga'}</span>
+              <span className="font-display font-semibold text-accent">{section === 'novel' ? 'Novels' : section === 'ebooks' ? 'Ebooks' : section === 'music' ? 'Music' : 'Manga'}</span>
             </Link>
           )}
           {(section === 'manga' || movies) && (

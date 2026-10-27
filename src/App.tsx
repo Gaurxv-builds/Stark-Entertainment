@@ -15,6 +15,9 @@ import { StarkLoginGate } from './components/StarkLoginGate'
 import { StarkLoadingScreen } from './components/StarkLoadingScreen'
 import { PwaInstallPrompt } from './components/PwaInstallPrompt'
 import { useStarkAuth } from './lib/starkAuth'
+import { MusicPlayerProvider } from './context/MusicContext'
+import { MusicMiniPlayer } from './components/music/MusicMiniPlayer'
+import { MusicPlayerExpanded } from './components/music/MusicPlayerExpanded'
 import { isDetailsPath, isReaderPath, isWatchPath, sectionOf } from './lib/sections'
 
 const LandingPage = lazy(() => import('./pages/LandingPage'))
@@ -43,6 +46,7 @@ const AdminPage = lazy(() => import('./pages/AdminPage'))
 const AniListCallbackPage = lazy(() => import('./pages/AniListCallbackPage'))
 const FindPage = lazy(() => import('./pages/FindPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
+const MusicPage = lazy(() => import('./pages/MusicPage'))
 
 export default function App() {
   const { authenticated, loading, unlock } = useStarkAuth()
@@ -97,7 +101,7 @@ export default function App() {
 
   // 3. Authenticated state: render normal application and protected routes
   return (
-    <>
+    <MusicPlayerProvider>
       <TopLoader />
       {!bare && <ScrollProgress />}
       <ScrollToTop />
@@ -120,6 +124,8 @@ export default function App() {
           {/* Ebooks */}
           <Route path="/ebooks" element={<EbooksHomePage />} />
           <Route path="/ebooks/read/:id" element={<EbookReaderPage />} />
+          {/* Music */}
+          <Route path="/music" element={<MusicPage />} />
           {/* Novels */}
           <Route path="/novel" element={<NovelHomePage />} />
           <Route path="/novel/find" element={<FindPage />} />
@@ -152,6 +158,8 @@ export default function App() {
       {!bare && (
         <PwaInstallPrompt className="fixed bottom-20 left-4 right-4 z-40 md:bottom-6 md:left-auto md:right-6 md:w-96" />
       )}
-    </>
+      <MusicMiniPlayer />
+      <MusicPlayerExpanded />
+    </MusicPlayerProvider>
   )
 }

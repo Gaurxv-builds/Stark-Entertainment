@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowUpRight, BookMarked, BookOpen, Clapperboard, Film, Library, LogOut, ShieldAlert, User, type LucideIcon } from 'lucide-react'
+import { ArrowUpRight, BookMarked, BookOpen, Clapperboard, Film, Library, LogOut, Music, ShieldAlert, User, type LucideIcon } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { AuroraBackground } from '../components/AuroraBackground'
 import { BlurText } from '../components/BlurText'
@@ -15,7 +15,7 @@ import { useStarkAuth } from '../lib/starkAuth'
 import type { ShowcaseImage } from '../services/showcase'
 
 interface Section {
-  key: 'anime' | 'manga' | 'novel' | 'movies' | 'ebooks'
+  key: 'anime' | 'manga' | 'novel' | 'movies' | 'ebooks' | 'music'
   name: string
   icon: LucideIcon
   text: string
@@ -31,6 +31,7 @@ const SECTIONS: Section[] = [
   { key: 'novel', name: 'Novels', icon: Library, text: 'A calm reader for long stories.', to: '/novel', badge: '', hint: '3' },
   { key: 'movies', name: 'Movies', icon: Clapperboard, text: 'Films and series, on every server.', to: '/movies', badge: '', hint: '4' },
   { key: 'ebooks', name: 'Ebooks', icon: BookMarked, text: 'Discover free books to read, explore, and keep.', to: '/ebooks', badge: '', hint: '5' },
+  { key: 'music', name: 'Music', icon: Music, text: 'Stream tracks, synced lyrics, and ad-free queues.', to: '/music', badge: '', hint: '6' },
 ]
 
 /** The opening page: pick what to dive into. Anime, Manga and Novels are all live. */
@@ -124,7 +125,7 @@ export default function LandingPage() {
           />
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-9 sm:gap-3.5 md:grid-cols-3 lg:grid-cols-5 lg:gap-4">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-9 sm:gap-3.5 md:grid-cols-3 lg:grid-cols-6 lg:gap-4">
           {SECTIONS.map((s, i) => (
             <PickCard key={s.key} s={s} index={i} shaking={shake === s.key} onPick={pick} images={pools[s.key]} compact={compact} />
           ))}
@@ -214,7 +215,7 @@ function PickCard({
         <h2 className="font-display text-2xl font-black tracking-tight sm:text-4xl">{s.name}</h2>
         <p className="mt-1 max-w-[30ch] text-xs leading-snug text-white/75 sm:mt-1.5 sm:text-sm sm:leading-relaxed">{s.text}</p>
         <span className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold sm:mt-4 sm:gap-2 sm:text-sm">
-          {!live ? 'Available in the app' : s.key === 'anime' || s.key === 'movies' ? 'Start watching' : 'Start reading'}
+          {!live ? 'Available in the app' : s.key === 'anime' || s.key === 'movies' ? 'Start watching' : s.key === 'music' ? 'Start listening' : 'Start reading'}
           <ArrowUpRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
         </span>
       </div>

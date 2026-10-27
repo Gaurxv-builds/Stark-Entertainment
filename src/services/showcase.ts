@@ -14,7 +14,7 @@ export interface ShowcaseImage {
   title: string
   color?: string | null
 }
-export type ShowcaseKind = 'anime' | 'manga' | 'novel' | 'movies' | 'ebooks'
+export type ShowcaseKind = 'anime' | 'manga' | 'novel' | 'movies' | 'ebooks' | 'music'
 export type ShowcasePools = Record<ShowcaseKind, ShowcaseImage[]>
 
 export const DEFAULT_SHOWCASE: ShowcasePools = {
@@ -47,6 +47,12 @@ export const DEFAULT_SHOWCASE: ShowcasePools = {
     { src: 'https://www.gutenberg.org/cache/epub/1342/pg1342.cover.medium.jpg', title: 'Pride and Prejudice' },
     { src: 'https://www.gutenberg.org/cache/epub/345/pg345.cover.medium.jpg', title: 'Dracula' },
     { src: 'https://www.gutenberg.org/cache/epub/1661/pg1661.cover.medium.jpg', title: 'The Adventures of Sherlock Holmes' },
+  ],
+  music: [
+    { src: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=780&q=80', title: 'Acoustic & Live' },
+    { src: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=780&q=80', title: 'Electronic & Bass' },
+    { src: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=780&q=80', title: 'Synthwave Night' },
+    { src: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=780&q=80', title: 'Lo-Fi Chill' },
   ],
 }
 
@@ -203,6 +209,7 @@ export function fetchShowcase(): Promise<ShowcasePools> {
       novel: novel?.length ? novel : DEFAULT_SHOWCASE.novel,
       movies: movies?.length ? movies : DEFAULT_SHOWCASE.movies,
       ebooks: ebooks?.length ? ebooks : DEFAULT_SHOWCASE.ebooks,
+      music: DEFAULT_SHOWCASE.music,
     }
   })()
   return pools

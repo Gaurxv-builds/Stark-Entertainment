@@ -98,5 +98,59 @@ test('services/integrations exports Trakt, Jellyfin, and Komga connectors', () =
   assert(jellyfin.includes('isSafeServerUrl'), 'SSRF check function must exist in jellyfin.ts')
 })
 
+// 8. Music Engine Core Services & Types
+test('Music engine types and services exist with Audius and LRCLIB integration', () => {
+  assert(fs.existsSync('src/types/music.ts'), 'src/types/music.ts must exist')
+  assert(fs.existsSync('src/services/music/audius.ts'), 'audius.ts must exist')
+  assert(fs.existsSync('src/services/music/lyrics.ts'), 'lyrics.ts must exist')
+  assert(fs.existsSync('src/services/music/archive.ts'), 'archive.ts must exist')
+  assert(fs.existsSync('src/services/music/experimental.ts'), 'experimental.ts must exist')
+  assert(fs.existsSync('src/services/music/index.ts'), 'index.ts must exist')
+
+  const audiusContent = fs.readFileSync('src/services/music/audius.ts', 'utf8')
+  assert(audiusContent.includes('searchAudiusTracks'), 'searchAudiusTracks must exist')
+  assert(audiusContent.includes('getAudiusTrending'), 'getAudiusTrending must exist')
+
+  const lyricsContent = fs.readFileSync('src/services/music/lyrics.ts', 'utf8')
+  assert(lyricsContent.includes('parseLrc'), 'parseLrc timestamp parser must exist')
+  assert(lyricsContent.includes('fetchLyrics'), 'fetchLyrics must query LRCLIB')
+
+  const expContent = fs.readFileSync('src/services/music/experimental.ts', 'utf8')
+  assert(expContent.includes('PROVIDER_REGISTRY'), 'PROVIDER_REGISTRY must exist')
+  assert(expContent.includes('EXPERIMENTAL_PROVIDERS'), 'EXPERIMENTAL_PROVIDERS alias must exist')
+})
+
+// 9. Music Context and Playback Engine
+test('MusicContext provides persistent global audio engine with video anti-conflict', () => {
+  assert(fs.existsSync('src/context/MusicContext.tsx'), 'MusicContext.tsx must exist')
+  const ctxContent = fs.readFileSync('src/context/MusicContext.tsx', 'utf8')
+  assert(ctxContent.includes('MusicPlayerProvider'), 'MusicPlayerProvider must exist')
+  assert(ctxContent.includes('useMusic'), 'useMusic hook must exist')
+  assert(ctxContent.includes('stark:video-play'), 'Anti-conflict video-play listener must exist')
+  assert(ctxContent.includes('navigator.mediaSession'), 'Media Session API must be implemented')
+  assert(ctxContent.includes('deletePlaylist'), 'deletePlaylist must exist')
+  assert(ctxContent.includes('playTrack'), 'playTrack must exist')
+})
+
+// 10. Music UI Components and Routes
+test('Music UI components, page, and navigation routes are wired up', () => {
+  assert(fs.existsSync('src/components/music/MusicMiniPlayer.tsx'), 'MusicMiniPlayer.tsx must exist')
+  assert(fs.existsSync('src/components/music/MusicPlayerExpanded.tsx'), 'MusicPlayerExpanded.tsx must exist')
+  assert(fs.existsSync('src/components/music/MusicTrackCard.tsx'), 'MusicTrackCard.tsx must exist')
+  assert(fs.existsSync('src/components/music/MusicTrackRow.tsx'), 'MusicTrackRow.tsx must exist')
+  assert(fs.existsSync('src/pages/MusicPage.tsx'), 'MusicPage.tsx must exist')
+
+  const sectionsContent = fs.readFileSync('src/lib/sections.ts', 'utf8')
+  assert(sectionsContent.includes("'music'"), 'sections.ts must include music')
+
+  const landingContent = fs.readFileSync('src/pages/LandingPage.tsx', 'utf8')
+  assert(landingContent.includes('/music'), 'LandingPage must include /music')
+
+  const appContent = fs.readFileSync('src/App.tsx', 'utf8')
+  assert(appContent.includes('<Route path="/music" element={<MusicPage />} />'), 'App.tsx must register /music route')
+  assert(appContent.includes('<MusicPlayerProvider>'), 'App.tsx must mount MusicPlayerProvider')
+  assert(appContent.includes('<MusicMiniPlayer />'), 'App.tsx must mount MusicMiniPlayer')
+})
+
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`)
 if (failed > 0) process.exit(1)

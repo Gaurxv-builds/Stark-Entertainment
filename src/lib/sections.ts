@@ -1,4 +1,4 @@
-export type Section = 'anime' | 'novel' | 'manga' | 'movies' | 'ebooks'
+export type Section = 'anime' | 'novel' | 'manga' | 'movies' | 'ebooks' | 'music'
 
 export const SECTIONS: { id: Section; label: string; to: string }[] = [
   { id: 'anime', label: 'Anime', to: '/anime' },
@@ -6,6 +6,7 @@ export const SECTIONS: { id: Section; label: string; to: string }[] = [
   { id: 'manga', label: 'Manga', to: '/manga' },
   { id: 'movies', label: 'Movies', to: '/movies' },
   { id: 'ebooks', label: 'Ebooks', to: '/ebooks' },
+  { id: 'music', label: 'Music', to: '/music' },
 ]
 
 /** Which part of the site a pathname belongs to (null on the opening page). */
@@ -15,6 +16,7 @@ export function sectionOf(pathname: string): Section | null {
   if (pathname.startsWith('/manga')) return 'manga'
   if (pathname.startsWith('/movies')) return 'movies'
   if (pathname.startsWith('/ebooks')) return 'ebooks'
+  if (pathname.startsWith('/music')) return 'music'
   return 'anime'
 }
 
