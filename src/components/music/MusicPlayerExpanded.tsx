@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play,
@@ -45,13 +46,14 @@ export function MusicPlayerExpanded() {
     repeatMode,
     cycleRepeat,
     queue,
+    playFromQueue,
     removeFromQueue,
     clearQueue,
     isExpanded,
     setExpanded,
   } = useMusic()
 
-
+  const [showMobileQueue, setShowMobileQueue] = useState(false)
 
   if (!isExpanded || !currentTrack) return null
 
@@ -78,10 +80,21 @@ export function MusicPlayerExpanded() {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-purple-400">
+              {/* Queue Button - toggles mobile view on smaller screens, shows count on desktop */}
+              <button
+                type="button"
+                onClick={() => setShowMobileQueue(!showMobileQueue)}
+                aria-label="Toggle Up Next Queue"
+                className={cn(
+                  'flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95',
+                  showMobileQueue
+                    ? 'border-purple-500 bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                    : 'border-white/10 bg-white/5 text-purple-400 hover:bg-white/10'
+                )}
+              >
                 <ListMusic className="size-3.5" />
                 <span>Up Next ({queue.length})</span>
-              </div>
+              </button>
 
               <button
                 type="button"
@@ -95,8 +108,13 @@ export function MusicPlayerExpanded() {
 
           {/* Main Body */}
           <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[1.1fr_0.9fr]">
-            {/* Left: Artwork, Track Info, Controls */}
-            <div className="flex flex-col justify-between p-6 sm:p-8">
+            {/* Player Controls Panel (hidden on mobile if user toggled mobile queue) */}
+            <div
+              className={cn(
+                'flex flex-col justify-between p-6 sm:p-8 overflow-y-auto',
+                showMobileQueue && 'hidden lg:flex'
+              )}
+            >
               {/* Artwork */}
               <div className="relative mx-auto my-auto aspect-square w-full max-w-[280px] sm:max-w-[320px] overflow-hidden rounded-3xl border border-white/15 bg-black/60 shadow-2xl">
                 {currentTrack.artwork ? (
@@ -225,55 +243,93 @@ export function MusicPlayerExpanded() {
               </div>
             </div>
 
-            {/* Right: Dedicated Queue Drawer */}
-            <div className="hidden border-l border-white/10 p-6 lg:flex lg:flex-col lg:overflow-hidden">
+            {/* Dedicated Up Next Queue Drawer (side panel on desktop, toggled view on mobile) */}
+            <div
+              className={cn(
+                'border-l border-white/10 p-6 flex flex-col overflow-hidden',
+                !showMobileQueue && 'hidden lg:flex'
+              )}
+            >
               <div className="flex flex-1 flex-col overflow-hidden">
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="font-display text-sm font-bold uppercase tracking-wider text-muted">
-                    Up Next ({queue.length})
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display text-sm font-bold uppercase tracking-wider text-muted">
+                      Up Next ({queue.length})
+                    </h3>
+                    <span className="text-[11px] text-muted/60">Tap track to play</span>
+                  </div>
                   {queue.length > 0 && (
                     <button
                       type="button"
                       onClick={clearQueue}
                       className="text-xs font-semibold text-red-400 hover:underline"
                     >
-                      Clear
+                      Clear All
                     </button>
                   )}
                 </div>
 
-                <div className="flex-1 space-y-2 overflow-y-auto pr-2">
+                <div className="flex-1 space-y-2 overflow-y-auto pr-2 scrollbar-thin">
                   {queue.length > 0 ? (
                     queue.map((track, idx) => (
                       <div
                         key={`${track.id}-${idx}`}
-                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/5 p-2.5 transition hover:border-white/15"
+                        onClick={() => playFromQueue(idx)}
+                        className="group flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-white/5 bg-white/5 p-2.5 transition hover:border-purple-500/40 hover:bg-purple-950/20 active:scale-[0.99]"
                       >
                         <div className="flex min-w-0 items-center gap-3">
-                          <span className="text-xs font-bold text-muted w-4 text-center">
-                            {idx + 1}
-                          </span>
+                          {/* Thumbnail Artwork with Play overlay */}
+                          <div className="relative size-10 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                            {track.artwork ? (
+                              <img
+                                src={track.artwork}
+                                alt={track.title}
+                                className="size-full object-cover transition duration-300 group-hover:scale-105"
+                              />
+                            ) : (
+                              <div className="grid size-full place-items-center text-purple-400">
+                                <Disc3 className="size-5" />
+                              </div>
+                            )}
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                              <Play className="size-4 text-white fill-current translate-x-0.5" />
+                            </div>
+                          </div>
+
                           <div className="min-w-0">
-                            <p className="truncate text-xs font-bold text-foreground">
+                            <p className="truncate text-xs font-bold text-foreground group-hover:text-purple-300 transition">
                               {track.title}
                             </p>
                             <p className="truncate text-[11px] text-muted">{track.artist}</p>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removeFromQueue(idx)}
-                          className="grid size-7 place-items-center rounded-lg text-muted hover:text-red-400 transition"
-                        >
-                          <X className="size-3.5" />
-                        </button>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {track.duration ? (
+                            <span className="text-[11px] text-muted/60 font-mono">
+                              {formatTime(track.duration)}
+                            </span>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              removeFromQueue(idx)
+                            }}
+                            title="Remove from queue"
+                            aria-label={`Remove ${track.title} from queue`}
+                            className="grid size-7 place-items-center rounded-lg text-muted hover:text-red-400 hover:bg-white/5 transition"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        </div>
                       </div>
                     ))
                   ) : (
-                    <div className="flex h-full flex-col items-center justify-center text-muted">
-                      <ListMusic className="size-10 mb-2 opacity-40" />
-                      <p className="text-xs">Queue is currently empty.</p>
+                    <div className="flex h-full flex-col items-center justify-center text-muted py-12">
+                      <ListMusic className="size-10 mb-2 opacity-40 text-purple-400" />
+                      <p className="text-xs font-medium">Queue is currently empty.</p>
+                      <p className="text-[11px] text-muted/60 mt-1">Play any track or album to populate Up Next.</p>
                     </div>
                   )}
                 </div>

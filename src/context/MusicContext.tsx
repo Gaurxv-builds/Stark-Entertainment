@@ -36,6 +36,7 @@ export interface MusicContextType {
   isExpanded: boolean
   play: (track?: Track) => Promise<void>
   playTrack: (track: Track, playlistContext?: Track[]) => Promise<void>
+  playFromQueue: (index: number) => void
   pause: () => void
   togglePlay: () => void
   seek: (seconds: number) => void
@@ -254,6 +255,17 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
       setQueue(subsequent)
     }
     await play(track)
+  }
+
+  const playFromQueue = (index: number) => {
+    if (index < 0 || index >= queue.length) return
+    const target = queue[index]
+    const remaining = queue.slice(index + 1)
+    if (currentTrack) {
+      setHistory((h) => [currentTrack, ...h.slice(0, 49)])
+    }
+    setQueue(remaining)
+    play(target)
   }
 
   const pause = () => {
@@ -480,6 +492,7 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         isExpanded,
         play,
         playTrack,
+        playFromQueue,
         pause,
         togglePlay,
         seek,
