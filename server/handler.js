@@ -720,6 +720,43 @@ export async function handle(request, env) {
     }
   }
 
+  if (path === "/api/tts/voices") {
+    return json({
+      voices: [
+        { id: "hi-IN-female", language: "hi-IN", group: "Hindi (India)", gender: "female", label: "Hindi (India) — Female" },
+        { id: "hi-IN-male", language: "hi-IN", group: "Hindi (India)", gender: "male", label: "Hindi (India) — Male" },
+        { id: "en-IN-female", language: "en-IN", group: "English (India)", gender: "female", label: "English (India) — Female" },
+        { id: "en-IN-male", language: "en-IN", group: "English (India)", gender: "male", label: "English (India) — Male" },
+        { id: "sa-IN-female", language: "sa-IN", group: "Sanskrit (India)", gender: "female", label: "Sanskrit (India) — Female" },
+        { id: "sa-IN-male", language: "sa-IN", group: "Sanskrit (India)", gender: "male", label: "Sanskrit (India) — Male" }
+      ],
+      strictOptionsCount: 6,
+      allowedLocales: ["hi-IN", "en-IN", "sa-IN"]
+    }, 200, 86400);
+  }
+
+  if (path === "/api/tts/synthesize") {
+    if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+    try {
+      const body = await request.json();
+      const { text, voiceId, speed = 1.0 } = body || {};
+      if (!text || typeof text !== "string") return json({ error: "Missing text parameter" }, 400);
+      const allowed = ["hi-IN-female", "hi-IN-male", "en-IN-female", "en-IN-male", "sa-IN-female", "sa-IN-male"];
+      if (!allowed.includes(voiceId)) return json({ error: "Invalid voice option. Only 6 Indian voices permitted." }, 400);
+
+      return json({
+        ok: true,
+        voiceId,
+        speed,
+        length: text.length,
+        language: voiceId.startsWith("sa") ? "sa-IN" : voiceId.startsWith("hi") ? "hi-IN" : "en-IN",
+        clientSynthesized: true
+      });
+    } catch (e) {
+      return json({ error: "Failed to process speech request: " + e.message }, 500);
+    }
+  }
+
   if (path === "/api/app/release") {
     try {
       if (!releaseSnap || Date.now() - releaseSnap.at > RELEASE_TTL) releaseSnap = { at: Date.now(), v: await loadAppRelease(env) };
@@ -904,20 +941,59 @@ export async function handle(request, env) {
           if (!iaRes.ok) throw new Error(`Internet Archive item not found: ${iaRes.status}`);
           const iaData = await iaRes.json();
           const meta = iaData.metadata || {};
+          const files = Array.isArray(iaData.files) ? iaData.files : [];
 
           let author = meta.creator || "Unknown Author";
           if (Array.isArray(author)) author = author.join(", ");
 
+          let epubUrl = null;
+          let pdfUrl = null;
+
+          const epubFile = files.find(f => f.name && f.name.toLowerCase().endsWith(".epub"));
+          if (epubFile) {
+            epubUrl = `https://archive.org/download/${iaId}/${encodeURIComponent(epubFile.name)}`;
+          }
+
+          const pdfFile = files.find(f => f.name && f.name.toLowerCase().endsWith(".pdf") && !f.name.toLowerCase().includes("_bw.pdf"));
+          if (pdfFile) {
+            pdfUrl = `https://archive.org/download/${iaId}/${encodeURIComponent(pdfFile.name)}`;
+          }
+
+          const txtFile = files.find(f => f.name && (f.name.endsWith("_djvu.txt") || f.name.endsWith(".txt")));
+
+          let paragraphs = [];
+          if (txtFile && txtFile.name) {
+            try {
+              const txtRes = await fetch(`https://archive.org/download/${iaId}/${encodeURIComponent(txtFile.name)}`, {
+                headers: { "User-Agent": "Mozilla/5.0", Range: "bytes=10000-160000" }
+              });
+              if (txtRes.ok) {
+                const rawText = await txtRes.text();
+                paragraphs = rawText
+                  .split(/\r?\n\r?\n|\n{2,}/)
+                  .map(p => p.trim())
+                  .filter(p => p.length > 20)
+                  .slice(0, 300);
+              }
+            } catch {}
+          }
+
+          const bookTitle = meta.title || iaId;
+          const lang = meta.language || (bookTitle.toLowerCase().includes("ramayan") || bookTitle.toLowerCase().includes("valmiki") ? "sa" : "en");
+
           return {
             id: `ia:${iaId}`,
-            title: meta.title || iaId,
+            title: bookTitle,
             author,
             source: "internetarchive",
             cover: `https://archive.org/services/img/${iaId}`,
             embedUrl: `https://archive.org/embed/${iaId}`,
-            paragraphs: [],
+            epubUrl,
+            pdfUrl,
+            paragraphs,
+            language: lang,
             sections: [],
-            access: "read_only",
+            access: epubUrl || pdfUrl ? "read_and_download" : "read_only",
             externalUrl: `https://archive.org/details/${iaId}`,
             description: typeof meta.description === "string" ? meta.description : ""
           };

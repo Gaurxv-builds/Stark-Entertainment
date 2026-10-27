@@ -170,5 +170,39 @@ test('ProfileCard is rendered on LandingPage and profile resets on logout', () =
   assert(profileCardContent.includes('authUser'), 'ProfileCard must display authenticated user')
 })
 
+// 12. Ebook Read Aloud: Strict Six Indian Voices and Language Detection
+test('Read Aloud supports strictly six Indian voices with language detection and phonetics', () => {
+  assert(fs.existsSync('src/types/tts.ts'), 'src/types/tts.ts must exist')
+  assert(fs.existsSync('src/services/tts/voices.ts'), 'voices.ts must exist')
+  assert(fs.existsSync('src/services/tts/languageDetector.ts'), 'languageDetector.ts must exist')
+  assert(fs.existsSync('src/services/tts/phonetics.ts'), 'phonetics.ts must exist')
+  assert(fs.existsSync('src/services/tts/chunker.ts'), 'chunker.ts must exist')
+  assert(fs.existsSync('src/services/tts/engine.ts'), 'engine.ts must exist')
+  assert(fs.existsSync('src/components/ebooks/ReadAloudBar.tsx'), 'ReadAloudBar.tsx must exist')
+
+  const voicesContent = fs.readFileSync('src/services/tts/voices.ts', 'utf8')
+  assert(voicesContent.includes('hi-IN-female'), 'hi-IN-female voice required')
+  assert(voicesContent.includes('hi-IN-male'), 'hi-IN-male voice required')
+  assert(voicesContent.includes('en-IN-female'), 'en-IN-female voice required')
+  assert(voicesContent.includes('en-IN-male'), 'en-IN-male voice required')
+  assert(voicesContent.includes('sa-IN-female'), 'sa-IN-female voice required')
+  assert(voicesContent.includes('sa-IN-male'), 'sa-IN-male voice required')
+  assert(!voicesContent.includes('en-US'), 'Must strictly forbid en-US')
+  assert(!voicesContent.includes('en-GB'), 'Must strictly forbid en-GB')
+
+  const barContent = fs.readFileSync('src/components/ebooks/ReadAloudBar.tsx', 'utf8')
+  assert(barContent.includes('optgroup label="Hindi (India)"'), 'Selector must group Hindi (India)')
+  assert(barContent.includes('optgroup label="English (India)"'), 'Selector must group English (India)')
+  assert(barContent.includes('optgroup label="Sanskrit (India)"'), 'Selector must group Sanskrit (India)')
+
+  const serverContent = fs.readFileSync('server/handler.js', 'utf8')
+  assert(serverContent.includes('/api/tts/voices'), 'Server must provide /api/tts/voices')
+  assert(serverContent.includes('/api/tts/synthesize'), 'Server must provide /api/tts/synthesize')
+
+  const readerContent = fs.readFileSync('src/pages/EbookReaderPage.tsx', 'utf8')
+  assert(readerContent.includes('<ReadAloudBar'), 'EbookReaderPage must mount ReadAloudBar')
+  assert(readerContent.includes('TtsEngine'), 'EbookReaderPage must initialize TtsEngine')
+})
+
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`)
 if (failed > 0) process.exit(1)

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import {
   ChevronLeft,
@@ -7,7 +7,14 @@ import {
   ZoomOut,
   Loader2,
   RotateCcw,
+  Volume2,
 } from 'lucide-react'
+import { cn } from '../../lib/utils'
+import { ReadAloudBar } from './ReadAloudBar'
+import { TtsEngine } from '../../services/tts/engine'
+import { chunkTextForSpeech } from '../../services/tts/chunker'
+import { detectEbookLanguage } from '../../services/tts/languageDetector'
+import type { TtsChunk, TtsStatus } from '../../types/tts'
 
 // Use reliable official cdnjs worker matching pdfjs-dist version
 if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
@@ -40,6 +47,69 @@ export default function PdfReader({
   const [pageNumber, setPageNumber] = useState<number>(1)
   const [scale, setScale] = useState<number>(1.25)
   const [pageInput, setPageInput] = useState<string>('1')
+  const [showReadAloud, setShowReadAloud] = useState(false)
+  const [currentChunk, setCurrentChunk] = useState<TtsChunk | null>(null)
+  const [ttsStatus, setTtsStatus] = useState<TtsStatus>({
+    state: 'idle',
+    currentVoiceId: 'hi-IN-female',
+    currentLanguage: 'hi-IN',
+    speed: 1.0,
+    currentChunkIndex: 0,
+    totalChunks: 0,
+    currentText: '',
+    activeVoiceAvailable: true,
+    providerType: 'native',
+  })
+
+  const ttsEngine = useRef<TtsEngine | null>(null)
+
+  const extractCurrentPageText = useCallback(async (): Promise<string> => {
+    const pdf = pdfDocRef.current
+    if (!pdf) return ''
+    try {
+      const page = await pdf.getPage(pageNumber)
+      const tc = await page.getTextContent()
+      return tc.items.map((item: any) => ('str' in item ? item.str : '')).join(' ').trim()
+    } catch {
+      return ''
+    }
+  }, [pageNumber])
+
+  useEffect(() => {
+    const engine = new TtsEngine({
+      onChunkChange: (chunk) => setCurrentChunk(chunk),
+      onStatusChange: (st) => setTtsStatus(st),
+      onSequenceComplete: () => {
+        // When finished reading current page, advance to next page if available
+        setPageNumber((p) => {
+          if (p < numPages) {
+            setPageInput(String(p + 1))
+            return p + 1
+          }
+          return p
+        })
+      },
+    })
+    ttsEngine.current = engine
+    return () => {
+      engine.destroy()
+    }
+  }, [numPages])
+
+  // Sync text whenever page number changes
+  useEffect(() => {
+    let cancelled = false
+    extractCurrentPageText().then((text) => {
+      if (cancelled || !ttsEngine.current || !text) return
+      const detected = detectEbookLanguage(text, { title })
+      ttsEngine.current.setDefaultVoiceForLanguage(detected.language)
+      const chunks = chunkTextForSpeech(text)
+      ttsEngine.current.setChunks(chunks)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [pageNumber, title, extractCurrentPageText])
 
   // Load PDF Document
   useEffect(() => {
@@ -201,6 +271,37 @@ export default function PdfReader({
 
         {/* Page and Zoom Tools */}
         <div className="flex items-center gap-2">
+          {/* Read Aloud Button */}
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showReadAloud
+              setShowReadAloud(next)
+              if (next && ttsStatus.state === 'idle') {
+                extractCurrentPageText().then((text) => {
+                  if (text) {
+                    const detected = detectEbookLanguage(text, { title })
+                    ttsEngine.current?.setDefaultVoiceForLanguage(detected.language)
+                    const chunks = chunkTextForSpeech(text)
+                    ttsEngine.current?.setChunks(chunks)
+                    ttsEngine.current?.play()
+                  }
+                })
+              }
+            }}
+            aria-label="Read Aloud"
+            title="Read Aloud (6 Indian Voices)"
+            className={cn(
+              'flex h-8 items-center gap-1.5 rounded-lg border px-2.5 transition active:scale-95',
+              showReadAloud
+                ? 'border-accent bg-accent/20 text-accent'
+                : 'border-white/10 bg-card hover:bg-white/5 text-muted hover:text-foreground'
+            )}
+          >
+            <Volume2 className="size-3.5" />
+            <span className="hidden sm:inline">Read Aloud</span>
+          </button>
+
           {/* Page Selector Form */}
           <form onSubmit={handlePageSubmit} className="flex items-center gap-1">
             <button
@@ -308,6 +409,38 @@ export default function PdfReader({
         </span>
         <span>Use Left/Right arrow keys to change pages</span>
       </div>
+
+      {/* Floating Read Aloud Toolbar */}
+      {showReadAloud && (
+        <ReadAloudBar
+          status={ttsStatus}
+          currentChunk={currentChunk}
+          onPlay={() => {
+            if (ttsStatus.totalChunks === 0) {
+              extractCurrentPageText().then((text) => {
+                if (text) {
+                  const chunks = chunkTextForSpeech(text)
+                  ttsEngine.current?.setChunks(chunks)
+                  ttsEngine.current?.play()
+                }
+              })
+            } else {
+              ttsEngine.current?.play()
+            }
+          }}
+          onPause={() => ttsEngine.current?.pause()}
+          onResume={() => ttsEngine.current?.resume()}
+          onStop={() => ttsEngine.current?.stop()}
+          onVoiceChange={(v) => ttsEngine.current?.setVoice(v)}
+          onSpeedChange={(s) => ttsEngine.current?.setSpeed(s)}
+          onPrevChunk={() => ttsEngine.current?.seekChunk(ttsStatus.currentChunkIndex - 1)}
+          onNextChunk={() => ttsEngine.current?.seekChunk(ttsStatus.currentChunkIndex + 1)}
+          onClose={() => {
+            ttsEngine.current?.stop()
+            setShowReadAloud(false)
+          }}
+        />
+      )}
     </div>
   )
 }

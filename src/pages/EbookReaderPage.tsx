@@ -14,6 +14,7 @@ import {
   Minus,
   Plus,
   Type,
+  Volume2,
   X,
 } from 'lucide-react'
 import { useAsync } from '../hooks/useAsync'
@@ -24,6 +25,11 @@ import { ErrorState } from '../components/ErrorState'
 import { Skeleton } from '../components/Skeleton'
 import NotFoundPage from './NotFoundPage'
 import { pageTitle } from '../lib/brand'
+import { ReadAloudBar } from '../components/ebooks/ReadAloudBar'
+import { TtsEngine } from '../services/tts/engine'
+import { chunkTextForSpeech } from '../services/tts/chunker'
+import { detectEbookLanguage } from '../services/tts/languageDetector'
+import type { TtsChunk, TtsStatus } from '../types/tts'
 
 const LazyEpubReader = lazy(() => import('../components/ebooks/EpubReader'))
 const LazyPdfReader = lazy(() => import('../components/ebooks/PdfReader'))
@@ -54,9 +60,66 @@ function EbookReader({ bookId }: { bookId: string }) {
   const [progress, setProgress] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
   const [activeMode, setActiveMode] = useState<ReaderMode | null>(null)
+  const [showReadAloud, setShowReadAloud] = useState(false)
+  const [currentChunk, setCurrentChunk] = useState<TtsChunk | null>(null)
+  const [autoScroll, setAutoScroll] = useState(true)
+  const [ttsStatus, setTtsStatus] = useState<TtsStatus>({
+    state: 'idle',
+    currentVoiceId: 'hi-IN-female',
+    currentLanguage: 'hi-IN',
+    speed: 1.0,
+    currentChunkIndex: 0,
+    totalChunks: 0,
+    currentText: '',
+    activeVoiceAvailable: true,
+    providerType: 'native',
+  })
+
+  const ttsEngine = useRef<TtsEngine | null>(null)
+
+  useEffect(() => {
+    const engine = new TtsEngine({
+      onChunkChange: (chunk) => setCurrentChunk(chunk),
+      onStatusChange: (st) => setTtsStatus(st),
+      onSequenceComplete: () => {
+        // Text mode reached end of sequence
+      },
+    })
+    ttsEngine.current = engine
+    return () => {
+      engine.destroy()
+    }
+  }, [])
 
   const content = useAsync(() => fetchEbookContent(bookId), [bookId])
   const theme = THEMES[prefs.theme]
+
+  // Auto-detect language and initialize chunks when text content is loaded
+  useEffect(() => {
+    if (!content.data || !ttsEngine.current) return
+    const d = content.data
+    const sample = (d.paragraphs || []).slice(0, 15).join('\n') || d.description || d.title
+    const detected = detectEbookLanguage(sample, {
+      language: (d as any).language,
+      title: d.title,
+    })
+
+    ttsEngine.current.setDefaultVoiceForLanguage(detected.language)
+
+    if (d.paragraphs && d.paragraphs.length > 0) {
+      const chunks = chunkTextForSpeech(d.paragraphs)
+      ttsEngine.current.setChunks(chunks)
+    }
+  }, [content.data])
+
+  // Synchronized auto-scroll to current reading paragraph in text mode
+  useEffect(() => {
+    if (!autoScroll || !currentChunk || currentChunk.paragraphIndex === undefined) return
+    const el = document.getElementById(`para-${currentChunk.paragraphIndex}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [currentChunk, autoScroll])
 
   // Pick best default reading mode when content loads
   useEffect(() => {
@@ -298,6 +361,24 @@ function EbookReader({ bookId }: { bookId: string }) {
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
+              aria-label="Read Aloud"
+              title="Read Aloud (6 Indian Voices)"
+              onClick={() => {
+                setShowReadAloud((prev) => !prev)
+                if (!showReadAloud && ttsStatus.state === 'idle') {
+                  ttsEngine.current?.play()
+                }
+              }}
+              className={cn(
+                'grid size-9 place-items-center rounded-full transition active:scale-95',
+                showReadAloud ? 'bg-accent text-accent-fg shadow' : 'hover:bg-black/10 text-accent'
+              )}
+            >
+              <Volume2 className="size-4.5" />
+            </button>
+
+            <button
+              type="button"
               aria-label="Fullscreen"
               title="Toggle Fullscreen"
               onClick={toggleFullscreen}
@@ -451,7 +532,16 @@ function EbookReader({ bookId }: { bookId: string }) {
                       )
                     }
                     return (
-                      <p key={i} className="text-justify leading-relaxed">
+                      <p
+                        key={i}
+                        id={`para-${i}`}
+                        className={cn(
+                          'text-justify leading-relaxed rounded-lg transition-all duration-300',
+                          currentChunk?.paragraphIndex === i
+                            ? 'bg-accent/15 border-l-4 border-accent pl-3 pr-2 py-1.5 shadow-sm text-foreground'
+                            : ''
+                        )}
+                      >
                         {p}
                       </p>
                     )
@@ -628,6 +718,28 @@ function EbookReader({ bookId }: { bookId: string }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Floating Read Aloud Toolbar (Six Indian Voice Options Only) */}
+      {showReadAloud && (
+        <ReadAloudBar
+          status={ttsStatus}
+          currentChunk={currentChunk}
+          onPlay={() => ttsEngine.current?.play()}
+          onPause={() => ttsEngine.current?.pause()}
+          onResume={() => ttsEngine.current?.resume()}
+          onStop={() => ttsEngine.current?.stop()}
+          onVoiceChange={(v) => ttsEngine.current?.setVoice(v)}
+          onSpeedChange={(s) => ttsEngine.current?.setSpeed(s)}
+          onPrevChunk={() => ttsEngine.current?.seekChunk(ttsStatus.currentChunkIndex - 1)}
+          onNextChunk={() => ttsEngine.current?.seekChunk(ttsStatus.currentChunkIndex + 1)}
+          onClose={() => {
+            ttsEngine.current?.stop()
+            setShowReadAloud(false)
+          }}
+          autoScroll={autoScroll}
+          onToggleAutoScroll={() => setAutoScroll((a) => !a)}
+        />
       )}
     </div>
   )

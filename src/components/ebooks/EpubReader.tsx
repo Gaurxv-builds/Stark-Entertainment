@@ -1,7 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ePub, { type Book, type Rendition } from 'epubjs'
-import { ChevronLeft, ChevronRight, List, X, Loader2, ZoomIn, ZoomOut } from 'lucide-react'
+import { ChevronLeft, ChevronRight, List, X, Loader2, Volume2, ZoomIn, ZoomOut } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { ReadAloudBar } from './ReadAloudBar'
+import { TtsEngine } from '../../services/tts/engine'
+import { chunkTextForSpeech } from '../../services/tts/chunker'
+import { detectEbookLanguage } from '../../services/tts/languageDetector'
+import type { TtsChunk, TtsStatus } from '../../types/tts'
 
 interface TocItem {
   id: string
@@ -46,6 +51,46 @@ export default function EpubReader({
   const [showToc, setShowToc] = useState(false)
   const [currentProgress, setCurrentProgress] = useState<number>(0)
   const [currentFontSize, setCurrentFontSize] = useState<number>(fontSize)
+  const [showReadAloud, setShowReadAloud] = useState(false)
+  const [currentChunk, setCurrentChunk] = useState<TtsChunk | null>(null)
+  const [ttsStatus, setTtsStatus] = useState<TtsStatus>({
+    state: 'idle',
+    currentVoiceId: 'hi-IN-female',
+    currentLanguage: 'hi-IN',
+    speed: 1.0,
+    currentChunkIndex: 0,
+    totalChunks: 0,
+    currentText: '',
+    activeVoiceAvailable: true,
+    providerType: 'native',
+  })
+
+  const ttsEngine = useRef<TtsEngine | null>(null)
+
+  const extractVisibleText = useCallback((): string => {
+    try {
+      const contents = renditionRef.current?.getContents() || []
+      const texts = contents.map((c: any) => c.document?.body?.innerText || '')
+      return texts.join('\n').trim()
+    } catch {
+      return ''
+    }
+  }, [])
+
+  useEffect(() => {
+    const engine = new TtsEngine({
+      onChunkChange: (chunk) => setCurrentChunk(chunk),
+      onStatusChange: (st) => setTtsStatus(st),
+      onSequenceComplete: () => {
+        // Automatically advance to the next EPUB page and continue reading aloud
+        renditionRef.current?.next()
+      },
+    })
+    ttsEngine.current = engine
+    return () => {
+      engine.destroy()
+    }
+  }, [])
 
   const activeTheme = THEME_STYLES[theme] || THEME_STYLES.dark
 
@@ -124,6 +169,18 @@ export default function EpubReader({
           setCurrentProgress(pct)
           onProgress?.(pct)
         }
+
+        // Synchronize read aloud text when page changes
+        setTimeout(() => {
+          if (cancelled || !ttsEngine.current) return
+          const text = extractVisibleText()
+          if (text) {
+            const detected = detectEbookLanguage(text, { title })
+            ttsEngine.current.setDefaultVoiceForLanguage(detected.language)
+            const chunks = chunkTextForSpeech(text)
+            ttsEngine.current.setChunks(chunks)
+          }
+        }, 200)
       })
 
       // Forward keyboard events inside iframe to window
@@ -189,6 +246,35 @@ export default function EpubReader({
         </div>
 
         <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showReadAloud
+              setShowReadAloud(next)
+              if (next && ttsStatus.state === 'idle') {
+                const text = extractVisibleText()
+                if (text) {
+                  const detected = detectEbookLanguage(text, { title })
+                  ttsEngine.current?.setDefaultVoiceForLanguage(detected.language)
+                  const chunks = chunkTextForSpeech(text)
+                  ttsEngine.current?.setChunks(chunks)
+                  ttsEngine.current?.play()
+                }
+              }
+            }}
+            aria-label="Read Aloud"
+            title="Read Aloud (6 Indian Voices)"
+            className={cn(
+              'flex h-8 items-center gap-1.5 rounded-lg border px-2.5 transition active:scale-95',
+              showReadAloud
+                ? 'border-accent bg-accent/20 text-accent'
+                : 'border-white/10 bg-card hover:bg-white/5 text-muted hover:text-foreground'
+            )}
+          >
+            <Volume2 className="size-3.5" />
+            <span className="hidden sm:inline">Read Aloud</span>
+          </button>
+
           {toc.length > 0 && (
             <button
               type="button"
@@ -315,6 +401,35 @@ export default function EpubReader({
           <span className="hidden sm:inline">Use arrow keys or buttons to flip pages</span>
         </div>
       </div>
+
+      {/* Floating Read Aloud Toolbar */}
+      {showReadAloud && (
+        <ReadAloudBar
+          status={ttsStatus}
+          currentChunk={currentChunk}
+          onPlay={() => {
+            if (ttsStatus.totalChunks === 0) {
+              const text = extractVisibleText()
+              if (text) {
+                const chunks = chunkTextForSpeech(text)
+                ttsEngine.current?.setChunks(chunks)
+              }
+            }
+            ttsEngine.current?.play()
+          }}
+          onPause={() => ttsEngine.current?.pause()}
+          onResume={() => ttsEngine.current?.resume()}
+          onStop={() => ttsEngine.current?.stop()}
+          onVoiceChange={(v) => ttsEngine.current?.setVoice(v)}
+          onSpeedChange={(s) => ttsEngine.current?.setSpeed(s)}
+          onPrevChunk={() => ttsEngine.current?.seekChunk(ttsStatus.currentChunkIndex - 1)}
+          onNextChunk={() => ttsEngine.current?.seekChunk(ttsStatus.currentChunkIndex + 1)}
+          onClose={() => {
+            ttsEngine.current?.stop()
+            setShowReadAloud(false)
+          }}
+        />
+      )}
     </div>
   )
 }

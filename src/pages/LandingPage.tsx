@@ -85,16 +85,6 @@ export default function LandingPage() {
       <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-5 pt-5 sm:px-8 sm:pt-7">
         <Logo size={38} />
         <div className="flex items-center gap-2 sm:gap-3">
-          {user && (
-            <Link
-              to="/profile"
-              title={`Logged in as ${displayName}`}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 py-1 pl-1.5 pr-3 text-xs font-semibold backdrop-blur-md transition hover:border-accent/40 hover:bg-card hover:text-accent active:scale-95 shadow-sm"
-            >
-              <Avatar size={24} src={me.avatar} frame={me.frame} name={displayName} />
-              <span className="font-medium text-foreground">{displayName}</span>
-            </Link>
-          )}
           {isAdmin && (
             <Link
               to="/admin"
@@ -106,6 +96,16 @@ export default function LandingPage() {
             </Link>
           )}
           <ThemeToggle />
+          {user && (
+            <Link
+              to="/profile"
+              title={`Logged in as ${displayName}`}
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 py-1 pl-1.5 pr-3 text-xs font-semibold backdrop-blur-md transition hover:border-accent/40 hover:bg-card hover:text-accent active:scale-95 shadow-sm"
+            >
+              <Avatar size={24} src={me.avatar} frame={me.frame} name={displayName} />
+              <span className="font-medium text-foreground hidden sm:inline">{displayName}</span>
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => logout()}
