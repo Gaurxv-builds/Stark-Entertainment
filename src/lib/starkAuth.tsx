@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { saveProfile, getProfile } from './profile'
+import { saveProfile, getProfile, resetProfile } from './profile'
 import { toast } from './toast'
 import { supabase, isSupabaseConfigured } from './supabase'
 import { pullCloudData, schedulePushCloudData } from './cloudSync'
@@ -295,8 +295,8 @@ export function saveAuthSession(user: string, isAdmin: boolean, remember: boolea
     }
 
     const p = getProfile()
-    if (!p.name || p.name === 'Guest') {
-      saveProfile({ name: user })
+    if (!p.name || p.name === 'Guest' || p.name !== user) {
+      saveProfile({ name: user, username: user })
     }
   } catch {}
 }
@@ -687,17 +687,18 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
             data.user.app_metadata?.is_admin || data.user.user_metadata?.is_admin
           )
           saveAuthSession(authUser, adminFlag, remember, data.session.access_token)
+          saveProfile({
+            name: authUser,
+            username: u,
+            avatar: data.user.user_metadata?.avatar_url || null,
+          })
           setUserId(data.user.id)
           setUser(authUser)
           setIsAdmin(adminFlag)
           setToken(data.session.access_token)
           setIsCloudSynced(true)
-
+          setAuthenticated(true)
           pullCloudData(data.user.id).catch(() => {})
-
-          setTimeout(() => {
-            setAuthenticated(true)
-          }, 500)
           return true
         }
       } catch {
@@ -720,13 +721,11 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
           const adminFlag = Boolean(data.isAdmin)
           const sessionToken = data.token || (await createClientToken(authUser, adminFlag, data.exp))
           saveAuthSession(authUser, adminFlag, remember, sessionToken)
+          saveProfile({ name: authUser, username: u })
           setUser(authUser)
           setIsAdmin(adminFlag)
           setToken(sessionToken)
-
-          setTimeout(() => {
-            setAuthenticated(true)
-          }, 500)
+          setAuthenticated(true)
           return true
         }
       }
@@ -740,13 +739,11 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       const exp = remember ? Date.now() + 30 * 24 * 60 * 60 * 1000 : Date.now() + 24 * 60 * 60 * 1000
       const sessionToken = await createClientToken(localRes.user, localRes.isAdmin, exp)
       saveAuthSession(localRes.user, localRes.isAdmin, remember, sessionToken)
+      saveProfile({ name: localRes.user, username: u })
       setUser(localRes.user)
       setIsAdmin(localRes.isAdmin)
       setToken(sessionToken)
-
-      setTimeout(() => {
-        setAuthenticated(true)
-      }, 500)
+      setAuthenticated(true)
       return true
     }
 
@@ -758,6 +755,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       supabase.auth.signOut().catch(() => {})
     }
     clearAuthSession()
+    resetProfile()
     setUserId(null)
     setUser('')
     setIsAdmin(false)

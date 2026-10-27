@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowUpRight, BookMarked, BookOpen, Clapperboard, Film, Library, LogOut, Music, ShieldAlert, User, type LucideIcon } from 'lucide-react'
+import { ArrowUpRight, BookMarked, BookOpen, Clapperboard, Film, Library, LogOut, Music, ShieldAlert, type LucideIcon } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { AuroraBackground } from '../components/AuroraBackground'
 import { BlurText } from '../components/BlurText'
@@ -12,7 +12,10 @@ import { BRAND_MARK, BRAND_TAGLINE, pageTitle } from '../lib/brand'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { useCompact, useShowcase } from '../hooks/useShowcase'
 import { useStarkAuth } from '../lib/starkAuth'
-import type { ShowcaseImage } from '../services/showcase'
+import { useProfile } from '../lib/profile'
+import { Avatar } from '../components/Avatar'
+import { ProfileCard } from '../components/ProfileCard'
+import { DEFAULT_SHOWCASE, type ShowcaseImage } from '../services/showcase'
 
 interface Section {
   key: 'anime' | 'manga' | 'novel' | 'movies' | 'ebooks' | 'music'
@@ -38,6 +41,8 @@ const SECTIONS: Section[] = [
 export default function LandingPage() {
   const navigate = useNavigate()
   const { user, isAdmin, logout } = useStarkAuth()
+  const me = useProfile()
+  const displayName = me.name?.trim() || user?.trim() || 'User'
   const [shake, setShake] = useState<string | null>(null)
   const timers = useRef<number[]>([])
   const pools = useShowcase() // random Luffy / Naruto / cover art for each card
@@ -83,11 +88,11 @@ export default function LandingPage() {
           {user && (
             <Link
               to="/profile"
-              title="Profile"
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1.5 text-xs font-semibold backdrop-blur transition hover:bg-card hover:text-accent active:scale-95"
+              title={`Logged in as ${displayName}`}
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 py-1 pl-1.5 pr-3 text-xs font-semibold backdrop-blur-md transition hover:border-accent/40 hover:bg-card hover:text-accent active:scale-95 shadow-sm"
             >
-              <User className="size-3.5 text-accent" />
-              <span className="hidden sm:inline">{user}</span>
+              <Avatar size={24} src={me.avatar} frame={me.frame} name={displayName} />
+              <span className="font-medium text-foreground">{displayName}</span>
             </Link>
           )}
           {isAdmin && (
@@ -115,6 +120,11 @@ export default function LandingPage() {
       </header>
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-5 sm:px-8 sm:py-8 lg:py-12">
+        {/* Prominent Profile Strip on Home Screen */}
+        <div className="mb-6 sm:mb-8 w-full animate-fade-in">
+          <ProfileCard />
+        </div>
+
         <div className="text-center">
           <p className="font-display text-sm font-semibold tracking-[0.28em] text-accent uppercase">{BRAND_MARK}</p>
           <p className="mt-2 text-sm font-medium tracking-[0.18em] text-muted uppercase">{BRAND_TAGLINE}</p>
@@ -127,7 +137,7 @@ export default function LandingPage() {
 
         <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-9 sm:gap-3.5 md:grid-cols-3 lg:grid-cols-6 lg:gap-4">
           {SECTIONS.map((s, i) => (
-            <PickCard key={s.key} s={s} index={i} shaking={shake === s.key} onPick={pick} images={pools[s.key]} compact={compact} />
+            <PickCard key={s.key} s={s} index={i} shaking={shake === s.key} onPick={pick} images={pools[s.key] || DEFAULT_SHOWCASE[s.key] || []} compact={compact} />
           ))}
         </div>
 

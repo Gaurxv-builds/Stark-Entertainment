@@ -1,20 +1,31 @@
 import { useSyncExternalStore } from 'react'
 import { cell } from './library'
 
-/** Local-only profile (this device, this browser). Images are either remote urls or small data: urls from uploads. */
+/** Local and cloud-synced profile information. */
 export interface Profile {
   name: string
+  username?: string | null
+  email?: string | null
   avatar: string | null
   banner: string | null
   frame: string | null
 }
 
-const empty: Profile = { name: '', avatar: null, banner: null, frame: null }
-const store = cell<Profile>('zk:profile', empty)
+export const emptyProfile: Profile = {
+  name: '',
+  username: null,
+  email: null,
+  avatar: null,
+  banner: null,
+  frame: null,
+}
+
+const store = cell<Profile>('zk:profile', emptyProfile)
 
 export const useProfile = () => useSyncExternalStore(store.subscribe, store.get)
 export const getProfile = () => store.get()
 export const saveProfile = (p: Partial<Profile>) => store.set({ ...store.get(), ...p })
+export const resetProfile = () => store.set(emptyProfile)
 
 /** Crop-to-fill resize of an uploaded image into a compressed data: url, so it fits in localStorage. */
 export async function readImage(file: File, w: number, h: number): Promise<string> {

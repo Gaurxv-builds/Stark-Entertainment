@@ -152,5 +152,23 @@ test('Music UI components, page, and navigation routes are wired up', () => {
   assert(appContent.includes('<MusicMiniPlayer />'), 'App.tsx must mount MusicMiniPlayer')
 })
 
+// 11. Profile Visibility and Synchronization After Stark Gate Login
+test('ProfileCard is rendered on LandingPage and profile resets on logout', () => {
+  const landingContent = fs.readFileSync('src/pages/LandingPage.tsx', 'utf8')
+  assert(landingContent.includes('<ProfileCard />'), 'LandingPage must render ProfileCard')
+  assert(landingContent.includes('useProfile'), 'LandingPage must subscribe to useProfile')
+
+  const profileContent = fs.readFileSync('src/lib/profile.ts', 'utf8')
+  assert(profileContent.includes('resetProfile'), 'profile.ts must export resetProfile')
+
+  const starkAuthContent = fs.readFileSync('src/lib/starkAuth.tsx', 'utf8')
+  assert(starkAuthContent.includes('resetProfile()'), 'starkAuth.tsx lock must call resetProfile')
+  assert(starkAuthContent.includes('saveProfile({ name: authUser'), 'unlock must sync authenticated user to profile')
+
+  const profileCardContent = fs.readFileSync('src/components/ProfileCard.tsx', 'utf8')
+  assert(profileCardContent.includes('useStarkAuth'), 'ProfileCard must subscribe to useStarkAuth')
+  assert(profileCardContent.includes('authUser'), 'ProfileCard must display authenticated user')
+})
+
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`)
 if (failed > 0) process.exit(1)
