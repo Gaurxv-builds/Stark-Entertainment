@@ -1,3 +1,4 @@
+import { VitePWA } from 'vite-plugin-pwa'
 import { Readable } from 'node:stream'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -84,6 +85,77 @@ function verseSeo(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), verseApi(), verseSeo()],
+  plugins: [
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.svg', 'og-image.jpg', 'robots.txt'],
+      manifest: {
+        name: 'Gaurxv Verse',
+        short_name: 'Gaurxv Verse',
+        description: 'Next-Gen Media Server & Reader',
+        theme_color: '#0a0a0c',
+        background_color: '#0a0a0c',
+        display: 'standalone',
+        orientation: 'any',
+        scope: '/',
+        start_url: '/',
+        icons: [
+          {
+            src: 'https://img.icons8.com/?size=100&id=RekiHr6RHlKB&format=png&color=000000',
+            sizes: '100x100',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: 'https://img.icons8.com/?size=192&id=RekiHr6RHlKB&format=png&color=000000',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any maskable'
+          },
+          {
+            src: 'https://img.icons8.com/?size=512&id=RekiHr6RHlKB&format=png&color=000000',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
+      },
+      workbox: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff2}'],
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api\//, /^\/proxy/, /^\/admin/, /^\/auth/],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'google-fonts-cache',
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'gstatic-fonts-cache',
+              expiration: { maxEntries: 15, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|webp)$/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'images-cache',
+              expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          }
+        ]
+      }
+    }),
+react(), tailwindcss(), verseApi(), verseSeo()],
   server: { host: true },
 })

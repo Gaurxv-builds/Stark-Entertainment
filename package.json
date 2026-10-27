@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node tests/verification.mjs",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
@@ -17,13 +17,17 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "anime4k-webgpu": "^1.0.0",
+    "epubjs": "^0.3.93",
     "framer-motion": "^14.1.0",
     "hls.js": "^1.7.3",
     "lucide-react": "^1.55.0",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "vite-plugin-pwa": "^2.0.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

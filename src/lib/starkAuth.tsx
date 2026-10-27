@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { saveProfile, getProfile } from './profile'
 import { toast } from './toast'
+import { supabase, isSupabaseConfigured } from './supabase'
+import { pullCloudData, schedulePushCloudData } from './cloudSync'
 
 const AUTH_STORAGE_KEY = 'gaurxv_verse_auth'
 const AUTH_TOKEN_KEY = 'gaurxv_verse_auth_token'
@@ -466,11 +468,14 @@ export interface StarkAuthContextType {
   authenticated: boolean
   loading: boolean
   user: string
+  userId: string | null
   isAdmin: boolean
   token: string
+  isCloudSynced: boolean
   unlock: (username: string, password: string, remember?: boolean) => Promise<boolean>
   lock: () => void
   logout: () => Promise<void>
+  triggerSync: () => Promise<boolean>
 }
 
 const StarkAuthContext = createContext<StarkAuthContextType | null>(null)
@@ -479,21 +484,93 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
   const [authenticated, setAuthenticated] = useState<boolean>(false)
   const [loading, setLoading] = useState<boolean>(true)
   const [user, setUser] = useState<string>('')
+  const [userId, setUserId] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState<boolean>(false)
   const [token, setToken] = useState<string>('')
+  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false)
+
+  // Listen to Supabase auth state changes if configured
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const uName =
+          session.user.user_metadata?.full_name ||
+          session.user.user_metadata?.name ||
+          session.user.email?.split('@')[0] ||
+          'Member'
+        const adminFlag = Boolean(
+          session.user.app_metadata?.is_admin || session.user.user_metadata?.is_admin
+        )
+        setUserId(session.user.id)
+        setUser(uName)
+        setIsAdmin(adminFlag)
+        setToken(session.access_token)
+        setAuthenticated(true)
+        setIsCloudSynced(true)
+        saveAuthSession(uName, adminFlag, true, session.access_token)
+        pullCloudData(session.user.id).catch(() => {})
+      } else if (event === 'SIGNED_OUT') {
+        setUserId(null)
+        setIsCloudSynced(false)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [])
 
   // Startup verification: verify session before rendering protected content
   useEffect(() => {
     let cancelled = false
 
     async function verifyStartupSession() {
+      // 1. Check active Supabase session if configured
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { data, error } = await supabase.auth.getSession()
+          if (!error && data?.session?.user) {
+            const sbUser = data.session.user
+            const uName =
+              sbUser.user_metadata?.full_name ||
+              sbUser.user_metadata?.name ||
+              sbUser.email?.split('@')[0] ||
+              'Member'
+            const adminFlag = Boolean(
+              sbUser.app_metadata?.is_admin || sbUser.user_metadata?.is_admin
+            )
+            if (!cancelled) {
+              setUserId(sbUser.id)
+              setUser(uName)
+              setIsAdmin(adminFlag)
+              setToken(data.session.access_token)
+              setAuthenticated(true)
+              setIsCloudSynced(true)
+              setLoading(false)
+            }
+            saveAuthSession(uName, adminFlag, true, data.session.access_token)
+            pullCloudData(sbUser.id).catch(() => {})
+            return
+          }
+        } catch {
+          // Supabase session lookup non-blocking fallback
+        }
+      }
+
+      // 2. Local session validation
       if (!isSessionValid()) {
         clearAuthSession()
         if (!cancelled) {
           setAuthenticated(false)
+          setUserId(null)
           setUser('')
           setIsAdmin(false)
           setToken('')
+          setIsCloudSynced(false)
           setLoading(false)
         }
         return
@@ -503,7 +580,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       const storedUser = getAuthenticatedUser()
       const storedAdmin = isCurrentAdmin()
 
-      // If token exists, verify with backend endpoint
+      // 3. If server token exists, verify with backend endpoint
       if (storedToken) {
         try {
           const res = await fetch('/api/auth/verify', {
@@ -528,7 +605,6 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
               return
             }
           } else if (res.status === 401 || res.status === 403) {
-            // Token explicitly rejected by server (expired, tampered, or revoked)
             clearAuthSession()
             if (!cancelled) {
               setAuthenticated(false)
@@ -540,10 +616,10 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
             return
           }
         } catch {
-          // Server offline or network unreachable; fallback to client verification
+          // Server offline; fallback to client verification
         }
 
-        // Local token check fallback
+        // Local token verification fallback
         const verifiedLocal = await verifyClientToken(storedToken)
         if (verifiedLocal) {
           if (!cancelled) {
@@ -557,7 +633,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // If legacy session flag is present and not expired, generate new signed token
+      // 4. Legacy session flag fallback
       if (localStorage.getItem(AUTH_STORAGE_KEY) === 'authorized' && storedUser) {
         const exp = Number(localStorage.getItem(AUTH_EXPIRY_KEY) || 0) || Date.now() + 30 * 24 * 60 * 60 * 1000
         const newToken = await createClientToken(storedUser, storedAdmin, exp)
@@ -593,7 +669,43 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
     const p = password.trim()
     if (!p) return false
 
-    // 1. Try server-side authentication endpoint
+    // 1. Try Supabase Auth if configured
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const email = u.includes('@') ? u : `${u}@gaurxv.eu.org`
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password: p,
+        })
+
+        if (!error && data?.session?.user) {
+          const authUser =
+            data.user.user_metadata?.full_name ||
+            data.user.user_metadata?.name ||
+            u
+          const adminFlag = Boolean(
+            data.user.app_metadata?.is_admin || data.user.user_metadata?.is_admin
+          )
+          saveAuthSession(authUser, adminFlag, remember, data.session.access_token)
+          setUserId(data.user.id)
+          setUser(authUser)
+          setIsAdmin(adminFlag)
+          setToken(data.session.access_token)
+          setIsCloudSynced(true)
+
+          pullCloudData(data.user.id).catch(() => {})
+
+          setTimeout(() => {
+            setAuthenticated(true)
+          }, 500)
+          return true
+        }
+      } catch {
+        // Supabase sign in failed; fall through to server / local check
+      }
+    }
+
+    // 2. Try server-side authentication endpoint (/api/auth/login)
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -612,7 +724,6 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
           setIsAdmin(adminFlag)
           setToken(sessionToken)
 
-          // 500ms delay gives StarkLoginGate time to display ACCESS GRANTED animation
           setTimeout(() => {
             setAuthenticated(true)
           }, 500)
@@ -623,7 +734,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       // Backend not running or offline; proceed to verified local credentials check
     }
 
-    // 2. Local verified credentials fallback (master passcodes, admin credentials, domain emails)
+    // 3. Local verified credentials fallback (master passcodes, admin credentials, domain emails)
     const localRes = verifyCredentials(u, p)
     if (localRes.ok) {
       const exp = remember ? Date.now() + 30 * 24 * 60 * 60 * 1000 : Date.now() + 24 * 60 * 60 * 1000
@@ -643,10 +754,15 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
   }
 
   const lock = () => {
+    if (isSupabaseConfigured && supabase) {
+      supabase.auth.signOut().catch(() => {})
+    }
     clearAuthSession()
+    setUserId(null)
     setUser('')
     setIsAdmin(false)
     setToken('')
+    setIsCloudSynced(false)
     setAuthenticated(false)
     fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
   }
@@ -660,17 +776,28 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const triggerSync = async (): Promise<boolean> => {
+    if (userId) {
+      await schedulePushCloudData(userId)
+      return await pullCloudData(userId)
+    }
+    return false
+  }
+
   return (
     <StarkAuthContext.Provider
       value={{
         authenticated,
         loading,
         user,
+        userId,
         isAdmin,
         token,
+        isCloudSynced,
         unlock,
         lock,
         logout,
+        triggerSync,
       }}
     >
       {children}
@@ -688,8 +815,10 @@ export function useStarkAuth(): StarkAuthContextType {
     authenticated: isSessionValid(),
     loading: false,
     user: getAuthenticatedUser(),
+    userId: null,
     isAdmin: isCurrentAdmin(),
     token: getAuthToken(),
+    isCloudSynced: false,
     unlock: async (u, p, r) => {
       const res = verifyCredentials(u, p)
       if (res.ok) {
@@ -700,5 +829,6 @@ export function useStarkAuth(): StarkAuthContextType {
     },
     lock: () => clearAuthSession(),
     logout: async () => clearAuthSession(),
+    triggerSync: async () => false,
   }
 }

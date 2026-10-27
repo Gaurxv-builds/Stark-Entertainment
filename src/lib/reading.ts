@@ -73,6 +73,9 @@ if (typeof window !== 'undefined') {
 export function saveReading(item: Omit<ReadingItem, 't'>) {
   const rest = read().filter((x) => !(x.kind === item.kind && x.id === item.id))
   write([{ ...item, t: Date.now() }, ...rest].slice(0, MAX))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('zk:reading:change'))
+  }
 }
 
 export function removeReading(kind: ReadKind, id: string) {

@@ -52,7 +52,10 @@ const ALLOWED_STREAM_DOMAINS = [
   "strem.io",
   "tmdb.org",
   "themoviedb.org",
-  "image.tmdb.org"
+  "image.tmdb.org",
+  "gutenberg.org",
+  "archive.org",
+  "openlibrary.org"
 ];
 export function validateProxyUrl(rawUrl) {
   if (!rawUrl || typeof rawUrl !== "string") {

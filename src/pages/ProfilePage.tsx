@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Moon, Sun, ShieldCheck, Lock, ShieldAlert } from 'lucide-react'
+import { Moon, Sun, ShieldCheck, Lock, ShieldAlert, Cloud, RefreshCw, LogOut } from 'lucide-react'
 import { useStarkAuth } from '../lib/starkAuth'
+import { loadIntegrations, saveIntegrations, testJellyfinConnection, testKomgaConnection, type IntegrationSettings } from '../services/integrations'
 import { AniListCard } from '../components/AniListCard'
 import { ProfileCustomizer, ProfileHero, type SectionKey } from '../components/ProfileCustomizer'
 import { CustomSelect } from '../components/CustomSelect'
@@ -66,8 +67,11 @@ const langName = (c: string) => new Intl.DisplayNames(['en'], { type: 'language'
 
 export default function ProfilePage() {
   const me = useProfile()
-  const { lock, user: authUser, isAdmin } = useStarkAuth()
+  const { lock, logout, user: authUser, isAdmin, isCloudSynced, triggerSync } = useStarkAuth()
+  const [syncing, setSyncing] = useState(false)
   const { theme, setTheme } = useTheme()
+  const [integrations, setIntegrations] = useState<IntegrationSettings>(loadIntegrations)
+  const [testingService, setTestingService] = useState<string | null>(null)
   const [open, setOpen] = useState<Set<SectionKey>>(() => new Set(['avatar']))
 
   const [prefs, setPrefs] = useState(getPrefs)
@@ -108,11 +112,11 @@ export default function ProfilePage() {
       <ProfileCustomizer me={me} open={open} setOpen={setOpen} />
       <AniListCard me={me} />
 
-      {/* Stark Security Gate */}
+      {/* Stark Security Gate & Cloud Sync */}
       <section className={card} aria-label="Security">
-        <h2 className={cn(h2, 'mb-4')}>Stark Security Gate</h2>
+        <h2 className={cn(h2, 'mb-4')}>Stark Security Gate &amp; Cloud Sync</h2>
         <Row title="Protocol Status" hint={`Signed in as ${authUser || 'Operator'} · Stark Security Gate active`}>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
               <ShieldCheck className="size-3.5" />
               <span>Unlocked ⎊</span>
@@ -135,6 +139,52 @@ export default function ProfilePage() {
             >
               <Lock className="size-3" /> Lock Gate
             </button>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card-2 px-3 text-xs font-semibold text-muted transition hover:bg-card-3 hover:text-foreground active:scale-95"
+            >
+              <LogOut className="size-3" /> Sign Out
+            </button>
+          </div>
+        </Row>
+        <Row
+          title="Cloud Synchronization"
+          hint={
+            isCloudSynced
+              ? 'Synced via Supabase PostgreSQL RLS (cross-device profile, watchlist & reading progress)'
+              : 'Local storage active · Connect Supabase for encrypted multi-device cloud synchronization'
+          }
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold',
+                isCloudSynced
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                  : 'border-border bg-card-2 text-muted'
+              )}
+            >
+              <Cloud className="size-3.5" />
+              <span>{isCloudSynced ? 'Connected' : 'Local Only'}</span>
+            </span>
+            {isCloudSynced && (
+              <button
+                type="button"
+                disabled={syncing}
+                onClick={async () => {
+                  setSyncing(true)
+                  const ok = await triggerSync()
+                  setSyncing(false)
+                  if (ok) toast('Synced library and reading data to cloud', 'success')
+                  else toast('Sync finished', 'info')
+                }}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-xs font-semibold text-accent transition hover:bg-accent hover:text-accent-fg active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw className={cn('size-3', syncing && 'animate-spin')} />
+                <span>{syncing ? 'Syncing...' : 'Sync Now'}</span>
+              </button>
+            )}
           </div>
         </Row>
       </section>
@@ -184,6 +234,174 @@ export default function ProfilePage() {
         </Row>
       </section>
 
+      
+      {/* Optional External Media Integrations */}
+      <section className={card} aria-label="Media Integrations">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className={h2}>Media Integrations (Optional)</h2>
+            <p className="mt-0.5 text-xs text-muted">
+              Connect external tracking services or self-hosted media servers. Disabled by default.
+            </p>
+          </div>
+        </div>
+
+        {/* Trakt */}
+        <Row
+          title="Trakt.tv"
+          hint="Sync movie and episode watching progress automatically with your Trakt account"
+        >
+          <Switch
+            on={integrations.trakt.enabled}
+            onChange={(enabled) => {
+              const next = { ...integrations, trakt: { ...integrations.trakt, enabled } };
+              setIntegrations(next);
+              saveIntegrations(next);
+              toast(`Trakt integration ${enabled ? 'enabled' : 'disabled'}`);
+            }}
+            label="Trakt.tv integration"
+          />
+        </Row>
+        {integrations.trakt.enabled && (
+          <div className="rounded-2xl border border-border/60 bg-background/40 p-4 space-y-3 mb-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted uppercase">Trakt Client ID</label>
+              <input
+                type="text"
+                value={integrations.trakt.clientId}
+                onChange={(e) => {
+                  const next = { ...integrations, trakt: { ...integrations.trakt, clientId: e.target.value } };
+                  setIntegrations(next);
+                  saveIntegrations(next);
+                }}
+                placeholder="Enter your Trakt API Client ID"
+                className="h-10 w-full rounded-xl border border-border bg-card px-3 text-xs outline-none focus:border-accent"
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted">
+              <span>Automatic scrobbling</span>
+              <Switch
+                on={integrations.trakt.scrobbleWatching}
+                onChange={(scrobbleWatching) => {
+                  const next = { ...integrations, trakt: { ...integrations.trakt, scrobbleWatching } };
+                  setIntegrations(next);
+                  saveIntegrations(next);
+                }}
+                label="Trakt scrobble"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Jellyfin */}
+        <Row
+          title="Jellyfin Server"
+          hint="Connect to your personal self-hosted Jellyfin media server"
+        >
+          <Switch
+            on={integrations.jellyfin.enabled}
+            onChange={(enabled) => {
+              const next = { ...integrations, jellyfin: { ...integrations.jellyfin, enabled } };
+              setIntegrations(next);
+              saveIntegrations(next);
+              toast(`Jellyfin integration ${enabled ? 'enabled' : 'disabled'}`);
+            }}
+            label="Jellyfin server integration"
+          />
+        </Row>
+        {integrations.jellyfin.enabled && (
+          <div className="rounded-2xl border border-border/60 bg-background/40 p-4 space-y-3 mb-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted uppercase">Server URL</label>
+              <input
+                type="url"
+                value={integrations.jellyfin.serverUrl}
+                onChange={(e) => {
+                  const next = { ...integrations, jellyfin: { ...integrations.jellyfin, serverUrl: e.target.value } };
+                  setIntegrations(next);
+                  saveIntegrations(next);
+                }}
+                placeholder="https://jellyfin.yourdomain.com"
+                className="h-10 w-full rounded-xl border border-border bg-card px-3 text-xs outline-none focus:border-accent"
+              />
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                disabled={testingService === 'jellyfin' || !integrations.jellyfin.serverUrl}
+                onClick={async () => {
+                  setTestingService('jellyfin');
+                  const res = await testJellyfinConnection(integrations.jellyfin);
+                  setTestingService(null);
+                  if (res.ok) {
+                    toast(`Connected to ${res.info?.serverName || 'Jellyfin'} (v${res.info?.version || ''})`, 'success');
+                  } else {
+                    toast(res.error || 'Connection failed', 'error');
+                  }
+                }}
+                className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-accent/40 bg-accent/15 px-3 text-xs font-semibold text-accent transition hover:bg-accent hover:text-accent-fg active:scale-95 disabled:opacity-40"
+              >
+                {testingService === 'jellyfin' ? 'Testing...' : 'Test Connection'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Komga */}
+        <Row
+          title="Komga Comic Server"
+          hint="Connect to your personal Komga comic and manga server"
+        >
+          <Switch
+            on={integrations.komga.enabled}
+            onChange={(enabled) => {
+              const next = { ...integrations, komga: { ...integrations.komga, enabled } };
+              setIntegrations(next);
+              saveIntegrations(next);
+              toast(`Komga integration ${enabled ? 'enabled' : 'disabled'}`);
+            }}
+            label="Komga comic server integration"
+          />
+        </Row>
+        {integrations.komga.enabled && (
+          <div className="rounded-2xl border border-border/60 bg-background/40 p-4 space-y-3 mb-4">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted uppercase">Server URL</label>
+              <input
+                type="url"
+                value={integrations.komga.serverUrl}
+                onChange={(e) => {
+                  const next = { ...integrations, komga: { ...integrations.komga, serverUrl: e.target.value } };
+                  setIntegrations(next);
+                  saveIntegrations(next);
+                }}
+                placeholder="https://komga.yourdomain.com"
+                className="h-10 w-full rounded-xl border border-border bg-card px-3 text-xs outline-none focus:border-accent"
+              />
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <button
+                type="button"
+                disabled={testingService === 'komga' || !integrations.komga.serverUrl}
+                onClick={async () => {
+                  setTestingService('komga');
+                  const res = await testKomgaConnection(integrations.komga);
+                  setTestingService(null);
+                  if (res.ok) {
+                    toast(`Connected to Komga (${res.libraries?.length || 0} libraries detected)`, 'success');
+                  } else {
+                    toast(res.error || 'Connection failed', 'error');
+                  }
+                }}
+                className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-accent/40 bg-accent/15 px-3 text-xs font-semibold text-accent transition hover:bg-accent hover:text-accent-fg active:scale-95 disabled:opacity-40"
+              >
+                {testingService === 'komga' ? 'Testing...' : 'Test Connection'}
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* About & legal */}
       <section id="legal" className={cn(card, 'scroll-mt-24 space-y-5 text-sm leading-relaxed text-muted')} aria-label="About and legal">
         <h2 className={h2}>About &amp; legal</h2>
@@ -212,7 +430,10 @@ export default function ProfilePage() {
           </p>
         </div>
         <p>
-          Your profile and preferences are kept in this browser only. Clearing site data removes them. <Link to="/" className="text-foreground underline underline-offset-2">Back to {BRAND_NAME}</Link>
+          {isCloudSynced
+            ? 'Your profile, watchlist, and reading library are synchronized securely with your cloud account.'
+            : 'Your profile and preferences are kept in this browser. Connect your account for cross-device cloud sync.'}{' '}
+          <Link to="/" className="text-foreground underline underline-offset-2">Back to {BRAND_NAME}</Link>
         </p>
       </section>
     </main>

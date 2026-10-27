@@ -13,6 +13,7 @@ import { ScrollProgress } from './components/ScrollProgress'
 import { ScrollToTop } from './components/ScrollToTop'
 import { StarkLoginGate } from './components/StarkLoginGate'
 import { StarkLoadingScreen } from './components/StarkLoadingScreen'
+import { PwaInstallPrompt } from './components/PwaInstallPrompt'
 import { useStarkAuth } from './lib/starkAuth'
 import { isDetailsPath, isReaderPath, isWatchPath, sectionOf } from './lib/sections'
 
@@ -148,6 +149,9 @@ export default function App() {
       <Toaster />
       <ShortcutsHelp />
       <ShieldGate />
+      {!bare && (
+        <PwaInstallPrompt className="fixed bottom-20 left-4 right-4 z-40 md:bottom-6 md:left-auto md:right-6 md:w-96" />
+      )}
     </>
   )
 }

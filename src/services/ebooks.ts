@@ -437,6 +437,10 @@ export interface EbookContent {
   description?: string | null
   embedUrl?: string | null
   externalUrl?: string | null
+  epubUrl?: string | null
+  pdfUrl?: string | null
+  rawEpubUrl?: string | null
+  rawPdfUrl?: string | null
 }
 
 export async function fetchEbookContent(id: string): Promise<EbookContent> {
