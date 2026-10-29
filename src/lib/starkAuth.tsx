@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { saveProfile, getProfile, resetProfile } from './profile'
 import { toast } from './toast'
-import { supabase, isSupabaseConfigured } from './supabase'
+import { supabase, getOrInitSupabase } from './supabase'
 import { pullCloudData, schedulePushCloudData } from './cloudSync'
 
 const AUTH_STORAGE_KEY = 'gaurxv_verse_auth'
@@ -491,36 +491,60 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
 
   // Listen to Supabase auth state changes if configured
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) return
+    let sub: { unsubscribe: () => void } | null = null
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        const uName =
-          session.user.user_metadata?.full_name ||
-          session.user.user_metadata?.name ||
-          session.user.email?.split('@')[0] ||
-          'Member'
-        const adminFlag = Boolean(
-          session.user.app_metadata?.is_admin || session.user.user_metadata?.is_admin
-        )
-        setUserId(session.user.id)
-        setUser(uName)
-        setIsAdmin(adminFlag)
-        setToken(session.access_token)
-        setAuthenticated(true)
-        setIsCloudSynced(true)
-        saveAuthSession(uName, adminFlag, true, session.access_token)
-        pullCloudData(session.user.id).catch(() => {})
-      } else if (event === 'SIGNED_OUT') {
-        setUserId(null)
-        setIsCloudSynced(false)
-      }
-    })
+    const attachListener = (client: any) => {
+      if (!client || sub) return
+      try {
+        const {
+          data: { subscription },
+        } = client.auth.onAuthStateChange(async (event: string, session: any) => {
+          if (session?.user) {
+            const uName =
+              session.user.user_metadata?.full_name ||
+              session.user.user_metadata?.name ||
+              session.user.email?.split('@')[0] ||
+              'Member'
+            const adminFlag = Boolean(
+              session.user.app_metadata?.is_admin || session.user.user_metadata?.is_admin
+            )
+            setUserId(session.user.id)
+            setUser(uName)
+            setIsAdmin(adminFlag)
+            setToken(session.access_token)
+            setAuthenticated(true)
+            setIsCloudSynced(true)
+            saveAuthSession(uName, adminFlag, true, session.access_token)
+            pullCloudData(session.user.id).catch(() => {})
+          } else if (event === 'SIGNED_OUT') {
+            setUserId(null)
+            setIsCloudSynced(false)
+          }
+        })
+        sub = subscription
+      } catch {}
+    }
+
+    if (supabase) {
+      attachListener(supabase)
+    } else {
+      getOrInitSupabase().then((client) => {
+        if (client) attachListener(client)
+      })
+    }
+
+    const onReady = (e: any) => {
+      if (e?.detail?.supabase) attachListener(e.detail.supabase)
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('stark:supabase-ready', onReady)
+    }
 
     return () => {
-      subscription.unsubscribe()
+      if (sub) sub.unsubscribe()
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('stark:supabase-ready', onReady)
+      }
     }
   }, [])
 
@@ -529,10 +553,11 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false
 
     async function verifyStartupSession() {
-      // 1. Check active Supabase session if configured
-      if (isSupabaseConfigured && supabase) {
+      // 1. Ensure runtime Supabase is loaded and check active session
+      const sbClient = supabase || (await getOrInitSupabase())
+      if (sbClient) {
         try {
-          const { data, error } = await supabase.auth.getSession()
+          const { data, error } = await sbClient.auth.getSession()
           if (!error && data?.session?.user) {
             const sbUser = data.session.user
             const uName =
@@ -669,11 +694,13 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
     const p = password.trim()
     if (!p) return false
 
-    // 1. Try Supabase Auth if configured
-    if (isSupabaseConfigured && supabase) {
+    const client = supabase || (await getOrInitSupabase())
+
+    // 1. Try Supabase Auth if client is ready
+    if (client) {
       try {
-        const email = u.includes('@') ? u : `${u}@gaurxv.eu.org`
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const email = u.includes('@') ? u : `${u.toLowerCase().replace(/[^a-z0-9_]/g, '')}@gaurxv.eu.org`
+        const { data, error } = await client.auth.signInWithPassword({
           email,
           password: p,
         })
@@ -706,6 +733,40 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Helper to attempt linking local auth to Supabase
+    const linkSupabase = async (authUser: string, adminFlag: boolean) => {
+      const sb = supabase || (await getOrInitSupabase())
+      if (!sb) return
+      try {
+        const email = u.includes('@') ? u : `${u.toLowerCase().replace(/[^a-z0-9_]/g, '')}@gaurxv.eu.org`
+        const { data: sData, error: sErr } = await sb.auth.signInWithPassword({ email, password: p })
+        if (!sErr && sData?.session?.user) {
+          setUserId(sData.session.user.id)
+          setIsCloudSynced(true)
+          pullCloudData(sData.session.user.id).catch(() => {})
+          return
+        }
+        const { data: upData, error: upErr } = await sb.auth.signUp({
+          email,
+          password: p,
+          options: {
+            data: {
+              name: authUser,
+              full_name: authUser,
+              is_admin: adminFlag,
+            },
+          },
+        })
+        if (!upErr && upData?.session?.user) {
+          setUserId(upData.session.user.id)
+          setIsCloudSynced(true)
+          pullCloudData(upData.session.user.id).catch(() => {})
+        }
+      } catch (err) {
+        console.warn('[StarkAuth] Supabase linking deferred:', err)
+      }
+    }
+
     // 2. Try server-side authentication endpoint (/api/auth/login)
     try {
       const res = await fetch('/api/auth/login', {
@@ -726,6 +787,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
           setIsAdmin(adminFlag)
           setToken(sessionToken)
           setAuthenticated(true)
+          linkSupabase(authUser, adminFlag)
           return true
         }
       }
@@ -744,6 +806,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(localRes.isAdmin)
       setToken(sessionToken)
       setAuthenticated(true)
+      linkSupabase(localRes.user, localRes.isAdmin)
       return true
     }
 
@@ -751,8 +814,9 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
   }
 
   const lock = () => {
-    if (isSupabaseConfigured && supabase) {
-      supabase.auth.signOut().catch(() => {})
+    const sb = supabase
+    if (sb) {
+      sb.auth.signOut().catch(() => {})
     }
     clearAuthSession()
     resetProfile()
@@ -775,9 +839,21 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
   }
 
   const triggerSync = async (): Promise<boolean> => {
-    if (userId) {
-      await schedulePushCloudData(userId)
-      return await pullCloudData(userId)
+    let targetUid = userId
+    const sb = supabase || (await getOrInitSupabase())
+    if (!targetUid && sb) {
+      try {
+        const { data } = await sb.auth.getSession()
+        if (data?.session?.user?.id) {
+          targetUid = data.session.user.id
+          setUserId(targetUid)
+          setIsCloudSynced(true)
+        }
+      } catch {}
+    }
+    if (targetUid) {
+      await schedulePushCloudData(targetUid)
+      return await pullCloudData(targetUid)
     }
     return false
   }

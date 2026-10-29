@@ -11,6 +11,7 @@ import {
   getMusicSettings,
   saveMusicSettings,
   resolvePipedStreamUrl,
+  searchSaavnTracks,
 } from '../services/music'
 import { toast } from '../lib/toast'
 
@@ -225,6 +226,24 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
           const resolved = await resolvePipedStreamUrl(videoId)
           if (resolved) stream = resolved
         } catch {}
+
+        // Fallback: If Piped direct stream cannot be resolved, search JioSaavn for matching title/artist!
+        if (!stream) {
+          try {
+            const cleanTitle = track.title
+              .replace(/\([^)]*\)|\[[^\]]*\]/g, '')
+              .replace(/official\s*(music)?\s*video|lyric\s*video|audio/gi, '')
+              .trim()
+            const fallbackQuery = `${cleanTitle} ${track.artist}`.trim()
+            const saavnMatches = await searchSaavnTracks(fallbackQuery, 3)
+            const match = saavnMatches.find((s) => s.streamUrl)
+            if (match?.streamUrl) {
+              stream = match.streamUrl
+            }
+          } catch (e) {
+            console.warn('[MusicPlayer] Fallback search error:', e)
+          }
+        }
       }
 
       if (stream) {
@@ -234,6 +253,8 @@ export function MusicPlayerProvider({ children }: { children: ReactNode }) {
         } catch (err) {
           console.warn('[MusicPlayer] Direct stream autoplay blocked or failed:', err)
         }
+      } else {
+        toast('Stream could not be resolved for this track', 'error')
       }
 
       // Fetch lyrics asynchronously

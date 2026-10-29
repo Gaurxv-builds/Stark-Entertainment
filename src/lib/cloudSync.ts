@@ -1,4 +1,4 @@
-import { isSupabaseConfigured, supabase } from './supabase'
+import { isSupabaseConfigured, supabase, getOrInitSupabase } from './supabase'
 import { getProfile, saveProfile } from './profile'
 import { saveReading, type ReadingItem } from './reading'
 import type { ListItem } from './library'
@@ -13,7 +13,7 @@ export function isCloudSyncAvailable(): boolean {
 
 /** Pull cloud records for the authenticated user and merge with local state */
 export async function pullCloudData(userId: string): Promise<boolean> {
-  const client = supabase
+  const client = supabase || (await getOrInitSupabase())
   if (!client || !userId) return false
   if (isSyncing) return false
   isSyncing = true
@@ -97,12 +97,12 @@ export async function pullCloudData(userId: string): Promise<boolean> {
 
 /** Push local changes to Supabase in a debounced, resilient background call */
 export function schedulePushCloudData(userId?: string) {
-  const client = supabase
-  if (!client) return
   if (syncTimeout) window.clearTimeout(syncTimeout)
 
   syncTimeout = window.setTimeout(async () => {
     try {
+      const client = supabase || (await getOrInitSupabase())
+      if (!client) return
       let uid = userId
       if (!uid) {
         const { data } = await client.auth.getSession()
@@ -118,7 +118,7 @@ export function schedulePushCloudData(userId?: string) {
 }
 
 export async function pushCloudData(userId: string): Promise<boolean> {
-  const client = supabase
+  const client = supabase || (await getOrInitSupabase())
   if (!client || !userId) return false
 
   try {

@@ -1,12 +1,11 @@
 import type { Track } from '../../types/music'
 
 export const PIPED_INSTANCES = [
+  'https://api.piped.private.coffee',
+  'https://pipedapi.in.projectsegfau.lt',
+  'https://pipedapi.adminforge.de',
   'https://pipedapi.kavin.rocks',
   'https://pipedapi-libre.kavin.rocks',
-  'https://api.piped.privacydev.net',
-  'https://pipedapi.adminforge.de',
-  'https://pipedapi.leptons.xyz',
-  'https://pipedapi.nosebs.ru',
 ]
 
 function parseDuration(rawDuration: any): number {
@@ -31,7 +30,7 @@ function extractVideoId(urlOrId: string): string {
   if (urlOrId.startsWith('/watch?v=')) {
     return urlOrId.replace('/watch?v=', '').split('&')[0]
   }
-  return urlOrId.replace(/^\/+/, '')
+  return urlOrId.replace(/^piped:/, '').replace(/^\/+/, '')
 }
 
 /**
@@ -41,6 +40,19 @@ export async function resolvePipedStreamUrl(videoId: string): Promise<string | n
   const cleanId = extractVideoId(videoId)
   if (!cleanId) return null
 
+  // 1. Primary: Serverless Audio Stream Resolver
+  try {
+    const res = await fetch(`/api/music/piped/stream?id=${encodeURIComponent(cleanId)}`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(3000),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (data?.streamUrl) return data.streamUrl
+    }
+  } catch {}
+
+  // 2. Direct Piped instances fallback
   for (const instance of PIPED_INSTANCES) {
     try {
       const controller = new AbortController()
@@ -73,7 +85,7 @@ function mapPipedItemToTrack(item: any): Track {
   const title = (item.title || 'Unknown Video').trim()
   const artist = (item.uploaderName || item.uploader || 'YouTube Artist').trim()
   const duration = parseDuration(item.duration)
-  const thumbnail = item.thumbnail || item.uploaderAvatar || ''
+  const thumbnail = item.thumbnail || item.uploaderAvatar || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
 
   return {
     id: `piped:${videoId}`,
@@ -88,13 +100,13 @@ function mapPipedItemToTrack(item: any): Track {
     providerLabel: 'YouTube (Piped)',
     isPreview: false,
     genre: 'Global',
-    permalink: `https://piped.video/watch?v=${videoId}`,
+    permalink: `https://www.youtube.com/watch?v=${videoId}`,
     raw: item,
   }
 }
 
 /**
- * Executes a search across public Piped instances with failover and per-request timeout.
+ * Executes a search across YouTube/Piped music tracks with server gateway and failover.
  */
 export async function searchPipedTracks(
   query: string,
@@ -103,6 +115,21 @@ export async function searchPipedTracks(
   const q = query.trim()
   if (!q) return []
 
+  // 1. Primary: Serverless Gateway (/api/music/piped/search)
+  try {
+    const res = await fetch(`/api/music/piped/search?q=${encodeURIComponent(q)}&limit=${limit}`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(4500),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (Array.isArray(data.results) && data.results.length > 0) {
+        return data.results
+      }
+    }
+  } catch {}
+
+  // 2. Direct Piped Instances fallback
   for (const instance of PIPED_INSTANCES) {
     try {
       const controller = new AbortController()
@@ -134,9 +161,24 @@ export async function searchPipedTracks(
 }
 
 /**
- * Retrieves trending tracks from Piped with region support.
+ * Retrieves trending tracks from Piped with server gateway and failover.
  */
 export async function getPipedTrending(limit = 20): Promise<Track[]> {
+  // 1. Primary: Serverless Gateway (/api/music/piped/trending)
+  try {
+    const res = await fetch(`/api/music/piped/trending?limit=${limit}`, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(4500),
+    })
+    if (res.ok) {
+      const data = await res.json()
+      if (Array.isArray(data.results) && data.results.length > 0) {
+        return data.results
+      }
+    }
+  } catch {}
+
+  // 2. Direct Piped instances fallback
   for (const instance of PIPED_INSTANCES) {
     try {
       const controller = new AbortController()

@@ -79,13 +79,13 @@ export default function MusicPage() {
     document.title = pageTitle('Music')
   }, [])
 
-  // Load curated shelves on mount
+  // Load curated shelves on mount or when source filter changes
   useEffect(() => {
     let isMounted = true
     async function loadShelves() {
       setIsLoadingShelves(true)
       try {
-        const data = await fetchMusicShelves()
+        const data = await fetchMusicShelves(sourceFilter)
         if (isMounted) {
           setShelves(data)
         }
@@ -99,7 +99,7 @@ export default function MusicPage() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [sourceFilter])
 
   // Active settings based on quick source filter tab
   const activeSettings = useMemo<MusicProviderSettings>(() => {

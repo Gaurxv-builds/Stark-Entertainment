@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Moon, Sun, ShieldCheck, Lock, ShieldAlert, Cloud, RefreshCw, LogOut } from 'lucide-react'
+import { Moon, Sun, ShieldCheck, ShieldAlert, Cloud, RefreshCw, LogOut } from 'lucide-react'
 import { useStarkAuth } from '../lib/starkAuth'
 import { loadIntegrations, saveIntegrations, testJellyfinConnection, testKomgaConnection, type IntegrationSettings } from '../services/integrations'
 import { AniListCard } from '../components/AniListCard'
@@ -67,7 +67,7 @@ const langName = (c: string) => new Intl.DisplayNames(['en'], { type: 'language'
 
 export default function ProfilePage() {
   const me = useProfile()
-  const { lock, logout, user: authUser, isAdmin, isCloudSynced, triggerSync } = useStarkAuth()
+  const { logout, user: authUser, isAdmin, isCloudSynced, triggerSync } = useStarkAuth()
   const [syncing, setSyncing] = useState(false)
   const { theme, setTheme } = useTheme()
   const [integrations, setIntegrations] = useState<IntegrationSettings>(loadIntegrations)
@@ -131,16 +131,6 @@ export default function ProfilePage() {
             )}
             <button
               type="button"
-              onClick={() => {
-                lock()
-                toast('Stark Security Gate locked')
-              }}
-              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-3 text-xs font-semibold text-red-400 transition hover:bg-red-500/20 active:scale-95"
-            >
-              <Lock className="size-3" /> Lock Gate
-            </button>
-            <button
-              type="button"
               onClick={() => logout()}
               className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card-2 px-3 text-xs font-semibold text-muted transition hover:bg-card-3 hover:text-foreground active:scale-95"
             >
@@ -168,7 +158,7 @@ export default function ProfilePage() {
               <Cloud className="size-3.5" />
               <span>{isCloudSynced ? 'Connected' : 'Local Only'}</span>
             </span>
-            {isCloudSynced && (
+            {isCloudSynced ? (
               <button
                 type="button"
                 disabled={syncing}
@@ -183,6 +173,22 @@ export default function ProfilePage() {
               >
                 <RefreshCw className={cn('size-3', syncing && 'animate-spin')} />
                 <span>{syncing ? 'Syncing...' : 'Sync Now'}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={syncing}
+                onClick={async () => {
+                  setSyncing(true)
+                  const ok = await triggerSync()
+                  setSyncing(false)
+                  if (ok) toast('Connected to Supabase cloud sync', 'success')
+                  else toast('Cloud sync check completed', 'info')
+                }}
+                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card-2 px-3 text-xs font-semibold text-muted transition hover:bg-card-3 hover:text-foreground active:scale-95 disabled:opacity-50"
+              >
+                <RefreshCw className={cn('size-3', syncing && 'animate-spin')} />
+                <span>{syncing ? 'Connecting...' : 'Connect Cloud'}</span>
               </button>
             )}
           </div>

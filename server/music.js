@@ -314,3 +314,203 @@ export async function getTrendingSaavn(limit = 20) {
   }
   return [];
 }
+
+const PIPED_BACKEND_INSTANCES = [
+  'https://api.piped.private.coffee',
+  'https://pipedapi.in.projectsegfau.lt',
+  'https://pipedapi.adminforge.de',
+  'https://pipedapi.kavin.rocks',
+];
+
+/**
+ * Searches YouTube/Piped music tracks using Piped instances with direct Innertube fallback.
+ */
+export async function searchPiped(query, limit = 20) {
+  const q = String(query || '').trim();
+  if (!q) return [];
+
+  // 1. Try public Piped instances
+  for (const inst of PIPED_BACKEND_INSTANCES) {
+    try {
+      const res = await fetch(`${inst}/search?q=${encodeURIComponent(q)}&filter=music_songs`, {
+        headers: { 'User-Agent': SAAVN_USER_AGENT },
+        signal: AbortSignal.timeout(2200),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const items = Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : [];
+        if (items.length > 0) {
+          return items
+            .filter((i) => i.type === 'stream' || i.url)
+            .slice(0, limit)
+            .map((i) => {
+              const vid = (i.url || i.id || '').replace('/watch?v=', '').replace(/^\/+/, '');
+              return {
+                id: `piped:${vid}`,
+                title: (i.title || 'Unknown Title').trim(),
+                artist: (i.uploaderName || i.uploader || 'YouTube Artist').trim(),
+                album: 'YouTube Music',
+                artwork: i.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
+                artworkUrl: i.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
+                duration: typeof i.duration === 'number' ? i.duration : 210,
+                provider: 'piped',
+                providerLabel: 'YouTube (Piped)',
+                isPreview: false,
+                genre: 'Global',
+                permalink: `https://www.youtube.com/watch?v=${vid}`,
+              };
+            });
+        }
+      }
+    } catch {}
+  }
+
+  // 2. High-reliability fallback: YouTube Innertube API
+  try {
+    const res = await fetch('https://www.youtube.com/youtubei/v1/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': SAAVN_USER_AGENT,
+      },
+      body: JSON.stringify({
+        context: {
+          client: {
+            clientName: 'WEB',
+            clientVersion: '2.20240410.01.00',
+            hl: 'en',
+            gl: 'IN',
+          },
+        },
+        query: q,
+      }),
+      signal: AbortSignal.timeout(4000),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const contents =
+        data?.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents;
+      const items = contents?.[0]?.itemSectionRenderer?.contents || [];
+      const out = [];
+
+      for (const item of items) {
+        const v = item.videoRenderer;
+        if (!v || !v.videoId) continue;
+        const vid = v.videoId;
+        const title =
+          v.title?.runs?.map((r) => r.text).join('') || v.title?.simpleText || 'Unknown Track';
+        const artist =
+          v.ownerText?.runs?.map((r) => r.text).join('') || 'YouTube Artist';
+        const artwork =
+          v.thumbnail?.thumbnails?.slice(-1)[0]?.url ||
+          `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+
+        let duration = 210;
+        const durStr = v.lengthText?.simpleText;
+        if (durStr) {
+          const parts = durStr.split(':').map((p) => parseInt(p, 10));
+          if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            duration = parts[0] * 60 + parts[1];
+          } else if (
+            parts.length === 3 &&
+            !isNaN(parts[0]) &&
+            !isNaN(parts[1]) &&
+            !isNaN(parts[2])
+          ) {
+            duration = parts[0] * 3600 + parts[1] * 60 + parts[2];
+          }
+        }
+
+        out.push({
+          id: `piped:${vid}`,
+          title,
+          artist,
+          album: 'YouTube Music',
+          artwork,
+          artworkUrl: artwork,
+          duration,
+          provider: 'piped',
+          providerLabel: 'YouTube (Piped)',
+          isPreview: false,
+          genre: 'Global',
+          permalink: `https://www.youtube.com/watch?v=${vid}`,
+        });
+        if (out.length >= limit) break;
+      }
+
+      if (out.length > 0) return out;
+    }
+  } catch (err) {
+    console.warn('[Piped] Innertube search error:', err);
+  }
+
+  return [];
+}
+
+/**
+ * Fetches trending YouTube / Piped tracks.
+ */
+export async function getTrendingPiped(limit = 20) {
+  for (const inst of PIPED_BACKEND_INSTANCES) {
+    try {
+      const res = await fetch(`${inst}/trending?region=IN`, {
+        headers: { 'User-Agent': SAAVN_USER_AGENT },
+        signal: AbortSignal.timeout(2200),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const items = Array.isArray(data) ? data : Array.isArray(data.items) ? data.items : [];
+        if (items.length > 0) {
+          return items.slice(0, limit).map((i) => {
+            const vid = (i.url || i.id || '').replace('/watch?v=', '').replace(/^\/+/, '');
+            return {
+              id: `piped:${vid}`,
+              title: (i.title || 'Unknown Title').trim(),
+              artist: (i.uploaderName || i.uploader || 'YouTube Artist').trim(),
+              album: 'YouTube Music',
+              artwork: i.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
+              artworkUrl: i.thumbnail || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
+              duration: typeof i.duration === 'number' ? i.duration : 210,
+              provider: 'piped',
+              providerLabel: 'YouTube (Piped)',
+              isPreview: false,
+              genre: 'Global',
+              permalink: `https://www.youtube.com/watch?v=${vid}`,
+            };
+          });
+        }
+      }
+    } catch {}
+  }
+
+  // Fallback: search trending queries via Innertube
+  return searchPiped('trending music songs india 2026', limit);
+}
+
+/**
+ * Resolves direct audio stream URL for a YouTube/Piped videoId.
+ */
+export async function resolvePipedStream(videoId) {
+  const vid = String(videoId || '').replace(/^piped:/, '').replace('/watch?v=', '').trim();
+  if (!vid) return null;
+
+  for (const inst of PIPED_BACKEND_INSTANCES) {
+    try {
+      const res = await fetch(`${inst}/streams/${vid}`, {
+        headers: { 'User-Agent': SAAVN_USER_AGENT },
+        signal: AbortSignal.timeout(2500),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.audioStreams) && data.audioStreams.length > 0) {
+          const best =
+            data.audioStreams.find((s) => s.mimeType?.includes('audio/mp4') || s.format === 'M4A') ||
+            data.audioStreams[0];
+          if (best?.url) return best.url;
+        }
+      }
+    } catch {}
+  }
+  return null;
+}

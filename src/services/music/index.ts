@@ -111,6 +111,11 @@ const shelvesCache = {
   timestamp: 0,
 }
 
+const pipedShelvesCache = {
+  data: null as MusicShelf[] | null,
+  timestamp: 0,
+}
+
 /**
  * Get curated music shelves for the Music Home interface.
  */
@@ -124,7 +129,7 @@ export async function getCuratedMusicShelves(): Promise<MusicShelves> {
     const [trendingSaavn, trendingPiped, bollywood, punjabi, pop, lofi, hiphop] =
       await Promise.all([
         getSaavnTrending(12).catch(() => []),
-        getPipedTrending(8).catch(() => []),
+        getPipedTrending(12).catch(() => []),
         searchSaavnTracks('bollywood top hits', 10).catch(() => []),
         searchSaavnTracks('punjabi latest', 10).catch(() => []),
         searchSaavnTracks('english global pop', 10).catch(() => []),
@@ -160,11 +165,70 @@ export async function getCuratedMusicShelves(): Promise<MusicShelves> {
 }
 
 /**
- * Convenience helper returning structured shelves array with titles and descriptions.
+ * Returns curated Piped/YouTube specific music shelves.
  */
-export async function fetchMusicShelves(): Promise<MusicShelf[]> {
+export async function fetchPipedMusicShelves(): Promise<MusicShelf[]> {
+  const now = Date.now()
+  if (pipedShelvesCache.data && now - pipedShelvesCache.timestamp < 10 * 60 * 1000) {
+    return pipedShelvesCache.data
+  }
+
+  try {
+    const [trending, bollywood, pop, lofi] = await Promise.all([
+      getPipedTrending(15).catch(() => []),
+      searchPipedTracks('bollywood songs 2026', 10).catch(() => []),
+      searchPipedTracks('global top billboard hits', 10).catch(() => []),
+      searchPipedTracks('lofi chill study beats', 10).catch(() => []),
+    ])
+
+    const shelves: MusicShelf[] = [
+      {
+        id: 'piped-trending',
+        title: 'YouTube Trending Today',
+        description: 'Trending tracks and official audio directly from YouTube via Piped engine',
+        tracks: trending,
+      },
+      {
+        id: 'piped-bollywood',
+        title: 'Bollywood & Hindi Hits (YouTube)',
+        description: 'Latest film tracks, music videos, and viral Hindi releases',
+        tracks: bollywood,
+      },
+      {
+        id: 'piped-pop',
+        title: 'Global Pop & Billboard',
+        description: 'International chart-toppers and YouTube Music favorites',
+        tracks: pop,
+      },
+      {
+        id: 'piped-lofi',
+        title: 'Lo-Fi Chill & Focus (YouTube)',
+        description: 'Relaxing ambient beats and chillhop playlists',
+        tracks: lofi,
+      },
+    ]
+
+    pipedShelvesCache.data = shelves
+    pipedShelvesCache.timestamp = now
+    return shelves
+  } catch (err) {
+    console.error('[Music] Failed to load Piped shelves:', err)
+    return []
+  }
+}
+
+/**
+ * Convenience helper returning structured shelves array with titles and descriptions.
+ * Supports filtering by source ('all' | 'saavn' | 'piped').
+ */
+export async function fetchMusicShelves(source: 'all' | 'saavn' | 'piped' = 'all'): Promise<MusicShelf[]> {
+  if (source === 'piped') {
+    const pipedShelves = await fetchPipedMusicShelves()
+    if (pipedShelves.length > 0) return pipedShelves
+  }
+
   const data = await getCuratedMusicShelves()
-  return [
+  const allShelves: MusicShelf[] = [
     {
       id: 'trending',
       title: 'Trending Today',
@@ -202,6 +266,15 @@ export async function fetchMusicShelves(): Promise<MusicShelf[]> {
       tracks: data.hiphop,
     },
   ]
+
+  if (source === 'saavn') {
+    return allShelves.map((s) => ({
+      ...s,
+      tracks: s.tracks.filter((t) => t.provider === 'saavn'),
+    }))
+  }
+
+  return allShelves
 }
 
 /**

@@ -81,18 +81,7 @@ export function Navbar() {
         </ul>
         )}
 
-        <div className="flex items-center gap-2">
-          {/* Universal Home Button */}
-          <Link
-            to="/"
-            title="Return to Home Hub"
-            aria-label="Home"
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1.5 text-xs font-semibold backdrop-blur transition hover:bg-card hover:text-accent active:scale-95"
-          >
-            <House className="size-4 text-accent" />
-            <span className="hidden sm:inline">Home</span>
-          </Link>
-
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {!anime && !movies && (
             <Link to={`/${section}`} className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3.5 py-1.5 text-sm font-semibold backdrop-blur transition active:scale-95">
               <span className="font-display font-semibold text-accent">{section === 'novel' ? 'Novels' : section === 'ebooks' ? 'Ebooks' : section === 'music' ? 'Music' : 'Manga'}</span>
@@ -113,42 +102,56 @@ export function Navbar() {
           )}
           {(anime || movies) && (
             <>
-          <button
-            type="button"
-            onClick={() => openSearch()}
-            className="hidden h-9 items-center gap-2 rounded-full border border-border bg-card/60 pl-3 pr-2 text-sm text-muted transition hover:text-foreground sm:flex"
-          >
-            <Search className="size-4" />
-            <span>{movies ? 'Search movies' : 'Search anime'}</span>
-            <kbd className="rounded-md border border-border bg-background/60 px-1.5 py-0.5 text-[10px] font-medium">
-              {isMac ? '⌘' : 'Ctrl'} K
-            </kbd>
-          </button>
-          <button
-            type="button"
-            aria-label="Search"
-            onClick={() => openSearch()}
-            className="grid size-9 place-items-center rounded-full border border-border bg-card/60 transition active:scale-90 sm:hidden"
-          >
-            <Search className="size-4" />
-          </button>
-          {anime && <Link
-            to="/app"
-            className={cn(
-              'hidden h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition active:scale-95 lg:inline-flex',
-              pathname === '/app' ? 'bg-foreground text-background' : 'bg-accent text-accent-fg hover:brightness-110',
-            )}
-          >
-            <Download className="size-4" />
-            Get app
-          </Link>}
+              <button
+                type="button"
+                onClick={() => openSearch()}
+                className="hidden h-9 items-center gap-2 rounded-full border border-border bg-card/60 pl-3 pr-2 text-sm text-muted transition hover:text-foreground sm:flex"
+              >
+                <Search className="size-4" />
+                <span>{movies ? 'Search movies' : 'Search anime'}</span>
+                <kbd className="rounded-md border border-border bg-background/60 px-1.5 py-0.5 text-[10px] font-medium">
+                  {isMac ? '⌘' : 'Ctrl'} K
+                </kbd>
+              </button>
+              <button
+                type="button"
+                aria-label="Search"
+                onClick={() => openSearch()}
+                className="grid size-9 place-items-center rounded-full border border-border bg-card/60 transition active:scale-90 sm:hidden"
+              >
+                <Search className="size-4" />
+              </button>
+              {anime && (
+                <Link
+                  to="/app"
+                  className={cn(
+                    'hidden h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition active:scale-95 lg:inline-flex',
+                    pathname === '/app' ? 'bg-foreground text-background' : 'bg-accent text-accent-fg hover:brightness-110',
+                  )}
+                >
+                  <Download className="size-4" />
+                  Get app
+                </Link>
+              )}
             </>
           )}
+
+          {/* Consistent Action Group: Home → Admin → Theme → Logout → Profile */}
+          <Link
+            to="/"
+            title="Return to Home Hub"
+            aria-label="Home"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 text-xs font-semibold backdrop-blur transition hover:bg-card hover:text-accent active:scale-95 shrink-0"
+          >
+            <House className="size-3.5 text-accent" />
+            <span className="hidden sm:inline">Home</span>
+          </Link>
+
           {isAdmin && (
             <Link
               to="/admin"
               className={cn(
-                'inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-xs font-bold text-accent transition hover:bg-accent hover:text-accent-fg active:scale-95',
+                'inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-xs font-bold text-accent transition hover:bg-accent hover:text-accent-fg active:scale-95 shrink-0',
                 pathname === '/admin' && 'bg-accent text-accent-fg'
               )}
               title="Stark Admin Console"
@@ -157,19 +160,24 @@ export function Navbar() {
               <span className="hidden sm:inline">Admin ⎊</span>
             </Link>
           )}
-          <ThemeToggle />
+
+          <div className="shrink-0">
+            <ThemeToggle />
+          </div>
+
           <button
             type="button"
             onClick={() => logout()}
             title="Log out of Gaurxv Verse"
             aria-label="Logout"
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 text-xs font-semibold text-red-400 transition hover:bg-red-500/20 hover:text-red-300 active:scale-95"
+            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 text-xs font-semibold text-red-400 transition hover:bg-red-500/20 hover:text-red-300 active:scale-95 shrink-0"
           >
             <LogOut className="size-3" />
             <span className="hidden sm:inline">Logout</span>
           </button>
-          <Link to="/profile" aria-label="Your profile" title={me.name || 'Profile'} className="ml-1 rounded-full transition active:scale-90">
-            <Avatar size={34} src={me.avatar} frame={me.frame} name={me.name} />
+
+          <Link to="/profile" aria-label="Your profile" title={me.name || 'Profile'} className="ml-0.5 rounded-full transition active:scale-90 shrink-0">
+            <Avatar size={32} src={me.avatar} frame={me.frame} name={me.name} />
           </Link>
         </div>
       </nav>
