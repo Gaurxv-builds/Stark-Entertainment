@@ -2,7 +2,13 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { saveProfile, getProfile, resetProfile } from './profile'
 import { toast } from './toast'
 import { supabase, getOrInitSupabase } from './supabase'
-import { pullCloudData, schedulePushCloudData } from './cloudSync'
+import {
+  pullCloudData,
+  pushCloudData,
+  diagnoseCloudSync,
+  getCurrentDiagnostics,
+  type CloudSyncDiagnostics,
+} from './cloudSync'
 
 const AUTH_STORAGE_KEY = 'gaurxv_verse_auth'
 const AUTH_TOKEN_KEY = 'gaurxv_verse_auth_token'
@@ -472,7 +478,9 @@ export interface StarkAuthContextType {
   isAdmin: boolean
   token: string
   isCloudSynced: boolean
+  syncDiagnostics: CloudSyncDiagnostics
   unlock: (username: string, password: string, remember?: boolean) => Promise<boolean>
+  linkCloudAccount: (passcode?: string) => Promise<{ ok: boolean; message: string }>
   lock: () => void
   logout: () => Promise<void>
   triggerSync: () => Promise<boolean>
@@ -488,6 +496,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState<boolean>(false)
   const [token, setToken] = useState<string>('')
   const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false)
+  const [syncDiagnostics, setSyncDiagnostics] = useState<CloudSyncDiagnostics>(getCurrentDiagnostics())
 
   // Listen to Supabase auth state changes if configured
   useEffect(() => {
@@ -579,6 +588,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
             }
             saveAuthSession(uName, adminFlag, true, data.session.access_token)
             pullCloudData(sbUser.id).catch(() => {})
+            diagnoseCloudSync().then((d) => !cancelled && setSyncDiagnostics(d))
             return
           }
         } catch {
@@ -673,6 +683,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      diagnoseCloudSync().then((d) => !cancelled && setSyncDiagnostics(d))
       clearAuthSession()
       if (!cancelled) {
         setAuthenticated(false)
@@ -696,36 +707,49 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
 
     const client = supabase || (await getOrInitSupabase())
 
+    const email = u.includes('@')
+      ? u
+      : (u.toLowerCase() === 'admin' || u.toLowerCase() === 'gaurav'
+          ? 'gaurxv@gaurxv.eu.org'
+          : `${u.toLowerCase().replace(/[^a-z0-9_]/g, '')}@gaurxv.com`)
+    const sbPassword = p.length >= 6 ? p : `${p}__stark2026`
+
     // 1. Try Supabase Auth if client is ready
     if (client) {
       try {
-        const email = u.includes('@') ? u : `${u.toLowerCase().replace(/[^a-z0-9_]/g, '')}@gaurxv.eu.org`
-        const { data, error } = await client.auth.signInWithPassword({
-          email,
-          password: p,
-        })
+        let authSession = null
+        const res1 = await client.auth.signInWithPassword({ email, password: p })
+        if (!res1.error && res1.data?.session?.user) {
+          authSession = res1.data.session
+        } else if (sbPassword !== p) {
+          const res2 = await client.auth.signInWithPassword({ email, password: sbPassword })
+          if (!res2.error && res2.data?.session?.user) {
+            authSession = res2.data.session
+          }
+        }
 
-        if (!error && data?.session?.user) {
+        if (authSession?.user) {
           const authUser =
-            data.user.user_metadata?.full_name ||
-            data.user.user_metadata?.name ||
+            authSession.user.user_metadata?.full_name ||
+            authSession.user.user_metadata?.name ||
             u
           const adminFlag = Boolean(
-            data.user.app_metadata?.is_admin || data.user.user_metadata?.is_admin
+            authSession.user.app_metadata?.is_admin || authSession.user.user_metadata?.is_admin
           )
-          saveAuthSession(authUser, adminFlag, remember, data.session.access_token)
+          saveAuthSession(authUser, adminFlag, remember, authSession.access_token)
           saveProfile({
             name: authUser,
             username: u,
-            avatar: data.user.user_metadata?.avatar_url || null,
+            avatar: authSession.user.user_metadata?.avatar_url || null,
           })
-          setUserId(data.user.id)
+          setUserId(authSession.user.id)
           setUser(authUser)
           setIsAdmin(adminFlag)
-          setToken(data.session.access_token)
+          setToken(authSession.access_token)
           setIsCloudSynced(true)
           setAuthenticated(true)
-          pullCloudData(data.user.id).catch(() => {})
+          pullCloudData(authSession.user.id).catch(() => {})
+          diagnoseCloudSync().then((d) => setSyncDiagnostics(d))
           return true
         }
       } catch {
@@ -738,17 +762,28 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       const sb = supabase || (await getOrInitSupabase())
       if (!sb) return
       try {
-        const email = u.includes('@') ? u : `${u.toLowerCase().replace(/[^a-z0-9_]/g, '')}@gaurxv.eu.org`
-        const { data: sData, error: sErr } = await sb.auth.signInWithPassword({ email, password: p })
-        if (!sErr && sData?.session?.user) {
+        let sData = null
+        const res1 = await sb.auth.signInWithPassword({ email, password: p })
+        if (!res1.error && res1.data?.session?.user) {
+          sData = res1.data
+        } else if (sbPassword !== p) {
+          const res2 = await sb.auth.signInWithPassword({ email, password: sbPassword })
+          if (!res2.error && res2.data?.session?.user) sData = res2.data
+        }
+
+        if (sData?.session?.user) {
           setUserId(sData.session.user.id)
           setIsCloudSynced(true)
-          pullCloudData(sData.session.user.id).catch(() => {})
+          await pullCloudData(sData.session.user.id)
+          await pushCloudData(sData.session.user.id)
+          const diag = await diagnoseCloudSync()
+          setSyncDiagnostics(diag)
           return
         }
+
         const { data: upData, error: upErr } = await sb.auth.signUp({
           email,
-          password: p,
+          password: sbPassword,
           options: {
             data: {
               name: authUser,
@@ -757,10 +792,13 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
             },
           },
         })
-        if (!upErr && upData?.session?.user) {
-          setUserId(upData.session.user.id)
+        if (!upErr && upData?.user) {
+          setUserId(upData.user.id)
           setIsCloudSynced(true)
-          pullCloudData(upData.session.user.id).catch(() => {})
+          await pullCloudData(upData.user.id)
+          await pushCloudData(upData.user.id)
+          const diag = await diagnoseCloudSync()
+          setSyncDiagnostics(diag)
         }
       } catch (err) {
         console.warn('[StarkAuth] Supabase linking deferred:', err)
@@ -813,6 +851,99 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
     return false
   }
 
+  const linkCloudAccount = async (passcode?: string): Promise<{ ok: boolean; message: string }> => {
+    const sb = supabase || (await getOrInitSupabase())
+    if (!sb) {
+      const diag = await diagnoseCloudSync()
+      setSyncDiagnostics(diag)
+      return { ok: false, message: 'Supabase client unavailable. Check environment variables.' }
+    }
+
+    // 1. Check if session is already active
+    try {
+      const { data: sessData } = await sb.auth.getSession()
+      if (sessData?.session?.user) {
+        setUserId(sessData.session.user.id)
+        setIsCloudSynced(true)
+        await pullCloudData(sessData.session.user.id)
+        await pushCloudData(sessData.session.user.id)
+        const diag = await diagnoseCloudSync()
+        setSyncDiagnostics(diag)
+        return { ok: true, message: 'Supabase session verified and cloud synchronized.' }
+      }
+    } catch {}
+
+    const p = passcode?.trim()
+    if (!p) {
+      return { ok: false, message: 'Passcode required to link cloud account.' }
+    }
+
+    const currentU = user || getAuthenticatedUser() || 'gaurav'
+    const email = currentU.includes('@')
+      ? currentU
+      : (currentU.toLowerCase() === 'admin' || currentU.toLowerCase() === 'gaurav'
+          ? 'gaurxv@gaurxv.eu.org'
+          : `${currentU.toLowerCase().replace(/[^a-z0-9_]/g, '')}@gaurxv.com`)
+    const sbPassword = p.length >= 6 ? p : `${p}__stark2026`
+
+    try {
+      let activeUser = null
+      let activeToken = ''
+
+      // Attempt 1: direct password
+      const res1 = await sb.auth.signInWithPassword({ email, password: p })
+      if (!res1.error && res1.data?.session?.user) {
+        activeUser = res1.data.user
+        activeToken = res1.data.session.access_token
+      } else if (sbPassword !== p) {
+        // Attempt 2: padded password
+        const res2 = await sb.auth.signInWithPassword({ email, password: sbPassword })
+        if (!res2.error && res2.data?.session?.user) {
+          activeUser = res2.data.user
+          activeToken = res2.data.session.access_token
+        }
+      }
+
+      // Attempt 3: signup if not found
+      if (!activeUser) {
+        const { data: upData, error: upErr } = await sb.auth.signUp({
+          email,
+          password: sbPassword,
+          options: {
+            data: {
+              name: currentU,
+              full_name: currentU,
+              is_admin: isAdmin,
+            },
+          },
+        })
+        if (!upErr && upData?.user) {
+          activeUser = upData.user
+          activeToken = upData.session?.access_token || ''
+        } else if (upErr) {
+          return { ok: false, message: `Supabase Auth error: ${upErr.message}` }
+        }
+      }
+
+      if (activeUser) {
+        setUserId(activeUser.id)
+        setIsCloudSynced(true)
+        if (activeToken) {
+          saveAuthSession(currentU, isAdmin, true, activeToken)
+        }
+        await pullCloudData(activeUser.id)
+        await pushCloudData(activeUser.id)
+        const diag = await diagnoseCloudSync()
+        setSyncDiagnostics(diag)
+        return { ok: true, message: 'Cloud account connected and synchronized successfully!' }
+      }
+
+      return { ok: false, message: 'Unable to connect to Supabase Auth.' }
+    } catch (err: any) {
+      return { ok: false, message: err?.message || 'Connection failed' }
+    }
+  }
+
   const lock = () => {
     const sb = supabase
     if (sb) {
@@ -826,6 +957,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
     setToken('')
     setIsCloudSynced(false)
     setAuthenticated(false)
+    setSyncDiagnostics(getCurrentDiagnostics())
     fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
   }
 
@@ -852,10 +984,15 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       } catch {}
     }
     if (targetUid) {
-      await schedulePushCloudData(targetUid)
-      return await pullCloudData(targetUid)
+      await pushCloudData(targetUid)
+      const ok = await pullCloudData(targetUid)
+      const diag = await diagnoseCloudSync()
+      setSyncDiagnostics(diag)
+      return ok
     }
-    return false
+    const diag = await diagnoseCloudSync()
+    setSyncDiagnostics(diag)
+    return diag.status === 'connected'
   }
 
   return (
@@ -868,7 +1005,9 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
         isAdmin,
         token,
         isCloudSynced,
+        syncDiagnostics,
         unlock,
+        linkCloudAccount,
         lock,
         logout,
         triggerSync,
@@ -893,6 +1032,7 @@ export function useStarkAuth(): StarkAuthContextType {
     isAdmin: isCurrentAdmin(),
     token: getAuthToken(),
     isCloudSynced: false,
+    syncDiagnostics: getCurrentDiagnostics(),
     unlock: async (u, p, r) => {
       const res = verifyCredentials(u, p)
       if (res.ok) {
@@ -901,6 +1041,7 @@ export function useStarkAuth(): StarkAuthContextType {
       }
       return false
     },
+    linkCloudAccount: async () => ({ ok: false, message: 'Auth context unavailable' }),
     lock: () => clearAuthSession(),
     logout: async () => clearAuthSession(),
     triggerSync: async () => false,

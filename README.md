@@ -44,14 +44,17 @@
 
 ## Key Features & Architecture
 
-### 1. Built-in Stark Gate Authentication
+### 1. Built-in Stark Gate Authentication & Unified Navigation
 - **Zero-Cost Server-Verified Auth:** Cryptographic passkey authentication with server verification (`/api/auth`), animated Lottie security gate, and multi-user credential storage.
 - **Immediate Profile Synchronization:** Profiles appear automatically in the navigation header and landing page upon successful login without manual refresh.
+- **Unified Navigation Architecture (`NavbarActions`):** Guarantees a strictly consistent action layout across Home, Anime, Movies, Manga, Novels, Ebooks, and Music (`Home → Admin [admins only] → Theme toggle → Logout → Profile/avatar`) with uniform 36px sizing and responsive breakpoints.
 - **Admin Console (`/admin`):** Secure administrative management for credential provisioning, device synchronization, and privacy-preserving user management.
 
 ### 2. Cross-Device PostgreSQL Sync (Supabase)
 - **Hybrid Cloud / Offline Storage:** Operates fully offline with zero database dependencies via `localStorage`, but seamlessly upgrades to cross-device PostgreSQL cloud sync when Supabase environment variables are provided.
-- **Row-Level Security (RLS):** Fully isolated user libraries (`user_libraries`), reading positions (`reading_progress`), user profiles (`profiles`), and application settings (`user_settings`).
+- **JWT Ref Auto-Derivation & Sanitization:** Automatically extracts the true project reference directly from JWT anon keys, immunizing the application against environment variable URL typos.
+- **Row-Level Security (RLS) & Verified Identity:** Links Stark Gate identities directly to authenticated Supabase users for secure, zero-leak multi-device sync across `user_profiles`, `user_library`, `user_reading_progress`, and `user_preferences`.
+- **Structured Health Diagnostics:** Real-time sync diagnostic pipeline (`diagnoseCloudSync()`) identifying network connectivity, auth sessions, table schemas, and RLS permissions with clear UI status hints.
 
 ### 3. Native Ebook Reader & Indian Voice Read Aloud
 - **Dual Format Support:** High-performance native viewer for both `.epub` (via `epubjs`) and `.pdf` (via `pdfjs-dist`).

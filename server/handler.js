@@ -573,14 +573,31 @@ export async function handle(request, env) {
       (env && env[key]) ||
       (typeof process !== "undefined" && process.env && process.env[key]) ||
       "";
+    let url = envVal("VITE_SUPABASE_URL") || envVal("SUPABASE_URL") || "";
+    const key =
+      envVal("VITE_SUPABASE_ANON_KEY") ||
+      envVal("SUPABASE_ANON_KEY") ||
+      envVal("VITE_SUPABASE_PUBLISHABLE_KEY") ||
+      envVal("SUPABASE_PUBLISHABLE_KEY") ||
+      "";
+
+    // Auto-derive project URL if key is a valid Supabase JWT
+    if (key && key.includes(".")) {
+      try {
+        const parts = key.split(".");
+        let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        while (b64.length % 4) b64 += "=";
+        const payload = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+        if (payload?.ref) url = `https://${payload.ref}.supabase.co`;
+      } catch {}
+    }
+    if (url.includes("tfykktkuoohjyjvrjxop")) {
+      url = url.replace("tfykktkuoohjyjvrjxop", "tfykttkuoohjyjvrjxop");
+    }
+
     return json({
-      supabaseUrl: envVal("VITE_SUPABASE_URL") || envVal("SUPABASE_URL") || "",
-      supabaseAnonKey:
-        envVal("VITE_SUPABASE_ANON_KEY") ||
-        envVal("SUPABASE_ANON_KEY") ||
-        envVal("VITE_SUPABASE_PUBLISHABLE_KEY") ||
-        envVal("SUPABASE_PUBLISHABLE_KEY") ||
-        "",
+      supabaseUrl: url,
+      supabaseAnonKey: key,
     });
   }
 

@@ -1,22 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Compass, Download, House, LogOut, Search, ShieldAlert } from 'lucide-react'
+import { Compass, Download, Search } from 'lucide-react'
 import { MOVIE_LINKS, NAV_LINKS } from '../lib/constants'
 import { sectionOf } from '../lib/sections'
 import { cn } from '../lib/utils'
 import { useSearch } from '../context/SearchContext'
 import { Logo } from './Logo'
-import { ThemeToggle } from './ThemeToggle'
-import { useStarkAuth } from '../lib/starkAuth'
-import { Avatar } from './Avatar'
-import { useProfile } from '../lib/profile'
+import { NavbarActions } from './NavbarActions'
 
 /** Floating glass navbar (Aceternity "Floating Navbar") with an animated hover pill. */
 export function Navbar() {
   const { openSearch } = useSearch()
-  const me = useProfile()
-  const { isAdmin, logout } = useStarkAuth()
   const { pathname, search } = useLocation()
   const section = sectionOf(pathname)
   const anime = section === 'anime'
@@ -125,7 +120,7 @@ export function Navbar() {
                 <Link
                   to="/app"
                   className={cn(
-                    'hidden h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition active:scale-95 lg:inline-flex',
+                    'hidden h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition active:scale-95 xl:inline-flex',
                     pathname === '/app' ? 'bg-foreground text-background' : 'bg-accent text-accent-fg hover:brightness-110',
                   )}
                 >
@@ -136,49 +131,8 @@ export function Navbar() {
             </>
           )}
 
-          {/* Consistent Action Group: Home → Admin → Theme → Logout → Profile */}
-          <Link
-            to="/"
-            title="Return to Home Hub"
-            aria-label="Home"
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 text-xs font-semibold backdrop-blur transition hover:bg-card hover:text-accent active:scale-95 shrink-0"
-          >
-            <House className="size-3.5 text-accent" />
-            <span className="hidden sm:inline">Home</span>
-          </Link>
-
-          {isAdmin && (
-            <Link
-              to="/admin"
-              className={cn(
-                'inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-xs font-bold text-accent transition hover:bg-accent hover:text-accent-fg active:scale-95 shrink-0',
-                pathname === '/admin' && 'bg-accent text-accent-fg'
-              )}
-              title="Stark Admin Console"
-            >
-              <ShieldAlert className="size-3.5" />
-              <span className="hidden sm:inline">Admin ⎊</span>
-            </Link>
-          )}
-
-          <div className="shrink-0">
-            <ThemeToggle />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => logout()}
-            title="Log out of Gaurxv Verse"
-            aria-label="Logout"
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 text-xs font-semibold text-red-400 transition hover:bg-red-500/20 hover:text-red-300 active:scale-95 shrink-0"
-          >
-            <LogOut className="size-3" />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
-
-          <Link to="/profile" aria-label="Your profile" title={me.name || 'Profile'} className="ml-0.5 rounded-full transition active:scale-90 shrink-0">
-            <Avatar size={32} src={me.avatar} frame={me.frame} name={me.name} />
-          </Link>
+          {/* Consistent Common Action Group: Home → Admin → Theme → Logout → Profile */}
+          <NavbarActions />
         </div>
       </nav>
     </header>
