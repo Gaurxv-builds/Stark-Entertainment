@@ -85,6 +85,13 @@
 - **Verse Shield:** In-house cryptographic proof-of-work challenge protecting streaming gateways without annoying third-party captchas.
 - **SSRF Hardening:** Strict server-side request forgery filtering blocking loopbacks, internal clouds, and private subnets.
 
+### 7. Subscription & Access Management Engine (Stark Pass)
+- **Access Policies & Real-time Ticker:** 30-minute free trial countdown initiated upon first login (server-enforced with zero client clock manipulation), ₹29 / 30-day manual renewals, custom durations, and lifetime administrator clearance.
+- **Standalone Payment Portal ([`payments.gaurxv.eu.org`](https://payments.gaurxv.eu.org)):** Modern payment portal styled with Montserrat typography and obsidian glassmorphism. Features unclipped dynamic QR code, Paytm UPI ID (`paytmqr6qi789@ptys`), mobile intent launchers (Paytm, PhonePe, GPay), and direct screenshot file upload.
+- **Direct Bot Delivery & In-Chat Action Engine (`@JarvisXPay_Bot`):** Submits receipt screenshots directly to Telegram admin chat (`895044844`) with one-tap inline callback buttons (`[✅ Approve (+30 Days)]` & `[❌ Reject]`), live status editing, and in-chat slash commands (`/pending`, `/approve`, `/reject`, `/status`).
+- **Brevo Email Notifications (`updates@gaurxv.eu.org`):** Automatic delivery of receipt submission acknowledgements, activation confirmations with computed expiration dates, and review feedback.
+- **Subscription & Access Center (`/admin`):** Live metrics overview (Pending, Active, Trial, Lifetime, Revenue), real-time pending queue with inline approve/reject, and auto-healing dual-token authentication (Stark HMAC + Supabase JWT) across multiple devices.
+
 ---
 
 ## Quick Start
@@ -137,6 +144,9 @@ Copy `.env.example` to `.env` to customize settings:
 | `VITE_SUPABASE_ANON_KEY` | Client / Build | *(Optional)* Supabase public anonymous API key. | Unset (local fallback) |
 | `VITE_ANILIST_CLIENT_ID` | Client / Build | AniList developer client ID for OAuth progress sync. | `53784` |
 | `VITE_API_BASE` | Client / Build | Remote backend origin if hosted on an external domain. | `""` (relative) |
+| `TELEGRAM_BOT_TOKEN` | Server Runtime | Telegram bot token for alert dispatch & in-bot actions (`@JarvisXPay_Bot`). | Configured |
+| `TELEGRAM_ADMIN_CHAT_ID` | Server Runtime | Telegram admin chat ID receiving receipts and action callbacks (`895044844`). | `895044844` |
+| `BREVO_API_KEY` | Server Runtime | Brevo SMTP/REST API key for transactional emails (`updates@gaurxv.eu.org`). | Configured |
 | `SHIELD_SECRET` | Server Runtime | Secret key for proof-of-work verification. If omitted, shield is off. | Unset |
 | `GITHUB_TOKEN` | Server Runtime | GitHub PAT to prevent rate-limiting on Android release checking. | Unset |
 | `SITE_PASSWORD` | Node Server | Password for the self-hosted server (`serve.js`). | Unset (public) |
@@ -168,8 +178,9 @@ Copy `.env.example` to `.env` to customize settings:
 | `/ebooks/read/:id` | `EbookReaderPage` | Full-screen EPUB/PDF reader with strict 6-voice Indian Read Aloud. |
 | `/music` | `MusicPage` | Ad-free music discovery, search, centered miniplayer, and audio player engine. |
 | `/list` · `/profile` | `ListPage` / `ProfilePage` | User profile, watchlist, continue-reading shelf, and AniList / Supabase sync. |
-| `/admin` | `AdminPage` | Secure Stark Gate credential management console. |
+| `/admin` | `AdminPage` | Dual-tab admin console: Subscription & Access Center and Credentials Directory. |
 | `/app` | `AppPage` | Android application release notes, APK downloads, and updates. |
+| `https://payments.gaurxv.eu.org/` | Standalone Portal | Standalone Montserrat glassmorphic payment portal with unclipped QR, UPI intent, and receipt upload. |
 
 ---
 
@@ -181,7 +192,7 @@ The repository includes an end-to-end automated test harness covering all major 
 node tests/verification.mjs
 ```
 
-**Test Coverage (12 Subsystems):**
+**Test Coverage (15 Subsystems):**
 1. Supabase Client & Configuration Verification
 2. SQL Migration & Row Level Security (RLS) Schema Integrity
 3. Cross-Device Cloud Sync Module
@@ -194,6 +205,9 @@ node tests/verification.mjs
 10. Music UI Components, Hero & Category Shelves
 11. Stark Gate Profile Display & Session Persistence
 12. Strict Six Indian Voice TTS Engine & Language Detection
+13. Stark Subscription, Payment Portal & Access Management Verification
+14. Multi-device Admin Authentication & Payment Queue Resilience
+15. Telegram Bot Direct Approval & In-Chat Action Engine
 
 ---
 
