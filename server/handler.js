@@ -14,6 +14,8 @@ import {
   getAdminSubscriptionsData,
   handleAdminSubscriptionAction,
   handleAccountRequest,
+  handleTelegramWebhook,
+  setTelegramWebhook,
 } from "./subscription.js";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -1105,6 +1107,36 @@ export async function handle(request, env) {
         return json({ success: false, error: e.message || "Failed to submit account request." }, 400);
       }
     }
+  }
+
+  // 6. Telegram Bot Webhook & Direct Action Handling
+  if (path === "/api/telegram/webhook") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "POST, OPTIONS" } });
+    }
+    if (request.method === "POST") {
+      try {
+        const update = await request.json();
+        const result = await handleTelegramWebhook(update, env);
+        return json({ ok: true, result });
+      } catch (e) {
+        console.warn("[Telegram Webhook] Error:", e.message);
+        // Always return 200 to Telegram so it does not endlessly retry failed updates
+        return json({ ok: false, error: e.message }, 200);
+      }
+    }
+    return json({ ok: true, status: "Telegram webhook endpoint active" });
+  }
+
+  // 7. Telegram Webhook Setup Utility
+  if (path === "/api/telegram/setup-webhook") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "GET, POST, OPTIONS" } });
+    }
+    const origin = url.origin || "https://verse.gaurxv.eu.org";
+    const webhookUrl = `${origin}/api/telegram/webhook`;
+    const res = await setTelegramWebhook(webhookUrl);
+    return json({ webhookUrl, telegramResponse: res });
   }
 
   if (path === "/api/tts/voices") {

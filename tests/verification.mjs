@@ -270,5 +270,19 @@ test('Multi-device Admin Authentication & Payment Queue Resilience', () => {
   assert(adminContent.includes('subLoading'), 'AdminPage must handle subLoading gracefully');
 });
 
+test('Telegram Bot Direct Approval & In-Chat Action Engine', () => {
+  const subContent = fs.readFileSync('server/subscription.js', 'utf8');
+  assert(subContent.includes('handleTelegramWebhook'), 'subscription.js must export handleTelegramWebhook');
+  assert(subContent.includes('answerTelegramCallbackQuery'), 'subscription.js must export answerTelegramCallbackQuery');
+  assert(subContent.includes('editTelegramMessageCaption'), 'subscription.js must export editTelegramMessageCaption');
+  assert(subContent.includes('approve:'), 'Inline keyboard must include approve callback');
+  assert(subContent.includes('reject:'), 'Inline keyboard must include reject callback');
+  assert(subContent.includes('findPaymentProof'), 'subscription.js must support flexible proof lookup');
+
+  const handlerContent = fs.readFileSync('server/handler.js', 'utf8');
+  assert(handlerContent.includes('/api/telegram/webhook'), 'Server handler must route /api/telegram/webhook');
+  assert(handlerContent.includes('/api/telegram/setup-webhook'), 'Server handler must route /api/telegram/setup-webhook');
+});
+
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`)
 if (failed > 0) process.exit(1)

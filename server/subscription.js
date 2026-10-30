@@ -93,6 +93,86 @@ export async function sendTelegramPhoto(imageBuffer, mimeType, caption, replyMar
   return null;
 }
 
+export async function answerTelegramCallbackQuery(callbackQueryId, text, showAlert = false) {
+  const token = TELEGRAM_BOT_TOKEN;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        callback_query_id: callbackQueryId,
+        text,
+        show_alert: showAlert,
+      }),
+    });
+    return await res.json();
+  } catch (e) {
+    console.warn("[Telegram] answerCallbackQuery error:", e.message);
+    return null;
+  }
+}
+
+export async function editTelegramMessageCaption(chatId, messageId, caption, replyMarkup) {
+  const token = TELEGRAM_BOT_TOKEN;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/editMessageCaption`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        caption,
+        parse_mode: "Markdown",
+        reply_markup: replyMarkup,
+      }),
+    });
+    return await res.json();
+  } catch (e) {
+    console.warn("[Telegram] editMessageCaption error:", e.message);
+    return null;
+  }
+}
+
+export async function editTelegramMessageText(chatId, messageId, text, replyMarkup) {
+  const token = TELEGRAM_BOT_TOKEN;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_id: messageId,
+        text,
+        parse_mode: "Markdown",
+        reply_markup: replyMarkup,
+      }),
+    });
+    return await res.json();
+  } catch (e) {
+    console.warn("[Telegram] editMessageText error:", e.message);
+    return null;
+  }
+}
+
+export async function setTelegramWebhook(webhookUrl) {
+  const token = TELEGRAM_BOT_TOKEN;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: webhookUrl,
+        allowed_updates: ["message", "callback_query"],
+        drop_pending_updates: false,
+      }),
+    });
+    return await res.json();
+  } catch (e) {
+    console.warn("[Telegram] setWebhook error:", e.message);
+    return null;
+  }
+}
+
 /* ---------------- Brevo API Helper ---------------- */
 export async function sendBrevoEmail({ to, subject, htmlContent }) {
   try {
@@ -156,7 +236,35 @@ export async function submitPaymentProof({ orderReference, username, email, amou
     imageBuffer = Buffer.from(raw, "base64");
   }
 
-  // 3. Format Telegram Alert
+  // 3. Save in Supabase payment_proofs table first to get proof ID
+  const insertPayload = {
+    order_reference: cleanRef,
+    username: cleanUser,
+    email: cleanEmail,
+    amount: numAmount,
+    utr_reference: cleanUtr,
+    verification_status: "pending",
+    screenshot_url: "telegram_bot_receipt",
+  };
+
+  let proofId = cleanRef;
+  const dbRes = await sbFetch("payment_proofs", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(insertPayload),
+  }, env);
+
+  if (dbRes.ok) {
+    const inserted = await dbRes.json();
+    if (Array.isArray(inserted) && inserted[0]?.id) {
+      proofId = inserted[0].id;
+    }
+  } else {
+    const errText = await dbRes.text();
+    console.warn("[Supabase] Failed to record payment_proof:", errText);
+  }
+
+  // 4. Format Telegram Alert with Direct One-Tap Action Buttons
   const formattedTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
   const caption = 
 `⚡ *NEW PAYMENT PROOF RECEIVED*
@@ -173,19 +281,23 @@ export async function submitPaymentProof({ orderReference, username, email, amou
   const inlineKeyboard = {
     inline_keyboard: [
       [
+        { text: "✅ Approve (+30 Days)", callback_data: `approve:${proofId}` },
+        { text: "❌ Reject", callback_data: `reject:${proofId}` }
+      ],
+      [
         { text: "🔍 Review in Admin Panel", url: "https://verse.gaurxv.eu.org/admin" }
       ]
     ]
   };
 
-  // 4. Send directly to Telegram Bot
+  // 5. Send directly to Telegram Bot
   if (imageBuffer && imageBuffer.length > 0) {
     await sendTelegramPhoto(imageBuffer, mimeType, caption, inlineKeyboard);
   } else {
     await sendTelegramMessage(caption, { replyMarkup: inlineKeyboard });
   }
 
-  // 5. Send Brevo Receipt Confirmation Email to User
+  // 6. Send Brevo Receipt Confirmation Email to User
   const emailHtml = `
     <div style="font-family:'Segoe UI',system-ui,sans-serif;background:#050508;color:#f1f5f9;padding:32px 20px;border-radius:16px;max-width:560px;margin:auto;border:1px solid rgba(255,255,255,0.08);">
       <div style="text-align:center;margin-bottom:24px;">
@@ -226,28 +338,6 @@ export async function submitPaymentProof({ orderReference, username, email, amou
     subject: `⎊ Payment Receipt Received [${cleanRef}] — Gaurxv Verse`,
     htmlContent: emailHtml,
   }).catch(() => {});
-
-  // 6. Save in Supabase payment_proofs table
-  const insertPayload = {
-    order_reference: cleanRef,
-    username: cleanUser,
-    email: cleanEmail,
-    amount: numAmount,
-    utr_reference: cleanUtr,
-    verification_status: "pending",
-    screenshot_url: "telegram_bot_receipt",
-  };
-
-  const dbRes = await sbFetch("payment_proofs", {
-    method: "POST",
-    headers: { Prefer: "return=representation" },
-    body: JSON.stringify(insertPayload),
-  }, env);
-
-  if (!dbRes.ok) {
-    const errText = await dbRes.text();
-    console.warn("[Supabase] Failed to record payment_proof:", errText);
-  }
 
   // 7. Ensure user has a record in user_access
   try {
@@ -512,6 +602,37 @@ export async function getAdminSubscriptionsData(env) {
   };
 }
 
+async function findPaymentProof(identifier, env) {
+  if (!identifier) return null;
+  const cleanId = String(identifier).trim();
+  
+  // 1. Try by UUID id
+  let res = await sbFetch(`payment_proofs?id=eq.${encodeURIComponent(cleanId)}&select=*`, {}, env);
+  if (res.ok) {
+    const list = await res.json();
+    if (Array.isArray(list) && list[0]) return list[0];
+  }
+  // 2. Try by order_reference
+  res = await sbFetch(`payment_proofs?order_reference=eq.${encodeURIComponent(cleanId)}&select=*`, {}, env);
+  if (res.ok) {
+    const list = await res.json();
+    if (Array.isArray(list) && list[0]) return list[0];
+  }
+  // 3. Try by utr_reference
+  res = await sbFetch(`payment_proofs?utr_reference=eq.${encodeURIComponent(cleanId)}&select=*`, {}, env);
+  if (res.ok) {
+    const list = await res.json();
+    if (Array.isArray(list) && list[0]) return list[0];
+  }
+  // 4. Try by username if pending
+  res = await sbFetch(`payment_proofs?username=eq.${encodeURIComponent(cleanId)}&verification_status=eq.pending&order=created_at.desc&limit=1`, {}, env);
+  if (res.ok) {
+    const list = await res.json();
+    if (Array.isArray(list) && list[0]) return list[0];
+  }
+  return null;
+}
+
 export async function handleAdminSubscriptionAction(payload, adminUser, env) {
   const { action, proofId, username, email, policy, days, reason, targetUser } = payload || {};
   const currentAdmin = adminUser || "gaurxv";
@@ -520,11 +641,9 @@ export async function handleAdminSubscriptionAction(payload, adminUser, env) {
     if (!proofId) throw new Error("Missing proofId for approval.");
 
     // 1. Fetch proof record
-    const proofRes = await sbFetch(`payment_proofs?id=eq.${proofId}&select=*`, {}, env);
-    if (!proofRes.ok) throw new Error("Could not find payment proof.");
-    const proofs = await proofRes.json();
-    const proof = proofs[0];
-    if (!proof) throw new Error("Proof not found.");
+    const proof = await findPaymentProof(proofId, env);
+    if (!proof) throw new Error(`Proof not found for: ${proofId}`);
+    const actualProofId = proof.id;
 
     const target = proof.username;
     const targetEmail = proof.email;
@@ -559,7 +678,7 @@ export async function handleAdminSubscriptionAction(payload, adminUser, env) {
     }, env);
 
     // 4. Update proof status to approved
-    await sbFetch(`payment_proofs?id=eq.${proofId}`, {
+    await sbFetch(`payment_proofs?id=eq.${actualProofId}`, {
       method: "PATCH",
       body: JSON.stringify({
         verification_status: "approved",
@@ -631,12 +750,11 @@ export async function handleAdminSubscriptionAction(payload, adminUser, env) {
 
   if (action === "reject_payment") {
     if (!proofId) throw new Error("Missing proofId.");
-    const proofRes = await sbFetch(`payment_proofs?id=eq.${proofId}&select=*`, {}, env);
-    const proofs = await proofRes.json();
-    const proof = proofs[0];
-    if (!proof) throw new Error("Proof not found.");
+    const proof = await findPaymentProof(proofId, env);
+    if (!proof) throw new Error(`Proof not found for: ${proofId}`);
+    const actualProofId = proof.id;
 
-    await sbFetch(`payment_proofs?id=eq.${proofId}`, {
+    await sbFetch(`payment_proofs?id=eq.${actualProofId}`, {
       method: "PATCH",
       body: JSON.stringify({
         verification_status: "rejected",
@@ -771,4 +889,229 @@ export async function handleAccountRequest({ username, email, fullName, note, en
   }).catch(() => {});
 
   return { success: true, message: "Account request submitted successfully." };
+}
+
+/* ---------------- Telegram Webhook & In-Bot Direct Approval Engine ---------------- */
+export async function handleTelegramWebhook(update, env) {
+  if (!update) return { ok: false, error: "Empty update payload" };
+
+  const adminChatId = String(TELEGRAM_ADMIN_CHAT_ID);
+
+  // 1. One-tap Inline Button Callback (Approve / Reject)
+  if (update.callback_query) {
+    const cb = update.callback_query;
+    const fromId = String(cb.from?.id || "");
+
+    // Strict Authorization: Only the verified admin can tap actions
+    if (fromId !== adminChatId) {
+      await answerTelegramCallbackQuery(cb.id, "⛔ Unauthorized: Admin clearance required.", true);
+      return { ok: false, error: "Unauthorized" };
+    }
+
+    const data = String(cb.data || "");
+    const colonIdx = data.indexOf(":");
+    const action = colonIdx > -1 ? data.slice(0, colonIdx) : data;
+    const targetId = colonIdx > -1 ? data.slice(colonIdx + 1) : "";
+
+    if (action === "approve") {
+      try {
+        const actionResult = await handleAdminSubscriptionAction(
+          { action: "approve_payment", proofId: targetId },
+          `Telegram Bot (@${cb.from?.username || "Admin"})`,
+          env
+        );
+
+        await answerTelegramCallbackQuery(cb.id, "✅ Payment approved! 30-Day pass activated.");
+
+        if (cb.message) {
+          const chatId = cb.message.chat.id;
+          const messageId = cb.message.message_id;
+          const original = cb.message.caption || cb.message.text || "";
+          const updated = `${original}\n\n✅ *APPROVED BY ADMIN VIA BOT*\n🎉 30-Day Pass Active | Confirmation Email Sent\n👮 *Actioned By:* \`@${cb.from?.username || "Admin"}\``;
+          const finalKeyboard = {
+            inline_keyboard: [
+              [
+                { text: "🔍 View in Admin Dashboard", url: "https://verse.gaurxv.eu.org/admin" }
+              ]
+            ]
+          };
+
+          if (cb.message.caption !== undefined) {
+            await editTelegramMessageCaption(chatId, messageId, updated, finalKeyboard);
+          } else {
+            await editTelegramMessageText(chatId, messageId, updated, finalKeyboard);
+          }
+        }
+        return { ok: true, action: "approved", result: actionResult };
+      } catch (err) {
+        await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
+        return { ok: false, error: err.message };
+      }
+    }
+
+    if (action === "reject") {
+      try {
+        const actionResult = await handleAdminSubscriptionAction(
+          { action: "reject_payment", proofId: targetId, reason: "Rejected via Telegram Bot" },
+          `Telegram Bot (@${cb.from?.username || "Admin"})`,
+          env
+        );
+
+        await answerTelegramCallbackQuery(cb.id, "❌ Payment marked rejected.");
+
+        if (cb.message) {
+          const chatId = cb.message.chat.id;
+          const messageId = cb.message.message_id;
+          const original = cb.message.caption || cb.message.text || "";
+          const updated = `${original}\n\n❌ *REJECTED BY ADMIN VIA BOT*\nUser notified via Brevo email.\n👮 *Actioned By:* \`@${cb.from?.username || "Admin"}\``;
+          const finalKeyboard = {
+            inline_keyboard: [
+              [
+                { text: "🔍 View in Admin Dashboard", url: "https://verse.gaurxv.eu.org/admin" }
+              ]
+            ]
+          };
+
+          if (cb.message.caption !== undefined) {
+            await editTelegramMessageCaption(chatId, messageId, updated, finalKeyboard);
+          } else {
+            await editTelegramMessageText(chatId, messageId, updated, finalKeyboard);
+          }
+        }
+        return { ok: true, action: "rejected", result: actionResult };
+      } catch (err) {
+        await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
+        return { ok: false, error: err.message };
+      }
+    }
+  }
+
+  // 2. Text Commands Sent to the Bot (@JarvisXPay_Bot)
+  if (update.message) {
+    const msg = update.message;
+    const chatId = String(msg.chat?.id || "");
+    const text = String(msg.text || "").trim();
+
+    if (chatId !== adminChatId) {
+      await sendTelegramMessage("🔒 *Gaurxv Verse Security System*\nThis bot only accepts commands from the designated administrator.", { chatId });
+      return { ok: true };
+    }
+
+    if (text === "/start" || text === "/help") {
+      const helpMsg = 
+`⚡ *GAURXV VERSE PAYMENT & ACCESS BOT*
+━━━━━━━━━━━━━━━━━━━━
+You can approve or reject payments directly from Telegram!
+
+*Available Controls:*
+• Tap *[Approve (+30 Days)]* under any receipt photo
+• Tap *[Reject]* to decline proof
+• \`/pending\` — List all pending payment proofs
+• \`/approve <Order-ID or UTR>\` — Approve by ID or UTR
+• \`/reject <Order-ID or UTR>\` — Reject by ID or UTR
+• \`/status <username>\` — Check user subscription status`;
+      await sendTelegramMessage(helpMsg, { chatId });
+      return { ok: true };
+    }
+
+    if (text === "/pending") {
+      const pendingRes = await sbFetch("payment_proofs?verification_status=eq.pending&order=created_at.desc&limit=5", {}, env);
+      if (pendingRes.ok) {
+        const list = await pendingRes.json();
+        if (!Array.isArray(list) || list.length === 0) {
+          await sendTelegramMessage("🎉 *No Pending Payments!*\nAll payment proofs are caught up and verified.", { chatId });
+          return { ok: true };
+        }
+
+        await sendTelegramMessage(`📋 *PENDING PAYMENT PROOFS (${list.length}):*`, { chatId });
+        for (const item of list) {
+          const itemText = 
+`👤 *User:* \`@${item.username}\`
+📧 *Email:* \`${item.email}\`
+💰 *Amount:* ₹${item.amount}
+🔢 *UTR:* \`${item.utr_reference}\`
+🔖 *Order:* \`${item.order_reference}\`
+🕒 *Date:* \`${new Date(item.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST\``;
+
+          const itemKeyboard = {
+            inline_keyboard: [
+              [
+                { text: `✅ Approve @${item.username}`, callback_data: `approve:${item.id}` },
+                { text: `❌ Reject`, callback_data: `reject:${item.id}` }
+              ]
+            ]
+          };
+          await sendTelegramMessage(itemText, { chatId, replyMarkup: itemKeyboard });
+        }
+        return { ok: true };
+      }
+    }
+
+    if (text.startsWith("/approve")) {
+      const parts = text.split(/\s+/);
+      const targetId = parts[1];
+      if (!targetId) {
+        await sendTelegramMessage("⚠️ Usage: `/approve <Order-ID or UTR>`", { chatId });
+        return { ok: true };
+      }
+      try {
+        const actionResult = await handleAdminSubscriptionAction(
+          { action: "approve_payment", proofId: targetId },
+          `Telegram Bot (@${msg.from?.username || "Admin"})`,
+          env
+        );
+        await sendTelegramMessage(`✅ *SUCCESS:* ${actionResult.message || "Access approved for 30 days."}`, { chatId });
+      } catch (e) {
+        await sendTelegramMessage(`⚠️ *Approval Failed:* ${e.message}`, { chatId });
+      }
+      return { ok: true };
+    }
+
+    if (text.startsWith("/reject")) {
+      const parts = text.split(/\s+/);
+      const targetId = parts[1];
+      if (!targetId) {
+        await sendTelegramMessage("⚠️ Usage: `/reject <Order-ID or UTR>`", { chatId });
+        return { ok: true };
+      }
+      try {
+        await handleAdminSubscriptionAction(
+          { action: "reject_payment", proofId: targetId, reason: "Rejected via Telegram Bot command" },
+          `Telegram Bot (@${msg.from?.username || "Admin"})`,
+          env
+        );
+        await sendTelegramMessage(`❌ *Payment Rejected:* ${targetId}`, { chatId });
+      } catch (e) {
+        await sendTelegramMessage(`⚠️ *Rejection Failed:* ${e.message}`, { chatId });
+      }
+      return { ok: true };
+    }
+
+    if (text.startsWith("/status")) {
+      const parts = text.split(/\s+/);
+      const targetUser = parts[1]?.replace(/^@/, "");
+      if (!targetUser) {
+        await sendTelegramMessage("⚠️ Usage: `/status <username>`", { chatId });
+        return { ok: true };
+      }
+      try {
+        const ent = await getUserEntitlement(targetUser, env);
+        const statusMsg = 
+`👤 *Status for @${targetUser}:*
+━━━━━━━━━━━━━━━━━━━━
+🔑 *Has Access:* ${ent.hasAccess ? "✅ YES" : "❌ NO"}
+📜 *Policy:* \`${ent.accessPolicy || "none"}\`
+${ent.activeSubscription ? `⏳ *Sub Expiry:* \`${new Date(ent.activeSubscription.expiresAt).toLocaleDateString("en-IN")}\`` : ""}
+${ent.trial ? `⏱️ *Trial Remaining:* ${Math.ceil(ent.trial.remainingSeconds / 60)} mins` : ""}
+👑 *Lifetime Pass:* ${ent.isLifetime ? "YES" : "NO"}
+⛔ *Suspended:* ${ent.isSuspended ? "YES" : "NO"}`;
+        await sendTelegramMessage(statusMsg, { chatId });
+      } catch (e) {
+        await sendTelegramMessage(`⚠️ Error checking status: ${e.message}`, { chatId });
+      }
+      return { ok: true };
+    }
+  }
+
+  return { ok: true };
 }
