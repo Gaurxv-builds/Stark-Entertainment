@@ -510,6 +510,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
             setIsCloudSynced(true)
 
             try {
+              localStorage.setItem('gaurxv_verse_sb_jwt', session.access_token)
               localStorage.setItem('gaurxv_verse_sb_token', session.access_token)
               const exp = Date.now() + 30 * 24 * 60 * 60 * 1000
               const hmacTok = await createClientToken(uName, adminFlag, exp)
@@ -520,6 +521,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
               saveAuthSession(uName, adminFlag, true, session.access_token)
             }
             pullCloudData(session.user.id).catch(() => {})
+            diagnoseCloudSync().then((d) => setSyncDiagnostics(d))
           } else if (event === 'SIGNED_OUT') {
             setUserId(null)
             setIsCloudSynced(false)
@@ -561,10 +563,34 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       const sbClient = supabase || (await getOrInitSupabase())
       if (sbClient) {
         try {
+          let activeSbSession: any = null
           const { data, error } = await sbClient.auth.getSession()
           if (!error && data?.session?.user) {
+            activeSbSession = data.session
+          } else {
+            // Auto-heal from stored tokens
+            const possibleTokens = [
+              localStorage.getItem('gaurxv_verse_sb_jwt'),
+              localStorage.getItem('gaurxv_verse_sb_token'),
+            ].filter((t): t is string => Boolean(t && t.split('.').length === 3))
+
+            for (const t of possibleTokens) {
+              try {
+                const { data: sRes, error: sErr } = await sbClient.auth.setSession({
+                  access_token: t,
+                  refresh_token: t,
+                })
+                if (!sErr && sRes?.session?.user) {
+                  activeSbSession = sRes.session
+                  break
+                }
+              } catch {}
+            }
+          }
+
+          if (activeSbSession?.user) {
             const { data: userData, error: userErr } = await sbClient.auth.getUser()
-            const sbUser = userData?.user || data.session.user
+            const sbUser = userData?.user || activeSbSession.user
             if (!userErr && sbUser) {
               const emailLower = sbUser.email?.toLowerCase() || ''
               const uName =
@@ -578,13 +604,14 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
                 emailLower === 'gaurav@pepperonyx.dpdns.org'
               )
               const exp = Date.now() + 30 * 24 * 60 * 60 * 1000
-              let activeToken = data.session.access_token
+              let activeToken = activeSbSession.access_token
               try {
-                localStorage.setItem('gaurxv_verse_sb_token', data.session.access_token)
+                localStorage.setItem('gaurxv_verse_sb_jwt', activeSbSession.access_token)
+                localStorage.setItem('gaurxv_verse_sb_token', activeSbSession.access_token)
                 activeToken = await createClientToken(uName, adminFlag, exp)
                 saveAuthSession(uName, adminFlag, true, activeToken)
               } catch {
-                saveAuthSession(uName, adminFlag, true, data.session.access_token)
+                saveAuthSession(uName, adminFlag, true, activeSbSession.access_token)
               }
               if (!cancelled) {
                 setUserId(sbUser.id)
@@ -639,13 +666,46 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
           if (res.ok) {
             const data = await res.json()
             if (data && data.ok) {
+              // If server provided active Supabase session, hydrate client
+              if (data.supabaseSession?.access_token && sbClient) {
+                try {
+                  const { data: sRes } = await sbClient.auth.setSession({
+                    access_token: data.supabaseSession.access_token,
+                    refresh_token: data.supabaseSession.refresh_token,
+                  })
+                  if (sRes?.session?.user) {
+                    localStorage.setItem('gaurxv_verse_sb_jwt', data.supabaseSession.access_token)
+                    localStorage.setItem('gaurxv_verse_sb_token', data.supabaseSession.access_token)
+                  }
+                } catch {}
+              }
+
+              const finalUid = data.userId || data.supabaseSession?.user?.id || null
               if (!cancelled) {
                 setUser(data.user || storedUser)
                 setIsAdmin(Boolean(data.isAdmin ?? storedAdmin))
                 setToken(storedToken)
                 setAuthenticated(true)
+                if (finalUid) {
+                  setUserId(finalUid)
+                  setIsCloudSynced(true)
+                }
                 setLoading(false)
               }
+
+              if (finalUid) {
+                pullCloudData(finalUid).catch(() => {})
+                pushCloudData(finalUid).catch(() => {})
+              }
+
+              diagnoseCloudSync().then((d) => {
+                if (!cancelled) {
+                  setSyncDiagnostics(d)
+                  if (d.status === 'connected') {
+                    setIsCloudSynced(true)
+                  }
+                }
+              })
               return
             }
           } else if (res.status === 401 || res.status === 403) {
@@ -673,6 +733,14 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
             setAuthenticated(true)
             setLoading(false)
           }
+          diagnoseCloudSync().then((d) => {
+            if (!cancelled) {
+              setSyncDiagnostics(d)
+              if (d.status === 'connected') {
+                setIsCloudSynced(true)
+              }
+            }
+          })
           return
         }
       }
@@ -689,6 +757,14 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
           setAuthenticated(true)
           setLoading(false)
         }
+        diagnoseCloudSync().then((d) => {
+          if (!cancelled) {
+            setSyncDiagnostics(d)
+            if (d.status === 'connected') {
+              setIsCloudSynced(true)
+            }
+          }
+        })
         return
       }
 
@@ -738,6 +814,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
           const exp = remember ? Date.now() + 30 * 24 * 60 * 60 * 1000 : Date.now() + 24 * 60 * 60 * 1000
           let activeToken = data.session.access_token
           try {
+            localStorage.setItem('gaurxv_verse_sb_jwt', data.session.access_token)
             localStorage.setItem('gaurxv_verse_sb_token', data.session.access_token)
             activeToken = await createClientToken(authUser, adminFlag, exp)
             saveAuthSession(authUser, adminFlag, remember, activeToken)
@@ -789,6 +866,8 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
           // If server established Supabase session, sync client
           if (data.supabaseSession?.access_token && client) {
             try {
+              localStorage.setItem('gaurxv_verse_sb_jwt', data.supabaseSession.access_token)
+              localStorage.setItem('gaurxv_verse_sb_token', data.supabaseSession.access_token)
               await client.auth.setSession({
                 access_token: data.supabaseSession.access_token,
                 refresh_token: data.supabaseSession.refresh_token,
@@ -891,6 +970,11 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
     }
     clearAuthSession()
     resetProfile()
+    try {
+      localStorage.removeItem('gaurxv_verse_sb_jwt')
+      localStorage.removeItem('gaurxv_verse_sb_token')
+      localStorage.removeItem('gaurxv_verse_sb_session')
+    } catch {}
     setUserId(null)
     setUser('')
     setIsAdmin(false)
@@ -913,25 +997,67 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
   const triggerSync = async (): Promise<boolean> => {
     let targetUid = userId
     const sb = supabase || (await getOrInitSupabase())
-    if (!targetUid && sb) {
-      try {
-        const { data } = await sb.auth.getSession()
-        if (data?.session?.user?.id) {
-          targetUid = data.session.user.id
-          setUserId(targetUid)
-          setIsCloudSynced(true)
+    if (sb) {
+      if (!targetUid) {
+        try {
+          const { data } = await sb.auth.getSession()
+          if (data?.session?.user?.id) {
+            targetUid = data.session.user.id
+            setUserId(targetUid)
+            setIsCloudSynced(true)
+          }
+        } catch {}
+      }
+
+      // If still no targetUid, auto-heal using /api/auth/verify
+      if (!targetUid) {
+        const storedTok = getAuthToken()
+        if (storedTok || isSessionValid()) {
+          try {
+            const vRes = await fetch('/api/auth/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(storedTok ? { Authorization: `Bearer ${storedTok}` } : {}),
+              },
+              body: JSON.stringify({ token: storedTok }),
+            })
+            if (vRes.ok) {
+              const vData = await vRes.json()
+              if (vData?.supabaseSession?.access_token) {
+                const { data: sRes } = await sb.auth.setSession({
+                  access_token: vData.supabaseSession.access_token,
+                  refresh_token: vData.supabaseSession.refresh_token,
+                })
+                if (sRes?.session?.user) {
+                  targetUid = sRes.session.user.id
+                  setUserId(targetUid)
+                  setIsCloudSynced(true)
+                  localStorage.setItem('gaurxv_verse_sb_jwt', vData.supabaseSession.access_token)
+                  localStorage.setItem('gaurxv_verse_sb_token', vData.supabaseSession.access_token)
+                }
+              }
+            }
+          } catch {}
         }
-      } catch {}
+      }
     }
+
     if (targetUid) {
       await pushCloudData(targetUid)
       const ok = await pullCloudData(targetUid)
       const diag = await diagnoseCloudSync()
       setSyncDiagnostics(diag)
+      if (diag.status === 'connected') {
+        setIsCloudSynced(true)
+      }
       return ok
     }
     const diag = await diagnoseCloudSync()
     setSyncDiagnostics(diag)
+    if (diag.status === 'connected') {
+      setIsCloudSynced(true)
+    }
     return diag.status === 'connected'
   }
 

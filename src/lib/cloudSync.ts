@@ -94,8 +94,65 @@ export async function diagnoseCloudSync(): Promise<CloudSyncDiagnostics> {
 
   // 2. Check active authentication session
   try {
-    const { data: sessionData, error: sessionErr } = await client.auth.getSession()
-    if (sessionErr || !sessionData?.session?.user) {
+    let sessionData: any = null
+    const { data: sData, error: sessionErr } = await client.auth.getSession()
+    if (!sessionErr && sData?.session?.user) {
+      sessionData = sData
+    } else {
+      // Auto-heal: Attempt to restore session from stored JWT or token
+      const possibleTokens = [
+        localStorage.getItem('gaurxv_verse_sb_jwt'),
+        localStorage.getItem('gaurxv_verse_sb_token'),
+        localStorage.getItem('gaurxv_verse_auth_token'),
+      ].filter((t): t is string => Boolean(t && t.split('.').length === 3))
+
+      for (const t of possibleTokens) {
+        try {
+          const { data: resData, error: resErr } = await client.auth.setSession({
+            access_token: t,
+            refresh_token: t,
+          })
+          if (!resErr && resData?.session?.user) {
+            sessionData = resData
+            break
+          }
+        } catch {}
+      }
+
+      // Auto-heal fallback: If user is authenticated in Stark Gate, request active Supabase session from backend
+      if (!sessionData?.session?.user) {
+        const authToken = localStorage.getItem('gaurxv_verse_auth_token') || ''
+        const authStatus = localStorage.getItem('gaurxv_verse_auth')
+        if (authToken || authStatus === 'authorized') {
+          try {
+            const vRes = await fetch('/api/auth/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+              },
+              body: JSON.stringify({ token: authToken }),
+            })
+            if (vRes.ok) {
+              const vData = await vRes.json()
+              if (vData?.supabaseSession?.access_token) {
+                const { data: setRes, error: setErr } = await client.auth.setSession({
+                  access_token: vData.supabaseSession.access_token,
+                  refresh_token: vData.supabaseSession.refresh_token,
+                })
+                if (!setErr && setRes?.session?.user) {
+                  sessionData = setRes
+                  localStorage.setItem('gaurxv_verse_sb_jwt', vData.supabaseSession.access_token)
+                  localStorage.setItem('gaurxv_verse_sb_token', vData.supabaseSession.access_token)
+                }
+              }
+            }
+          } catch {}
+        }
+      }
+    }
+
+    if (!sessionData?.session?.user) {
       currentDiagnostics = {
         status: 'local_only',
         code: 'AUTH_SESSION_MISSING',

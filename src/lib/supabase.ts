@@ -41,7 +41,7 @@ export let supabase: SupabaseClient | null = isSupabaseConfigured
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storageKey: 'gaurxv_verse_sb_token',
+        storageKey: 'gaurxv_verse_sb_session',
       },
     })
   : null
@@ -54,6 +54,24 @@ export function getSupabaseUrl(): string {
 
 export function getSupabaseAnonKey(): string {
   return supabaseAnonKey
+}
+
+export function getStoredSupabaseJwt(): string {
+  try {
+    const rawJwt = localStorage.getItem('gaurxv_verse_sb_jwt')
+    if (rawJwt && rawJwt.startsWith('ey')) return rawJwt
+
+    const raw = localStorage.getItem('gaurxv_verse_sb_session') || localStorage.getItem('gaurxv_verse_sb_token')
+    if (raw) {
+      if (raw.startsWith('{')) {
+        const parsed = JSON.parse(raw)
+        if (parsed?.access_token) return parsed.access_token
+      } else if (raw.startsWith('ey')) {
+        return raw
+      }
+    }
+  } catch {}
+  return ''
 }
 
 /**
@@ -82,7 +100,7 @@ export async function getOrInitSupabase(): Promise<SupabaseClient | null> {
                 persistSession: true,
                 autoRefreshToken: true,
                 detectSessionInUrl: true,
-                storageKey: 'gaurxv_verse_sb_token',
+                storageKey: 'gaurxv_verse_sb_session',
               },
             })
             if (typeof window !== 'undefined') {

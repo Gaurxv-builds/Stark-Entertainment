@@ -54,6 +54,7 @@
 - **Hybrid Cloud / Offline Storage:** Operates fully offline with zero database dependencies via `localStorage`, but seamlessly upgrades to cross-device PostgreSQL cloud sync when Supabase environment variables are provided.
 - **JWT Ref Auto-Derivation & Sanitization:** Automatically extracts the true project reference directly from JWT anon keys, immunizing the application against environment variable URL typos.
 - **Row-Level Security (RLS) & Verified Identity:** Links Stark Gate identities directly to authenticated Supabase users for secure, zero-leak multi-device sync across `user_profiles`, `user_library`, `user_reading_progress`, and `user_preferences`.
+- **Cross-Device Session Auto-Healing & Dual-Token Provisioning:** Features a resilient multi-layer authentication fallback and recovery engine. Mobile and secondary devices auto-heal missing or corrupted Supabase Gotrue sessions on startup or profile mount via `/api/auth/verify`, synchronizing PostgreSQL RLS seamlessly without manual re-login.
 - **Structured Health Diagnostics:** Real-time sync diagnostic pipeline (`diagnoseCloudSync()`) identifying network connectivity, auth sessions, table schemas, and RLS permissions with clear UI status hints.
 
 ### 3. Native Ebook Reader & Indian Voice Read Aloud

@@ -745,7 +745,85 @@ export async function handle(request, env) {
         verified = await verifyAuthToken(request.headers.get("X-Supabase-Auth").replace(/^Bearer\s+/i, "").trim());
       }
       if (verified) {
-        return json({ success: true, ok: true, user: verified.u, isAdmin: verified.a, exp: verified.exp });
+        // If verified is admin, provision active Supabase session for seamless cloud sync
+        const envVal = (key) => (env && env[key]) || (typeof process !== "undefined" && process.env && process.env[key]) || "";
+        let sbUrl = envVal("VITE_SUPABASE_URL") || envVal("SUPABASE_URL") || "https://tfykttkuoohjyjvrjxop.supabase.co";
+        const sbKey = envVal("VITE_SUPABASE_ANON_KEY") || envVal("SUPABASE_ANON_KEY") || envVal("VITE_SUPABASE_PUBLISHABLE_KEY") || "";
+        const envAdminPass = (envVal("VITE_ADMIN_PASS") || envVal("ADMIN_PASS") || "").trim();
+
+        if (sbKey && sbKey.includes(".")) {
+          try {
+            const parts = sbKey.split(".");
+            let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+            while (b64.length % 4) b64 += "=";
+            const payload = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+            if (payload?.ref) sbUrl = `https://${payload.ref}.supabase.co`;
+          } catch {}
+        }
+
+        if (sbUrl.includes("tfykktkuoohjyjvrjxop")) {
+          sbUrl = sbUrl.replace("tfykktkuoohjyjvrjxop", "tfykttkuoohjyjvrjxop");
+        }
+
+        let supabaseSession = null;
+        if (verified.a && sbUrl && sbKey && envAdminPass) {
+          try {
+            const sbAuthRes = await fetch(`${sbUrl}/auth/v1/token?grant_type=password`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", apikey: sbKey },
+              body: JSON.stringify({ email: "gaurav@pepperonyx.dpdns.org", password: envAdminPass }),
+            });
+            if (sbAuthRes.ok) {
+              const sData = await sbAuthRes.json();
+              supabaseSession = {
+                access_token: sData.access_token,
+                refresh_token: sData.refresh_token,
+                user: sData.user,
+              };
+            } else {
+              // Try syncing admin password if it differed
+              const syncRes = await fetch(`${sbUrl}/rest/v1/rpc/sync_admin_password`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  apikey: sbKey,
+                  Authorization: `Bearer ${sbKey}`,
+                },
+                body: JSON.stringify({
+                  user_email: "gaurav@pepperonyx.dpdns.org",
+                  new_password: envAdminPass,
+                  secret_token: "stark_sec_sync_7e9a8f23b1c4d5e6a7b8c9d0e1f2a3b4",
+                }),
+              });
+              if (syncRes.ok) {
+                const retryRes = await fetch(`${sbUrl}/auth/v1/token?grant_type=password`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", apikey: sbKey },
+                  body: JSON.stringify({ email: "gaurav@pepperonyx.dpdns.org", password: envAdminPass }),
+                });
+                if (retryRes.ok) {
+                  const sData = await retryRes.json();
+                  supabaseSession = {
+                    access_token: sData.access_token,
+                    refresh_token: sData.refresh_token,
+                    user: sData.user,
+                  };
+                }
+              }
+            }
+          } catch {}
+        }
+
+        return json({
+          success: true,
+          ok: true,
+          user: verified.u,
+          isAdmin: verified.a,
+          exp: verified.exp,
+          userId: verified.userId || supabaseSession?.user?.id || null,
+          email: verified.email || supabaseSession?.user?.email || null,
+          supabaseSession,
+        });
       }
       return json({ success: false, ok: false, error: "Invalid or expired session" }, 401);
     }

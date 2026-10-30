@@ -93,6 +93,12 @@ export default function ProfilePage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (authUser && !isCloudSynced) {
+      triggerSync().catch(() => {})
+    }
+  }, [authUser, isCloudSynced, triggerSync])
+
   const edit = (k: SectionKey) => {
     setOpen((o) => new Set(o).add(k))
     window.setTimeout(() => document.getElementById(`pc-${k}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
@@ -143,10 +149,15 @@ export default function ProfilePage() {
         <Row
           title="Cloud Synchronization"
           hint={
-            syncDiagnostics?.message?.includes('password differs')
-              ? 'Synced via Supabase PostgreSQL RLS (cross-device profile, watchlist & reading progress)'
+            isCloudSynced
+              ? syncDiagnostics?.message?.includes('password differs')
+                ? 'Synced via Supabase PostgreSQL RLS (cross-device profile, watchlist & reading progress)'
+                : syncDiagnostics?.message ||
+                  'Synced via Supabase PostgreSQL RLS (cross-device profile, watchlist & reading progress)'
+              : authUser
+              ? 'Synchronizing encrypted cloud storage across devices... Tap Sync Now to refresh.'
               : syncDiagnostics?.message ||
-                'Synced via Supabase PostgreSQL RLS (cross-device profile, watchlist & reading progress)'
+                'Local storage active · Sign in via Stark Gate to connect encrypted cloud storage.'
           }
         >
           <div className="flex items-center gap-2">
