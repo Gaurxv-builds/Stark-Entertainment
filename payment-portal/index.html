@@ -2,15 +2,15 @@
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Stark Entertainment Premium // Official Access Portal</title>
-  <meta name="description" content="Unlock Stark Entertainment Premium for ₹29 / 30 Days. Ultra-fast ad-free streaming, cloud watchlists & reading progress. No recurring auto-debit." />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gaurxv Verse // Stark Entertainment Premium Access & UPI Payment</title>
+  <meta name="description" content="Unlock Stark Entertainment Premium for ₹29 / 30 Days. High-speed ad-free streaming, cloud watchlists & reading progress. No recurring auto-debit." />
   <link rel="icon" type="image/png" href="https://img.icons8.com/?size=100&id=RekiHr6RHlKB&format=png&color=000000" />
 
-  <!-- Premium Typography: Syne, Plus Jakarta Sans, JetBrains Mono -->
+  <!-- Montserrat Font (All weights: 300 to 900) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -20,47 +20,16 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-            display: ['Syne', 'sans-serif'],
+            sans: ['Montserrat', 'system-ui', 'sans-serif'],
             mono: ['"JetBrains Mono"', 'monospace'],
           },
           colors: {
-            obsidian: '#040508',
-            panel: '#0a0d16',
-            surface: '#101424',
-            stroke: 'rgba(255, 255, 255, 0.08)',
-            stark: {
-              300: '#67e8f9',
-              400: '#22d3ee',
-              500: '#06b6d4',
-              glow: 'rgba(6, 182, 212, 0.35)',
-            },
-            reactor: {
-              400: '#34d399',
-              500: '#10b981',
-              glow: 'rgba(16, 185, 129, 0.35)',
-            }
-          },
-          animation: {
-            'beam': 'borderBeam 7s linear infinite',
-            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-            'scan': 'scanline 3s ease-in-out infinite',
-            'glow-pulse': 'glowPulse 2.5s ease-in-out infinite alternate',
-          },
-          keyframes: {
-            borderBeam: {
-              '0%': { transform: 'rotate(0deg)' },
-              '100%': { transform: 'rotate(360deg)' }
-            },
-            scanline: {
-              '0%': { top: '0%', opacity: 0 },
-              '40%': { opacity: 0.9 },
-              '100%': { top: '100%', opacity: 0 }
-            },
-            glowPulse: {
-              '0%': { filter: 'drop-shadow(0 0 15px rgba(6,182,212,0.3))' },
-              '100%': { filter: 'drop-shadow(0 0 35px rgba(6,182,212,0.65))' }
-            }
+            obsidian: '#07090e',
+            panel: '#0d111a',
+            surface: '#131826',
+            cardBorder: 'rgba(255, 255, 255, 0.08)',
+            cyanGlow: '#0ea5e9',
+            emeraldGlow: '#10b981',
           }
         }
       }
@@ -68,320 +37,244 @@
   </script>
 
   <style>
-    :root {
-      color-scheme: dark;
+    * {
+      font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+      box-sizing: border-box;
     }
     body {
-      background-color: #040508;
-      color: #f1f5f9;
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #07090e;
+      color: #f8fafc;
       min-height: 100vh;
-      overflow-x: hidden;
       background-image: 
-        radial-gradient(circle at 50% -10%, rgba(6, 182, 212, 0.15) 0%, transparent 55%),
-        radial-gradient(circle at 90% 25%, rgba(16, 185, 129, 0.08) 0%, transparent 45%),
-        radial-gradient(circle at 10% 75%, rgba(139, 92, 246, 0.08) 0%, transparent 45%),
-        radial-gradient(circle at 50% 110%, rgba(6, 182, 212, 0.1) 0%, transparent 60%);
+        radial-gradient(circle at 50% -10%, rgba(14, 165, 233, 0.16) 0%, transparent 55%),
+        radial-gradient(circle at 90% 40%, rgba(16, 185, 129, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 10% 70%, rgba(99, 102, 241, 0.08) 0%, transparent 45%);
       background-attachment: fixed;
     }
 
-    /* Ambient cyber grid */
-    .grid-bg {
-      background-size: 40px 40px;
-      background-image: 
-        linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-      mask-image: radial-gradient(ellipse at 50% 40%, black 50%, transparent 85%);
-      -webkit-mask-image: radial-gradient(ellipse at 50% 40%, black 50%, transparent 85%);
-    }
-
-    /* Luxury Glass Cards */
-    .stark-card {
-      background: linear-gradient(145deg, rgba(16, 20, 36, 0.78) 0%, rgba(8, 11, 20, 0.92) 100%);
+    /* Premium Glass Cards */
+    .glass-card {
+      background: linear-gradient(145deg, rgba(16, 22, 36, 0.85) 0%, rgba(9, 13, 22, 0.95) 100%);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 
-        0 30px 70px -15px rgba(0, 0, 0, 0.9),
-        inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(32px);
-      -webkit-backdrop-filter: blur(32px);
-    }
-
-    /* Animated Border Beam Wrapper */
-    .beam-box {
-      position: relative;
-      border-radius: 1.75rem;
-      overflow: hidden;
-    }
-    .beam-box::before {
-      content: '';
-      position: absolute;
-      inset: -50%;
-      background: conic-gradient(from 0deg, transparent 0%, transparent 70%, rgba(6, 182, 212, 0.6) 85%, transparent 100%);
-      animation: borderBeam 7s linear infinite;
-      z-index: 0;
-      pointer-events: none;
-    }
-    .beam-box > .beam-inner {
-      position: relative;
-      z-index: 1;
-      border-radius: calc(1.75rem - 1px);
-      margin: 1px;
-    }
-
-    /* Corner HUD brackets */
-    .hud-corner {
-      position: relative;
-    }
-    .hud-corner::before, .hud-corner::after {
-      content: '';
-      position: absolute;
-      width: 12px;
-      height: 12px;
-      pointer-events: none;
-      border-color: #22d3ee;
-      filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.6));
-    }
-    .hud-corner::before {
-      top: -2px;
-      left: -2px;
-      border-top: 2px solid;
-      border-left: 2px solid;
-    }
-    .hud-corner::after {
-      bottom: -2px;
-      right: -2px;
-      border-bottom: 2px solid;
-      border-right: 2px solid;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
 
     /* Glowing Primary Button */
     .glow-btn {
-      background: linear-gradient(135deg, #22d3ee 0%, #0284c7 50%, #2563eb 100%);
-      box-shadow: 0 0 30px rgba(6, 182, 212, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 60%, #2563eb 100%);
+      box-shadow: 0 0 25px rgba(14, 165, 233, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
       transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .glow-btn:hover {
       transform: translateY(-1.5px);
-      box-shadow: 0 0 45px rgba(6, 182, 212, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-      filter: brightness(1.08);
+      box-shadow: 0 0 35px rgba(14, 165, 233, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      filter: brightness(1.06);
     }
     .glow-btn:active {
       transform: scale(0.98);
     }
 
     /* Dropzone animation */
-    .dropzone-active {
-      border-color: #22d3ee !important;
-      background: rgba(6, 182, 212, 0.12) !important;
-      box-shadow: 0 0 35px rgba(6, 182, 212, 0.25);
+    .dropzone-hover {
+      border-color: #0ea5e9 !important;
+      background: rgba(14, 165, 233, 0.08) !important;
+      box-shadow: 0 0 25px rgba(14, 165, 233, 0.2);
     }
   </style>
 </head>
-<body class="relative flex flex-col items-center justify-between px-4 py-6 sm:px-6 md:px-10 lg:px-16 selection:bg-stark-400 selection:text-black">
-  <div class="pointer-events-none fixed inset-0 grid-bg z-0"></div>
+<body class="flex flex-col items-center justify-between px-4 py-6 sm:px-6 md:px-10 lg:px-12 selection:bg-sky-500 selection:text-white">
 
-  <!-- Top Navigation Header -->
-  <header class="relative z-10 flex w-full max-w-6xl items-center justify-between py-2 border-b border-stroke pb-4">
+  <!-- TOP HEADER -->
+  <header class="flex w-full max-w-6xl items-center justify-between border-b border-white/10 pb-5">
     <a href="https://verse.gaurxv.eu.org" class="group flex items-center gap-3.5 transition">
-      <div class="relative flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-surface to-panel p-2.5 ring-1 ring-white/10 shadow-xl shadow-black/60 transition duration-300 group-hover:scale-105 group-hover:ring-stark-400/50">
-        <img src="https://img.icons8.com/?size=100&id=RekiHr6RHlKB&format=png&color=000000" alt="Stark Helm" class="size-full object-contain invert animate-glow-pulse" />
-        <span class="absolute -right-1 -top-1 size-2 rounded-full bg-stark-400 animate-ping"></span>
-        <span class="absolute -right-1 -top-1 size-2 rounded-full bg-stark-400"></span>
+      <div class="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-surface to-panel p-2 ring-1 ring-white/10 shadow-lg shadow-black/60 transition group-hover:scale-105 group-hover:ring-sky-500/50">
+        <img src="https://img.icons8.com/?size=100&id=RekiHr6RHlKB&format=png&color=000000" alt="Stark Helm" class="size-full object-contain invert" />
       </div>
       <div>
         <div class="flex items-center gap-2">
-          <span class="font-display text-xl font-black tracking-tight text-white group-hover:text-stark-300 transition sm:text-2xl">
+          <span class="text-xl font-extrabold tracking-tight text-white group-hover:text-sky-300 transition sm:text-2xl">
             Gaurxv Verse
           </span>
-          <span class="text-stark-400 text-lg font-bold" aria-hidden>⎊</span>
+          <span class="text-sky-400 font-bold" aria-hidden>⎊</span>
         </div>
-        <div class="flex items-center gap-2">
-          <span class="text-[10px] font-mono font-bold tracking-widest text-stark-400 uppercase">Access Pass &amp; Payment Station</span>
-          <span class="size-1 rounded-full bg-white/30"></span>
-          <span class="text-[10px] font-mono text-gray-400">Manual UPI Renewal</span>
-        </div>
+        <p class="text-[11px] font-semibold text-gray-400">
+          Official Subscription &amp; Payment Station
+        </p>
       </div>
     </a>
 
     <div class="flex items-center gap-3">
-      <div class="hidden items-center gap-2 rounded-full border border-stroke bg-panel/80 px-3.5 py-1.5 text-xs text-gray-300 sm:flex shadow-sm">
+      <div class="hidden items-center gap-2 rounded-full border border-white/10 bg-panel px-3.5 py-1.5 text-xs text-gray-300 sm:flex">
         <span class="size-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span class="font-mono text-[11px]">256-Bit TLS Secured</span>
+        <span class="font-medium">256-Bit SSL Encrypted</span>
       </div>
-      <a href="https://verse.gaurxv.eu.org" class="inline-flex h-9 items-center gap-1.5 rounded-full border border-stroke bg-panel/90 px-4 text-xs font-semibold text-gray-200 backdrop-blur transition hover:border-stark-400/50 hover:text-white active:scale-95 shadow-md">
-        <svg class="size-3.5 text-stark-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <a href="https://verse.gaurxv.eu.org" class="inline-flex h-10 items-center gap-1.5 rounded-full border border-white/10 bg-panel px-4 text-xs font-semibold text-gray-200 transition hover:border-sky-500/50 hover:text-white active:scale-95 shadow-sm">
+        <svg class="size-3.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-        <span>Back to Universe</span>
+        <span>Back to Verse</span>
       </a>
     </div>
   </header>
 
-  <!-- Main Content Layout -->
-  <main class="relative z-10 my-8 w-full max-w-6xl">
+  <!-- MAIN TWO-COLUMN CONTAINER -->
+  <main class="my-8 w-full max-w-6xl">
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start">
 
-      <!-- LEFT COLUMN: Plan Badge + Holographic UPI QR Terminal (5 cols) -->
+      <!-- LEFT COLUMN: Plan Information & UPI QR Checkout (5 cols) -->
       <aside class="flex flex-col gap-6 lg:col-span-5">
         
-        <!-- Premium Access Pass Card with animated border beam -->
-        <div class="beam-box">
-          <div class="beam-inner stark-card p-6 sm:p-7">
-            <div class="flex items-center justify-between">
-              <span class="inline-flex items-center gap-1.5 rounded-full border border-stark-400/40 bg-stark-400/10 px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-wider text-stark-300">
-                <span class="size-1.5 rounded-full bg-stark-400 animate-pulse"></span>
-                Official Access Pass
-              </span>
-              <span class="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[11px] font-bold text-gray-300">30 DAYS</span>
-            </div>
-
-            <!-- Price Hero -->
-            <div class="mt-5 flex items-baseline gap-2.5">
-              <span class="font-display text-5xl font-black tracking-tight text-white drop-shadow-[0_0_25px_rgba(34,211,238,0.35)]">
-                ₹29
-              </span>
-              <span class="font-mono text-sm font-semibold text-stark-300">/ 30 Days Access</span>
-            </div>
-
-            <!-- Safe Renewal Notice -->
-            <div class="mt-3.5 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
-              <svg class="size-4 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              <span>100% Manual Renewal &bull; Zero recurring auto-debit</span>
-            </div>
-
-            <div class="my-5 h-px w-full bg-gradient-to-r from-transparent via-stroke to-transparent"></div>
-
-            <!-- Features -->
-            <ul class="space-y-3 text-xs text-gray-300">
-              <li class="flex items-start gap-2.5">
-                <div class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-stark-400/20 text-stark-400">
-                  <svg class="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <span>All 6 Pillars: Anime, Movies, Manga, Novels, Ebooks &amp; Music</span>
-              </li>
-              <li class="flex items-start gap-2.5">
-                <div class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-stark-400/20 text-stark-400">
-                  <svg class="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <span>Ad-free multi-server streaming with Dual Audio &amp; 1080p playback</span>
-              </li>
-              <li class="flex items-start gap-2.5">
-                <div class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-stark-400/20 text-stark-400">
-                  <svg class="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <span>PostgreSQL cross-device cloud sync for reading &amp; watch history</span>
-              </li>
-              <li class="flex items-start gap-2.5">
-                <div class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-stark-400/20 text-stark-400">
-                  <svg class="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <span>Instant Telegram receipt verification with automated Brevo email</span>
-              </li>
-            </ul>
+        <!-- Premium Plan Pass Card -->
+        <div class="glass-card rounded-3xl p-6 sm:p-7">
+          <div class="flex items-center justify-between">
+            <span class="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-sky-300">
+              <span class="size-2 rounded-full bg-sky-400 animate-pulse"></span>
+              Stark Premium Pass
+            </span>
+            <span class="rounded-lg border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs font-bold text-gray-300">
+              30 DAYS
+            </span>
           </div>
+
+          <!-- Price Display -->
+          <div class="mt-5 flex items-baseline gap-2">
+            <span class="text-5xl font-extrabold tracking-tight text-white">
+              ₹29
+            </span>
+            <span class="text-sm font-semibold text-sky-300">/ 30 Days Access</span>
+          </div>
+
+          <!-- Manual Renewal Banner -->
+          <div class="mt-3.5 flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs font-medium text-emerald-300">
+            <svg class="size-4 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <span>Manual UPI Renewal &bull; Zero recurring auto-debit</span>
+          </div>
+
+          <!-- Feature Matrix -->
+          <ul class="mt-5 space-y-2.5 text-xs text-gray-300 border-t border-white/10 pt-5">
+            <li class="flex items-start gap-2.5">
+              <div class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-sky-400">
+                <svg class="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+              </div>
+              <span>All 6 Pillars: Anime, Movies, Manga, Novels, E-books &amp; Music</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <div class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-sky-400">
+                <svg class="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+              </div>
+              <span>Ad-free multi-server streaming with Dual Audio &amp; 1080p playback</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <div class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-sky-400">
+                <svg class="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+              </div>
+              <span>PostgreSQL cross-device cloud sync for watchlists &amp; reading progress</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <div class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-sky-500/20 text-sky-400">
+                <svg class="size-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+              </div>
+              <span>Direct Telegram receipt verification &amp; automated Brevo email notice</span>
+            </li>
+          </ul>
         </div>
 
-        <!-- Holographic Official UPI Scan Card -->
-        <div class="stark-card relative overflow-hidden rounded-3xl p-6 text-center">
-          <div class="pointer-events-none absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-stark-400/40 to-transparent animate-scan z-10"></div>
-
-          <div class="flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
-            <svg class="size-4 text-stark-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <!-- Official UPI QR Code Card -->
+        <div class="glass-card rounded-3xl p-6 sm:p-7 text-center">
+          <div class="flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-300">
+            <svg class="size-4 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
             </svg>
             <span>Scan UPI QR Code</span>
           </div>
 
-          <!-- QR Container with HUD corner brackets -->
-          <div class="relative mx-auto my-4 size-60 sm:size-64">
-            <div class="hud-corner size-full rounded-2xl bg-white p-3 shadow-2xl shadow-stark-400/15">
-              <img 
-                id="qrImage" 
-                src="https://res.cloudinary.com/nibjmho0/image/upload/v1793381159/payment_upi.png" 
-                alt="Paytm UPI QR Code ₹29" 
-                class="size-full object-contain"
-              />
-            </div>
+          <!-- QR Code Frame (clean white container, fully unclipped) -->
+          <div class="mx-auto my-5 w-64 max-w-full rounded-2xl bg-white p-3.5 shadow-2xl ring-1 ring-black/10">
+            <img 
+              id="qrImage" 
+              src="https://res.cloudinary.com/nibjmho0/image/upload/v1793381159/payment_upi.png" 
+              alt="Paytm UPI QR Code ₹29" 
+              class="w-full h-auto object-contain rounded-xl"
+            />
           </div>
 
-          <!-- UPI ID Copy Bar -->
-          <div class="flex items-center justify-between rounded-2xl border border-stroke bg-surface/90 p-2.5 pl-4 text-xs shadow-inner">
+          <!-- Paytm Merchant UPI ID Copy Bar -->
+          <div class="flex items-center justify-between rounded-2xl border border-white/10 bg-surface p-2.5 pl-4 text-xs shadow-inner">
             <div class="flex flex-col text-left">
-              <span class="text-[9px] font-mono font-bold tracking-widest text-gray-400 uppercase">Paytm Merchant UPI ID</span>
-              <span id="upiText" class="font-mono font-bold text-stark-300 sm:text-sm">paytmqr6qi789@ptys</span>
+              <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Paytm Merchant UPI ID</span>
+              <span id="upiText" class="font-mono text-sm font-bold text-sky-300">paytmqr6qi789@ptys</span>
             </div>
             <button 
               type="button" 
               onclick="copyUPI()" 
               id="copyBtn"
-              class="inline-flex items-center gap-1.5 rounded-xl border border-stark-400/30 bg-stark-400/15 px-3.5 py-2 text-xs font-bold text-stark-300 transition hover:bg-stark-400 hover:text-black active:scale-95"
+              class="inline-flex items-center gap-1.5 rounded-xl border border-sky-500/30 bg-sky-500/15 px-3.5 py-2 text-xs font-bold text-sky-300 transition hover:bg-sky-500 hover:text-black active:scale-95"
             >
               <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
               <span>Copy</span>
             </button>
           </div>
 
-          <!-- Mobile Quick Pay App Intents (visible on mobile / tablet) -->
-          <div class="mt-4 flex flex-col gap-2">
-            <span class="text-[10px] font-mono uppercase tracking-wider text-gray-400">Tap to Pay Directly with UPI App:</span>
+          <!-- Quick Launch on UPI Apps (Mobile / Desktop) -->
+          <div class="mt-4 space-y-2">
+            <span class="text-[11px] font-semibold text-gray-400">Tap to Pay Directly with Installed App:</span>
             <div class="grid grid-cols-2 gap-2">
               <a 
                 id="btnGpay" 
                 href="upi://pay?pa=paytmqr6qi789@ptys&pn=Stark%20Entertainment&am=29&cu=INR&tn=Stark%20Access%20Pass"
-                class="flex items-center justify-center gap-1.5 rounded-xl border border-stroke bg-white/5 py-2.5 text-xs font-semibold text-gray-200 transition hover:bg-white/10 active:scale-95"
+                class="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-semibold text-gray-200 transition hover:bg-white/10 active:scale-95"
               >
                 <span>Google Pay</span>
               </a>
               <a 
                 id="btnPhonepe" 
                 href="phonepe://pay?pa=paytmqr6qi789@ptys&pn=Stark%20Entertainment&am=29&cu=INR&tn=Stark%20Access%20Pass"
-                class="flex items-center justify-center gap-1.5 rounded-xl border border-stroke bg-white/5 py-2.5 text-xs font-semibold text-gray-200 transition hover:bg-white/10 active:scale-95"
+                class="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-semibold text-gray-200 transition hover:bg-white/10 active:scale-95"
               >
                 <span>PhonePe</span>
               </a>
               <a 
                 id="btnPaytm" 
                 href="paytmmp://pay?pa=paytmqr6qi789@ptys&pn=Stark%20Entertainment&am=29&cu=INR&tn=Stark%20Access%20Pass"
-                class="flex items-center justify-center gap-1.5 rounded-xl border border-stroke bg-white/5 py-2.5 text-xs font-semibold text-gray-200 transition hover:bg-white/10 active:scale-95"
+                class="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-semibold text-gray-200 transition hover:bg-white/10 active:scale-95"
               >
                 <span>Paytm</span>
               </a>
               <a 
                 id="btnBhim" 
                 href="upi://pay?pa=paytmqr6qi789@ptys&pn=Stark%20Entertainment&am=29&cu=INR&tn=Stark%20Access%20Pass"
-                class="flex items-center justify-center gap-1.5 rounded-xl border border-stroke bg-white/5 py-2.5 text-xs font-semibold text-gray-200 transition hover:bg-white/10 active:scale-95"
+                class="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 py-2.5 text-xs font-semibold text-gray-200 transition hover:bg-white/10 active:scale-95"
               >
                 <span>BHIM / Any UPI</span>
               </a>
             </div>
           </div>
         </div>
+
       </aside>
 
-      <!-- RIGHT COLUMN: Direct Screenshot Upload & Submission Form (7 cols) -->
-      <section class="stark-card flex flex-col justify-between rounded-3xl p-6 sm:p-8 md:p-10 lg:col-span-7">
+      <!-- RIGHT COLUMN: Payment Verification Form with Direct File Upload (7 cols) -->
+      <section class="glass-card flex flex-col justify-between rounded-3xl p-6 sm:p-8 md:p-10 lg:col-span-7">
         <div>
           <!-- Header & Order Metadata -->
-          <div class="flex flex-col gap-2 border-b border-stroke pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex flex-col gap-2 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 class="font-display text-2xl font-black tracking-tight text-white sm:text-3xl">Payment Verification</h2>
-              <p class="text-xs text-gray-400 mt-1">Pay ₹29, upload your screenshot and enter the 12-digit UTR</p>
+              <h2 class="text-2xl font-extrabold tracking-tight text-white sm:text-3xl">Payment Verification</h2>
+              <p class="text-xs font-medium text-gray-400 mt-1">
+                Transfer ₹29 via UPI, upload your receipt screenshot, and enter your 12-digit UTR.
+              </p>
             </div>
             <div class="flex items-center gap-2 sm:flex-col sm:items-end">
-              <span class="text-[9px] font-mono font-bold tracking-widest text-gray-400 uppercase">Order Reference</span>
-              <span id="orderRefDisplay" class="font-mono text-xs font-bold text-stark-400 bg-stark-400/10 px-2.5 py-1 rounded-md border border-stark-400/30">STARK-INIT</span>
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">Order Reference</span>
+              <span id="orderRefDisplay" class="font-mono text-xs font-bold text-sky-400 bg-sky-500/10 px-2.5 py-1 rounded-md border border-sky-500/30">
+                STARK-ORD-INIT
+              </span>
             </div>
           </div>
 
@@ -389,45 +282,45 @@
           <form id="paymentForm" onsubmit="submitPayment(event)" class="mt-6 space-y-5">
             
             <!-- Step Indicators -->
-            <div class="flex items-center gap-2 text-[10px] font-mono text-gray-400 pb-1">
-              <span class="flex size-5 items-center justify-center rounded-full bg-stark-400 text-black font-bold text-[11px]">1</span>
-              <span class="text-white font-bold">Account</span>
-              <span class="h-px w-6 bg-stroke"></span>
-              <span class="flex size-5 items-center justify-center rounded-full bg-stroke text-gray-300 font-bold text-[11px]">2</span>
+            <div class="flex items-center gap-2 text-xs font-semibold text-gray-400 pb-1">
+              <span class="flex size-5 items-center justify-center rounded-full bg-sky-500 text-black font-bold text-xs">1</span>
+              <span class="text-white font-semibold">Account</span>
+              <span class="h-px w-6 bg-white/10"></span>
+              <span class="flex size-5 items-center justify-center rounded-full bg-white/10 text-gray-300 font-bold text-xs">2</span>
               <span>12-Digit UTR</span>
-              <span class="h-px w-6 bg-stroke"></span>
-              <span class="flex size-5 items-center justify-center rounded-full bg-stroke text-gray-300 font-bold text-[11px]">3</span>
-              <span>Direct Photo Upload</span>
+              <span class="h-px w-6 bg-white/10"></span>
+              <span class="flex size-5 items-center justify-center rounded-full bg-white/10 text-gray-300 font-bold text-xs">3</span>
+              <span>Upload Screenshot</span>
             </div>
 
             <!-- Username & Email Grid -->
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div class="space-y-1.5">
-                <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
-                  Username <span class="text-stark-400">*</span>
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-300">
+                  Username <span class="text-sky-400">*</span>
                 </label>
                 <div class="relative flex items-center">
-                  <span class="absolute left-3.5 text-xs text-gray-500 font-mono">@</span>
+                  <span class="absolute left-3.5 text-xs font-bold text-gray-500">@</span>
                   <input 
                     type="text" 
                     id="formUsername" 
                     required 
-                    placeholder="gaurxv or your username" 
-                    class="h-12 w-full rounded-2xl border border-stroke bg-surface/80 pl-8 pr-3.5 text-sm text-white placeholder-gray-500 outline-none transition focus:border-stark-400 focus:ring-2 focus:ring-stark-400/20"
+                    placeholder="your_username" 
+                    class="h-12 w-full rounded-2xl border border-white/10 bg-surface pl-8 pr-3.5 text-sm font-medium text-white placeholder-gray-500 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
                   />
                 </div>
               </div>
 
               <div class="space-y-1.5">
-                <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
-                  Registered Email <span class="text-stark-400">*</span>
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-300">
+                  Registered Email <span class="text-sky-400">*</span>
                 </label>
                 <input 
                   type="email" 
                   id="formEmail" 
                   required 
                   placeholder="name@example.com" 
-                  class="h-12 w-full rounded-2xl border border-stroke bg-surface/80 px-3.5 text-sm text-white placeholder-gray-500 outline-none transition focus:border-stark-400 focus:ring-2 focus:ring-stark-400/20"
+                  class="h-12 w-full rounded-2xl border border-white/10 bg-surface px-3.5 text-sm font-medium text-white placeholder-gray-500 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
                 />
               </div>
             </div>
@@ -435,7 +328,7 @@
             <!-- Fixed Amount & UTR Grid -->
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div class="space-y-1.5">
-                <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-300">
                   Amount
                 </label>
                 <div class="relative flex items-center">
@@ -443,15 +336,15 @@
                     type="text" 
                     value="₹29.00 (Fixed 30 Days)" 
                     disabled 
-                    class="h-12 w-full rounded-2xl border border-stroke bg-black/60 px-3.5 font-mono text-sm font-bold text-reactor-400 cursor-not-allowed"
+                    class="h-12 w-full rounded-2xl border border-white/10 bg-black/50 px-3.5 font-mono text-sm font-bold text-emerald-400 cursor-not-allowed"
                   />
                   <span class="absolute right-3.5 text-xs text-gray-500">🔒</span>
                 </div>
               </div>
 
               <div class="space-y-1.5">
-                <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
-                  12-Digit UPI UTR / Ref Number <span class="text-stark-400">*</span>
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-300">
+                  12-Digit UPI UTR / Ref Number <span class="text-sky-400">*</span>
                 </label>
                 <input 
                   type="text" 
@@ -460,7 +353,7 @@
                   maxlength="22"
                   pattern="^[a-zA-Z0-9]{10,22}$"
                   placeholder="e.g. 429817294812" 
-                  class="h-12 w-full rounded-2xl border border-stroke bg-surface/80 px-3.5 font-mono text-sm text-white placeholder-gray-500 outline-none transition focus:border-stark-400 focus:ring-2 focus:ring-stark-400/20"
+                  class="h-12 w-full rounded-2xl border border-white/10 bg-surface px-3.5 font-mono text-sm font-bold text-white placeholder-gray-500 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
                 />
               </div>
             </div>
@@ -469,10 +362,10 @@
             <!-- NO LINK INPUT FIELD - DIRECT UPLOAD ONLY -->
             <div class="space-y-2 pt-1">
               <div class="flex items-center justify-between">
-                <label class="block text-xs font-semibold text-gray-300 uppercase tracking-wider">
-                  Payment Screenshot Receipt <span class="text-stark-400">*</span>
+                <label class="block text-xs font-bold uppercase tracking-wider text-gray-300">
+                  Payment Screenshot Receipt <span class="text-sky-400">*</span>
                 </label>
-                <span class="text-[10px] font-mono text-stark-400 font-semibold">Direct Telegram Bot Dispatch</span>
+                <span class="text-[11px] font-semibold text-sky-400">Direct Bot Dispatch</span>
               </div>
 
               <!-- Hidden input for file -->
@@ -491,30 +384,30 @@
                 ondragover="handleDragOver(event)"
                 ondragleave="handleDragLeave(event)"
                 ondrop="handleFileDrop(event)"
-                class="group relative flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stroke bg-surface/50 p-6 text-center transition hover:border-stark-400/60 hover:bg-surface/80"
+                class="group relative flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/15 bg-surface/60 p-6 text-center transition hover:border-sky-500/60 hover:bg-surface/90"
               >
                 <!-- Initial Drop Prompt (visible when no file selected) -->
                 <div id="dropPrompt" class="flex flex-col items-center gap-2">
-                  <div class="flex size-12 items-center justify-center rounded-2xl bg-stark-400/10 text-stark-400 group-hover:scale-110 transition shadow-lg shadow-stark-400/10">
+                  <div class="flex size-12 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-400 group-hover:scale-110 transition shadow-md">
                     <svg class="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                   </div>
                   <div class="text-sm font-semibold text-gray-200">
-                    <span class="text-stark-300 underline underline-offset-4">Click to select receipt screenshot</span> or drag &amp; drop
+                    <span class="text-sky-300 underline underline-offset-4">Click to select receipt screenshot</span> or drag &amp; drop
                   </div>
-                  <p class="text-[11px] text-gray-400">PNG, JPG, or WEBP (Max 10MB) &bull; Photo is delivered directly to Telegram</p>
+                  <p class="text-[11px] text-gray-400 font-medium">PNG, JPG, or WEBP (Max 10MB) &bull; Photo is delivered directly to Telegram</p>
                 </div>
 
                 <!-- Preview State (visible when file chosen) -->
                 <div id="previewCard" class="hidden w-full flex-col items-center gap-3">
-                  <div class="relative flex items-center gap-3.5 w-full rounded-2xl border border-stroke bg-panel p-3">
+                  <div class="relative flex items-center gap-3.5 w-full rounded-2xl border border-white/10 bg-panel p-3">
                     <img id="imagePreview" src="" alt="Proof Preview" class="size-16 rounded-xl object-cover border border-white/10 shadow-md" />
                     <div class="flex-1 text-left min-w-0">
-                      <p id="fileName" class="truncate text-xs font-semibold text-white"></p>
-                      <p id="fileSize" class="text-[10px] font-mono text-gray-400 mt-0.5"></p>
-                      <span class="inline-flex items-center gap-1.5 text-[11px] font-bold text-reactor-400 mt-1">
-                        <span class="size-1.5 rounded-full bg-reactor-400 animate-pulse"></span> Ready for Bot Delivery
+                      <p id="fileName" class="truncate text-xs font-bold text-white"></p>
+                      <p id="fileSize" class="text-[11px] font-mono text-gray-400 mt-0.5"></p>
+                      <span class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 mt-1">
+                        <span class="size-2 rounded-full bg-emerald-400 animate-pulse"></span> Ready for Bot Delivery
                       </span>
                     </div>
                     <button 
@@ -524,7 +417,7 @@
                       class="grid size-9 shrink-0 place-items-center rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500/20 active:scale-95 transition"
                     >
                       <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
                   </div>
@@ -533,16 +426,16 @@
             </div>
 
             <!-- Error Banner -->
-            <div id="errorBanner" class="hidden rounded-2xl border border-red-500/40 bg-red-500/15 p-4 text-xs text-red-300"></div>
+            <div id="errorBanner" class="hidden rounded-2xl border border-red-500/40 bg-red-500/15 p-4 text-xs font-semibold text-red-300"></div>
 
-            <!-- Submit Button with Arc-Reactor Glow -->
+            <!-- Submit Button with clean styling -->
             <div class="pt-2">
               <button 
                 type="submit" 
                 id="submitBtn"
-                class="glow-btn group relative flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl font-display text-sm font-extrabold tracking-wide text-black"
+                class="glow-btn group relative flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl text-sm font-extrabold tracking-wide text-white"
               >
-                <span>TRANSMIT RECEIPT &amp; DISPATCH TELEGRAM ALERT ⎊</span>
+                <span>TRANSMIT RECEIPT &amp; DISPATCH TELEGRAM ALERT</span>
                 <svg class="size-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                 </svg>
@@ -550,44 +443,44 @@
             </div>
           </form>
 
-          <!-- Success HUD Confirmation Card -->
+          <!-- Success Confirmation Card -->
           <div id="successCard" class="hidden space-y-6 py-6 text-center">
-            <div class="mx-auto flex size-18 items-center justify-center rounded-full bg-reactor-500/20 text-reactor-400 ring-4 ring-reactor-500/40 shadow-2xl shadow-reactor-500/30">
-              <svg class="size-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 ring-4 ring-emerald-500/40 shadow-2xl">
+              <svg class="size-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
               </svg>
             </div>
 
-            <div class="space-y-2">
-              <h3 class="font-display text-2xl font-black text-white sm:text-3xl">Proof Dispatched to Telegram!</h3>
-              <p class="mx-auto max-w-md text-xs text-gray-300 leading-relaxed">
-                Your payment screenshot and UTR have been sent directly to the administrator's Telegram bot (<span class="font-mono text-stark-300">@JarvisXPay_Bot</span>).
+            <div class="space-y-1.5">
+              <h3 class="text-2xl font-black text-white sm:text-3xl">Proof Dispatched to Telegram!</h3>
+              <p class="mx-auto max-w-md text-xs font-medium text-gray-300 leading-relaxed">
+                Your payment screenshot and UTR have been sent directly to the administrator's Telegram bot (<span class="font-mono text-sky-300">@JarvisXPay_Bot</span>).
               </p>
             </div>
 
-            <!-- Receipt Breakdown HUD -->
-            <div class="mx-auto max-w-md rounded-2xl border border-stroke bg-surface/90 p-5 text-left text-xs space-y-3 shadow-2xl">
+            <!-- Receipt Breakdown -->
+            <div class="mx-auto max-w-md rounded-2xl border border-white/10 bg-surface p-5 text-left text-xs space-y-3 shadow-xl">
               <div class="flex items-center justify-between">
-                <span class="text-gray-400">Order Reference:</span>
-                <span id="confirmedOrderRef" class="font-mono font-bold text-stark-300"></span>
+                <span class="text-gray-400 font-medium">Order Reference:</span>
+                <span id="confirmedOrderRef" class="font-mono font-bold text-sky-300"></span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-gray-400">UTR / Ref No:</span>
+                <span class="text-gray-400 font-medium">UTR / Ref No:</span>
                 <span id="confirmedUtr" class="font-mono font-bold text-white"></span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-gray-400">Account:</span>
-                <span id="confirmedUser" class="font-semibold text-white"></span>
+                <span class="text-gray-400 font-medium">Account:</span>
+                <span id="confirmedUser" class="font-bold text-white"></span>
               </div>
               <div class="flex items-center justify-between">
-                <span class="text-gray-400">Screenshot Attached:</span>
-                <span class="inline-flex items-center gap-1 font-semibold text-reactor-400">
+                <span class="text-gray-400 font-medium">Screenshot Attached:</span>
+                <span class="inline-flex items-center gap-1 font-bold text-emerald-400">
                   <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg> Delivered to Telegram
                 </span>
               </div>
-              <div class="flex items-center justify-between border-t border-stroke pt-3">
-                <span class="text-gray-400">Current Status:</span>
-                <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 font-bold text-amber-400 text-[11px]">
+              <div class="flex items-center justify-between border-t border-white/10 pt-3">
+                <span class="text-gray-400 font-medium">Current Status:</span>
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 font-bold text-amber-400 text-xs">
                   <span class="size-1.5 rounded-full bg-amber-400 animate-ping"></span>
                   Pending Bank Verification
                 </span>
@@ -609,8 +502,8 @@
         </div>
 
         <!-- Footer Help -->
-        <div class="mt-8 border-t border-stroke pt-4 text-center text-[11px] text-gray-500">
-          Administrator manually verifies UPI transactions. Typical turnaround: 2–5 minutes. Direct Support: <a href="mailto:work@gaurxv.eu.org" class="text-stark-400 underline underline-offset-2">work@gaurxv.eu.org</a>
+        <div class="mt-8 border-t border-white/10 pt-4 text-center text-xs font-medium text-gray-500">
+          Administrator manually verifies UPI transactions. Typical turnaround: 2–5 minutes. Support: <a href="mailto:work@gaurxv.eu.org" class="text-sky-400 underline underline-offset-2">work@gaurxv.eu.org</a>
         </div>
       </section>
 
@@ -618,7 +511,7 @@
   </main>
 
   <!-- Bottom Brand Footnote -->
-  <footer class="relative z-10 w-full max-w-6xl py-6 text-center text-xs text-gray-500 border-t border-stroke/50">
+  <footer class="w-full max-w-6xl py-6 text-center text-xs text-gray-500 border-t border-white/10">
     Stark Entertainment ⎊ &bull; Gaurxv Verse &bull; Next-Gen Media Universe &bull; Verified Manual UPI Verification
   </footer>
 
@@ -655,7 +548,7 @@
       navigator.clipboard.writeText(UPI_ID);
       const btn = document.getElementById('copyBtn');
       btn.innerHTML = `
-        <svg class="size-3.5 text-reactor-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="size-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
         </svg>
         <span>Copied!</span>
@@ -663,7 +556,7 @@
       setTimeout(() => {
         btn.innerHTML = `
           <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
           <span>Copy</span>
         `;
@@ -673,15 +566,15 @@
     // Drag and Drop Helpers
     function handleDragOver(e) {
       e.preventDefault();
-      document.getElementById('dropzone').classList.add('dropzone-active');
+      document.getElementById('dropzone').classList.add('dropzone-hover');
     }
     function handleDragLeave(e) {
       e.preventDefault();
-      document.getElementById('dropzone').classList.remove('dropzone-active');
+      document.getElementById('dropzone').classList.remove('dropzone-hover');
     }
     function handleFileDrop(e) {
       e.preventDefault();
-      document.getElementById('dropzone').classList.remove('dropzone-active');
+      document.getElementById('dropzone').classList.remove('dropzone-hover');
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
         processFile(e.dataTransfer.files[0]);
       }
@@ -759,7 +652,7 @@
 
       submitBtn.disabled = true;
       submitBtn.innerHTML = `
-        <svg class="size-4 animate-spin text-black" viewBox="0 0 24 24" fill="none">
+        <svg class="size-4 animate-spin text-white" viewBox="0 0 24 24" fill="none">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
         </svg>
