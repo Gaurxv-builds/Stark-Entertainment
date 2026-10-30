@@ -287,10 +287,10 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
             href="https://payments.gaurxv.eu.org"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2.5 text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent hover:text-accent-fg active:scale-[0.98]"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2.5 text-center text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent hover:text-accent-fg active:scale-[0.98]"
           >
-            <ShieldCheck className="size-3.5" />
-            <span>Subscription &amp; Payment Portal (payments.gaurxv.eu.org)</span>
+            <ShieldCheck className="size-3.5 shrink-0" />
+            <span className="text-center">Subscription &amp; Payment Portal (payments.gaurxv.eu.org)</span>
           </a>
         </div>
       </motion.div>

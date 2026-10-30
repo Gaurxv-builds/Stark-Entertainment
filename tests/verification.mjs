@@ -277,11 +277,21 @@ test('Telegram Bot Direct Approval & In-Chat Action Engine', () => {
   assert(subContent.includes('editTelegramMessageCaption'), 'subscription.js must export editTelegramMessageCaption');
   assert(subContent.includes('approve:'), 'Inline keyboard must include approve callback');
   assert(subContent.includes('reject:'), 'Inline keyboard must include reject callback');
+  assert(subContent.includes('approve_req:'), 'Inline keyboard must support account request approval');
+  assert(subContent.includes('send_mail:'), 'Inline keyboard must support direct credentials email dispatch');
+  assert(subContent.includes('/requests'), 'Bot must support /requests command');
+  assert(subContent.includes('/create'), 'Bot must support /create command');
+  assert(subContent.includes('/mail'), 'Bot must support /mail command');
+  assert(subContent.includes('/stats'), 'Bot must support /stats command');
   assert(subContent.includes('findPaymentProof'), 'subscription.js must support flexible proof lookup');
 
   const handlerContent = fs.readFileSync('server/handler.js', 'utf8');
   assert(handlerContent.includes('/api/telegram/webhook'), 'Server handler must route /api/telegram/webhook');
   assert(handlerContent.includes('/api/telegram/setup-webhook'), 'Server handler must route /api/telegram/setup-webhook');
+  assert(handlerContent.includes('/api/auth/request-account'), 'Server handler must route /api/auth/request-account');
+
+  const gateContent = fs.readFileSync('src/components/StarkLoginGate.tsx', 'utf8');
+  assert(gateContent.includes('text-center'), 'Subscription & Payment Portal text must be aligned in center');
 });
 
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`)

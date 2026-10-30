@@ -966,6 +966,24 @@ export async function handle(request, env) {
             authUser = matchKv.displayName || matchKv.username;
             isAdmin = false;
           }
+
+          // Check approved account_requests in Supabase
+          if (!ok && sbUrl && sbKey) {
+            try {
+              const reqRes = await fetch(`${sbUrl}/rest/v1/account_requests?username=ilike.${encodeURIComponent(uLower)}&status=eq.approved&select=username,full_name,passcode`, {
+                headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+              });
+              if (reqRes.ok) {
+                const reqRows = await reqRes.json();
+                const matched = Array.isArray(reqRows) && reqRows.find((r) => r.passcode && r.passcode === p);
+                if (matched) {
+                  ok = true;
+                  authUser = matched.full_name || matched.username;
+                  isAdmin = false;
+                }
+              }
+            } catch {}
+          }
         }
 
         if (ok) {

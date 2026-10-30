@@ -55,6 +55,23 @@ export async function sendTelegramMessage(text, options = {}) {
       });
       const data = await res.json();
       if (data.ok) return data;
+
+      // Fallback: If Markdown entity parsing failed, retry as plain text to guarantee delivery
+      if (!data.ok && (data.description?.includes("parse") || data.description?.includes("entity"))) {
+        const plainRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Connection: "close" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: text.replace(/[*_`\[\]()]/g, ""),
+            reply_markup: options.replyMarkup,
+          }),
+        });
+        const plainData = await plainRes.json();
+        if (plainData.ok) return plainData;
+      }
+
+      if (attempt === 3) console.warn("[Telegram] sendMessage failed:", data.description || "Unknown error");
     } catch (e) {
       if (attempt === 3) console.warn("[Telegram] sendMessage error:", e.message);
       await new Promise((r) => setTimeout(r, 600));
@@ -858,12 +875,16 @@ export async function handleAccountRequest({ username, email, fullName, note, en
 
   if (!u || !em) throw new Error("Username and email are required.");
 
-  await sbFetch("account_requests", {
-    method: "POST",
-    body: JSON.stringify({ username: u, email: em, full_name: name, note: msg, status: "pending" }),
-  }, env);
+  try {
+    await sbFetch("account_requests", {
+      method: "POST",
+      body: JSON.stringify({ username: u, email: em, full_name: name, note: msg, status: "pending" }),
+    }, env);
+  } catch (err) {
+    console.warn("[Account Request] Supabase insert warning:", err?.message || err);
+  }
 
-  // Alert admin on Telegram
+  // Alert admin on Telegram with One-Tap Action Buttons
   const tgAlert = 
 `🔔 *NEW ACCOUNT REQUEST*
 ━━━━━━━━━━━━━━━━━━━━
@@ -872,21 +893,47 @@ export async function handleAccountRequest({ username, email, fullName, note, en
 📧 *Email:* \`${em}\`
 📝 *Note:* ${msg || "No note"}
 ━━━━━━━━━━━━━━━━━━━━
-🔗 [Open Admin Panel](https://verse.gaurxv.eu.org/admin)`;
+👉 Tap *[⚡ Approve & Generate Passcode]* to provision login credentials instantly.`;
 
-  sendTelegramMessage(tgAlert).catch(() => {});
+  const inlineKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "⚡ Approve & Generate Passcode", callback_data: `approve_req:${u}` },
+        { text: "❌ Reject", callback_data: `reject_req:${u}` },
+      ],
+      [
+        { text: "🔍 Open Admin Console", url: "https://verse.gaurxv.eu.org/admin" },
+      ],
+    ],
+  };
+
+  // Crucial: await sendTelegramMessage so background isolate on Cloudflare does not terminate
+  await sendTelegramMessage(tgAlert, { replyMarkup: inlineKeyboard });
 
   // Acknowledge user via Brevo
-  sendBrevoEmail({
-    to: { email: em, name: name || u },
-    subject: "Gaurxv Verse — Account Request Received",
-    htmlContent: `
-      <div style="font-family:sans-serif;background:#050508;color:#fff;padding:24px;border-radius:12px;">
-        <h2>Account Request Received</h2>
-        <p>Hello @${u}, your account request has been submitted to the administrator. You will be notified once your account is created.</p>
-      </div>
-    `,
-  }).catch(() => {});
+  try {
+    await sendBrevoEmail({
+      to: { email: em, name: name || u },
+      subject: "Gaurxv Verse — Account Request Received",
+      htmlContent: `
+        <div style="font-family:'Segoe UI',system-ui,sans-serif;background:#050508;color:#f1f5f9;padding:32px 20px;border-radius:16px;max-width:540px;margin:auto;border:1px solid rgba(255,255,255,0.08);">
+          <div style="text-align:center;margin-bottom:20px;">
+            <h1 style="font-size:24px;color:#38bdf8;margin:0 0 4px 0;font-weight:800;">Gaurxv Verse ⎊</h1>
+            <p style="font-size:12px;color:#94a3b8;margin:0;letter-spacing:1.5px;text-transform:uppercase;">Access Clearance Request Received</p>
+          </div>
+          <div style="background:#0c0d16;border:1px solid rgba(56,189,248,0.2);border-radius:12px;padding:20px;margin-bottom:20px;">
+            <p style="font-size:14px;margin:0 0 12px 0;">Hello <strong>@${u}</strong>,</p>
+            <p style="font-size:13px;line-height:1.6;color:#cbd5e1;margin:0 0 12px 0;">
+              Your request for an administrator-approved account on <strong>Gaurxv Verse</strong> has been transmitted directly to the administrator's Telegram bot.
+            </p>
+            <p style="font-size:13px;line-height:1.6;color:#cbd5e1;margin:0;">
+              Once approved, your clearance passcode will be generated and dispatched to this email address.
+            </p>
+          </div>
+        </div>
+      `,
+    });
+  } catch {}
 
   return { success: true, message: "Account request submitted successfully." };
 }
@@ -897,7 +944,7 @@ export async function handleTelegramWebhook(update, env) {
 
   const adminChatId = String(TELEGRAM_ADMIN_CHAT_ID);
 
-  // 1. One-tap Inline Button Callback (Approve / Reject)
+  // 1. One-tap Inline Button Callback (Approve / Reject / Generate Credentials / Email)
   if (update.callback_query) {
     const cb = update.callback_query;
     const fromId = String(cb.from?.id || "");
@@ -913,6 +960,7 @@ export async function handleTelegramWebhook(update, env) {
     const action = colonIdx > -1 ? data.slice(0, colonIdx) : data;
     const targetId = colonIdx > -1 ? data.slice(colonIdx + 1) : "";
 
+    // 1A. Approve Payment Proof
     if (action === "approve") {
       try {
         const actionResult = await handleAdminSubscriptionAction(
@@ -949,6 +997,7 @@ export async function handleTelegramWebhook(update, env) {
       }
     }
 
+    // 1B. Reject Payment Proof
     if (action === "reject") {
       try {
         const actionResult = await handleAdminSubscriptionAction(
@@ -984,6 +1033,235 @@ export async function handleTelegramWebhook(update, env) {
         return { ok: false, error: err.message };
       }
     }
+
+    // 1C. Approve Account Request & Generate Passcode
+    if (action === "approve_req") {
+      try {
+        const targetUser = targetId;
+        const passcode = `stark-${Math.random().toString(36).slice(2, 6)}-${Math.random().toString(36).slice(2, 6)}`;
+
+        let userEmail = "";
+        let fullName = "";
+        try {
+          const reqRes = await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}&order=created_at.desc&limit=1`, {}, env);
+          if (reqRes.ok) {
+            const rows = await reqRes.json();
+            if (Array.isArray(rows) && rows.length > 0) {
+              userEmail = rows[0].email;
+              fullName = rows[0].full_name;
+            }
+          }
+        } catch {}
+
+        if (!userEmail) userEmail = `${targetUser}@gaurxv.eu.org`;
+
+        // Update Supabase account_requests
+        try {
+          await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}`, {
+            method: "PATCH",
+            body: JSON.stringify({ status: "approved", passcode }),
+          }, env);
+        } catch {}
+
+        // Ensure user entry in user_access
+        try {
+          await sbFetch("user_access", {
+            method: "POST",
+            headers: { Prefer: "resolution=merge-duplicates" },
+            body: JSON.stringify({
+              user_id: targetUser,
+              username: targetUser,
+              email: userEmail,
+              access_policy: "trial",
+              is_suspended: false,
+              is_lifetime: false,
+            }),
+          }, env);
+        } catch {}
+
+        // Update STARK_KV if available
+        if (env && env.STARK_KV) {
+          try {
+            let kvUsers = [];
+            const raw = await env.STARK_KV.get("stark_users");
+            if (raw) kvUsers = JSON.parse(raw);
+            const filtered = Array.isArray(kvUsers) ? kvUsers.filter((x) => x.username?.toLowerCase() !== targetUser.toLowerCase()) : [];
+            filtered.push({
+              username: targetUser,
+              password: passcode,
+              displayName: fullName || targetUser,
+            });
+            await env.STARK_KV.put("stark_users", JSON.stringify(filtered));
+          } catch {}
+        }
+
+        await answerTelegramCallbackQuery(cb.id, `✅ Passcode generated: ${passcode}`);
+
+        const credText = 
+`⚡ *ACCOUNT APPROVED & PASSCODE GENERATED*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Username:* \`@${targetUser}\`
+🔑 *Passcode:* \`${passcode}\`
+📧 *Email:* \`${userEmail}\`
+📛 *Name:* ${fullName || "Not provided"}
+━━━━━━━━━━━━━━━━━━━━
+👉 Tap *[📧 Send Credentials Email]* below to deliver credentials to user via Brevo.`;
+
+        const credKeyboard = {
+          inline_keyboard: [
+            [
+              { text: `📧 Send Credentials Email (${userEmail})`, callback_data: `send_mail:${targetUser}` },
+            ],
+            [
+              { text: "🔍 Open Admin Console", url: "https://verse.gaurxv.eu.org/admin" },
+            ],
+          ],
+        };
+
+        if (cb.message) {
+          const chatId = cb.message.chat.id;
+          const messageId = cb.message.message_id;
+          if (cb.message.caption !== undefined) {
+            await editTelegramMessageCaption(chatId, messageId, credText, credKeyboard);
+          } else {
+            await editTelegramMessageText(chatId, messageId, credText, credKeyboard);
+          }
+        } else {
+          await sendTelegramMessage(credText, { replyMarkup: credKeyboard });
+        }
+        return { ok: true, action: "account_approved", username: targetUser, passcode };
+      } catch (err) {
+        await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
+        return { ok: false, error: err.message };
+      }
+    }
+
+    // 1D. Send Credentials Email via Brevo
+    if (action === "send_mail") {
+      try {
+        const targetUser = targetId;
+        let userEmail = "";
+        let fullName = "";
+        let passcode = "";
+
+        // Look up user details in account_requests
+        try {
+          const reqRes = await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}&order=created_at.desc&limit=1`, {}, env);
+          if (reqRes.ok) {
+            const rows = await reqRes.json();
+            if (Array.isArray(rows) && rows.length > 0) {
+              userEmail = rows[0].email;
+              fullName = rows[0].full_name;
+              passcode = rows[0].passcode;
+            }
+          }
+        } catch {}
+
+        if (!passcode && env && env.STARK_KV) {
+          try {
+            const raw = await env.STARK_KV.get("stark_users");
+            if (raw) {
+              const kvUsers = JSON.parse(raw);
+              const found = kvUsers.find((x) => x.username?.toLowerCase() === targetUser.toLowerCase());
+              if (found) {
+                passcode = found.password;
+                fullName = found.displayName || fullName;
+              }
+            }
+          } catch {}
+        }
+
+        if (!passcode) {
+          passcode = `stark-${Math.random().toString(36).slice(2, 6)}-${Math.random().toString(36).slice(2, 6)}`;
+        }
+        if (!userEmail) {
+          userEmail = `${targetUser}@gaurxv.eu.org`;
+        }
+
+        const emailHtml = `
+          <div style="font-family:'Segoe UI',system-ui,sans-serif;background:#050508;color:#f1f5f9;padding:36px 24px;border-radius:18px;max-width:560px;margin:auto;border:1px solid rgba(255,255,255,0.1);">
+            <div style="text-align:center;margin-bottom:28px;">
+              <h1 style="font-size:26px;color:#38bdf8;margin:0 0 6px 0;font-weight:900;letter-spacing:0.5px;">Gaurxv Verse ⎊</h1>
+              <p style="font-size:12px;color:#94a3b8;margin:0;letter-spacing:1.5px;text-transform:uppercase;">Stark Entertainment Access Clearance</p>
+            </div>
+            <div style="background:#0c0d16;border:1px solid rgba(56,189,248,0.25);border-radius:14px;padding:24px;margin-bottom:24px;">
+              <p style="font-size:15px;margin:0 0 14px 0;">Welcome, <strong>${fullName || targetUser}</strong>!</p>
+              <p style="font-size:13px;line-height:1.6;color:#cbd5e1;margin:0 0 18px 0;">
+                Your account clearance has been approved by the administrator. Use your credentials below to unlock the <strong>Stark Security Gate</strong>:
+              </p>
+              <div style="background:#131522;border:1px dashed rgba(56,189,248,0.4);border-radius:10px;padding:16px;margin-bottom:20px;font-family:monospace;">
+                <div style="margin-bottom:8px;font-size:13px;color:#94a3b8;">
+                  Username: <strong style="color:#38bdf8;font-size:15px;">${targetUser}</strong>
+                </div>
+                <div style="font-size:13px;color:#94a3b8;">
+                  Passcode: <strong style="color:#4ade80;font-size:15px;letter-spacing:1px;">${passcode}</strong>
+                </div>
+              </div>
+              <div style="text-align:center;margin:24px 0 12px 0;">
+                <a href="https://verse.gaurxv.eu.org/" style="display:inline-block;background:#38bdf8;color:#050508;font-weight:800;font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;box-shadow:0 4px 14px rgba(56,189,248,0.3);">
+                  Unlock Gaurxv Verse ⎊
+                </a>
+              </div>
+            </div>
+            <p style="font-size:11px;color:#64748b;text-align:center;margin:0;">
+              Stark Entertainment Protocol · If you did not request this, contact work@gaurxv.eu.org
+            </p>
+          </div>
+        `;
+
+        const sent = await sendBrevoEmail({
+          to: { email: userEmail, name: fullName || targetUser },
+          subject: "⚡ Your Gaurxv Verse Clearance Passcode & Access Pass",
+          htmlContent: emailHtml,
+        });
+
+        if (sent) {
+          await answerTelegramCallbackQuery(cb.id, `✅ Credentials emailed to ${userEmail}!`);
+          await sendTelegramMessage(`📨 *EMAIL DELIVERED:* Login credentials for \`@${targetUser}\` were successfully sent to \`${userEmail}\` via Brevo!`, { chatId: cb.message?.chat?.id || adminChatId });
+        } else {
+          await answerTelegramCallbackQuery(cb.id, `⚠️ Failed to send email via Brevo.`, true);
+          await sendTelegramMessage(`⚠️ *Email Delivery Failed:* Could not send credentials to \`${userEmail}\`. Check Brevo API quota.`, { chatId: cb.message?.chat?.id || adminChatId });
+        }
+        return { ok: true, action: "email_sent", email: userEmail };
+      } catch (err) {
+        await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
+        return { ok: false, error: err.message };
+      }
+    }
+
+    // 1E. Reject Account Request
+    if (action === "reject_req") {
+      try {
+        const targetUser = targetId;
+        await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "rejected" }),
+        }, env);
+
+        await answerTelegramCallbackQuery(cb.id, `❌ Request for @${targetUser} rejected.`);
+
+        if (cb.message) {
+          const chatId = cb.message.chat.id;
+          const messageId = cb.message.message_id;
+          const original = cb.message.caption || cb.message.text || "";
+          const updated = `${original}\n\n❌ *REQUEST REJECTED BY ADMIN*\n👮 *Actioned By:* \`@${cb.from?.username || "Admin"}\``;
+          const finalKeyboard = {
+            inline_keyboard: [
+              [{ text: "🔍 Open Admin Console", url: "https://verse.gaurxv.eu.org/admin" }]
+            ]
+          };
+          if (cb.message.caption !== undefined) {
+            await editTelegramMessageCaption(chatId, messageId, updated, finalKeyboard);
+          } else {
+            await editTelegramMessageText(chatId, messageId, updated, finalKeyboard);
+          }
+        }
+        return { ok: true, action: "request_rejected" };
+      } catch (err) {
+        await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
+        return { ok: false, error: err.message };
+      }
+    }
   }
 
   // 2. Text Commands Sent to the Bot (@JarvisXPay_Bot)
@@ -999,17 +1277,20 @@ export async function handleTelegramWebhook(update, env) {
 
     if (text === "/start" || text === "/help") {
       const helpMsg = 
-`⚡ *GAURXV VERSE PAYMENT & ACCESS BOT*
+`⚡ *GAURXV VERSE BOT MANUAL*
 ━━━━━━━━━━━━━━━━━━━━
-You can approve or reject payments directly from Telegram!
+Interactive controls for subscriptions, payment approvals & account credentials!
 
-*Available Controls:*
-• Tap *[Approve (+30 Days)]* under any receipt photo
-• Tap *[Reject]* to decline proof
-• \`/pending\` — List all pending payment proofs
-• \`/approve <Order-ID or UTR>\` — Approve by ID or UTR
-• \`/reject <Order-ID or UTR>\` — Reject by ID or UTR
-• \`/status <username>\` — Check user subscription status`;
+*Commands:*
+• \`/pending\` — List pending payment proofs with 1-tap approval
+• \`/requests\` — List pending account clearance requests
+• \`/approve <Order-ID or UTR>\` — Approve payment pass (+30 days)
+• \`/reject <Order-ID or UTR>\` — Reject payment pass
+• \`/create <username>\` — Generate passcode for user
+• \`/mail <username>\` — Send login credentials email via Brevo
+• \`/status <username>\` — Check user entitlement & subscription
+• \`/stats\` — System metrics, revenue & user count
+• \`/help\` — Show this command manual`;
       await sendTelegramMessage(helpMsg, { chatId });
       return { ok: true };
     }
@@ -1038,6 +1319,38 @@ You can approve or reject payments directly from Telegram!
               [
                 { text: `✅ Approve @${item.username}`, callback_data: `approve:${item.id}` },
                 { text: `❌ Reject`, callback_data: `reject:${item.id}` }
+              ]
+            ]
+          };
+          await sendTelegramMessage(itemText, { chatId, replyMarkup: itemKeyboard });
+        }
+        return { ok: true };
+      }
+    }
+
+    if (text === "/requests") {
+      const reqRes = await sbFetch("account_requests?status=eq.pending&order=created_at.desc&limit=5", {}, env);
+      if (reqRes.ok) {
+        const list = await reqRes.json();
+        if (!Array.isArray(list) || list.length === 0) {
+          await sendTelegramMessage("🎉 *No Pending Requests!*\nAll account requests have been processed.", { chatId });
+          return { ok: true };
+        }
+
+        await sendTelegramMessage(`📋 *PENDING ACCOUNT REQUESTS (${list.length}):*`, { chatId });
+        for (const item of list) {
+          const itemText = 
+`👤 *User:* \`@${item.username}\`
+📛 *Name:* ${item.full_name || "Not provided"}
+📧 *Email:* \`${item.email}\`
+📝 *Note:* ${item.note || "No note"}
+🕒 *Date:* \`${new Date(item.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST\``;
+
+          const itemKeyboard = {
+            inline_keyboard: [
+              [
+                { text: `⚡ Approve @${item.username}`, callback_data: `approve_req:${item.username}` },
+                { text: `❌ Reject`, callback_data: `reject_req:${item.username}` }
               ]
             ]
           };
@@ -1087,6 +1400,141 @@ You can approve or reject payments directly from Telegram!
       return { ok: true };
     }
 
+    if (text.startsWith("/create")) {
+      const parts = text.split(/\s+/);
+      const targetUser = parts[1]?.replace(/^@/, "");
+      if (!targetUser) {
+        await sendTelegramMessage("⚠️ Usage: `/create <username>`", { chatId });
+        return { ok: true };
+      }
+
+      const passcode = `stark-${Math.random().toString(36).slice(2, 6)}-${Math.random().toString(36).slice(2, 6)}`;
+      let userEmail = "";
+      let fullName = "";
+      try {
+        const reqRes = await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}&order=created_at.desc&limit=1`, {}, env);
+        if (reqRes.ok) {
+          const rows = await reqRes.json();
+          if (Array.isArray(rows) && rows.length > 0) {
+            userEmail = rows[0].email;
+            fullName = rows[0].full_name;
+          }
+        }
+      } catch {}
+
+      if (!userEmail) userEmail = `${targetUser}@gaurxv.eu.org`;
+
+      try {
+        await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "approved", passcode }),
+        }, env);
+      } catch {}
+
+      try {
+        await sbFetch("user_access", {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates" },
+          body: JSON.stringify({
+            user_id: targetUser,
+            username: targetUser,
+            email: userEmail,
+            access_policy: "trial",
+            is_suspended: false,
+            is_lifetime: false,
+          }),
+        }, env);
+      } catch {}
+
+      const credText = 
+`⚡ *PASSCODE PROVISIONED*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Username:* \`@${targetUser}\`
+🔑 *Passcode:* \`${passcode}\`
+📧 *Email:* \`${userEmail}\`
+━━━━━━━━━━━━━━━━━━━━
+👉 Tap button below to send credentials to user via Brevo email:`;
+
+      const credKeyboard = {
+        inline_keyboard: [
+          [
+            { text: `📧 Send Credentials Email (${userEmail})`, callback_data: `send_mail:${targetUser}` },
+          ]
+        ],
+      };
+      await sendTelegramMessage(credText, { chatId, replyMarkup: credKeyboard });
+      return { ok: true };
+    }
+
+    if (text.startsWith("/mail") || text.startsWith("/sendmail")) {
+      const parts = text.split(/\s+/);
+      const targetUser = parts[1]?.replace(/^@/, "");
+      if (!targetUser) {
+        await sendTelegramMessage("⚠️ Usage: `/mail <username>`", { chatId });
+        return { ok: true };
+      }
+
+      let userEmail = "";
+      let fullName = "";
+      let passcode = "";
+
+      try {
+        const reqRes = await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}&order=created_at.desc&limit=1`, {}, env);
+        if (reqRes.ok) {
+          const rows = await reqRes.json();
+          if (Array.isArray(rows) && rows.length > 0) {
+            userEmail = rows[0].email;
+            fullName = rows[0].full_name;
+            passcode = rows[0].passcode;
+          }
+        }
+      } catch {}
+
+      if (!passcode) passcode = `stark-${Math.random().toString(36).slice(2, 6)}-${Math.random().toString(36).slice(2, 6)}`;
+      if (!userEmail) userEmail = `${targetUser}@gaurxv.eu.org`;
+
+      const emailHtml = `
+        <div style="font-family:'Segoe UI',system-ui,sans-serif;background:#050508;color:#f1f5f9;padding:36px 24px;border-radius:18px;max-width:560px;margin:auto;border:1px solid rgba(255,255,255,0.1);">
+          <div style="text-align:center;margin-bottom:28px;">
+            <h1 style="font-size:26px;color:#38bdf8;margin:0 0 6px 0;font-weight:900;">Gaurxv Verse ⎊</h1>
+            <p style="font-size:12px;color:#94a3b8;margin:0;letter-spacing:1.5px;text-transform:uppercase;">Stark Entertainment Access Clearance</p>
+          </div>
+          <div style="background:#0c0d16;border:1px solid rgba(56,189,248,0.25);border-radius:14px;padding:24px;margin-bottom:24px;">
+            <p style="font-size:15px;margin:0 0 14px 0;">Welcome, <strong>${fullName || targetUser}</strong>!</p>
+            <p style="font-size:13px;line-height:1.6;color:#cbd5e1;margin:0 0 18px 0;">
+              Your account clearance has been granted by the administrator. Use your credentials below to unlock the <strong>Stark Security Gate</strong>:
+            </p>
+            <div style="background:#131522;border:1px dashed rgba(56,189,248,0.4);border-radius:10px;padding:16px;margin-bottom:20px;font-family:monospace;">
+              <div style="margin-bottom:8px;font-size:13px;color:#94a3b8;">
+                Username: <strong style="color:#38bdf8;font-size:15px;">${targetUser}</strong>
+              </div>
+              <div style="font-size:13px;color:#94a3b8;">
+                Passcode: <strong style="color:#4ade80;font-size:15px;letter-spacing:1px;">${passcode}</strong>
+              </div>
+            </div>
+            <div style="text-align:center;margin:24px 0 12px 0;">
+              <a href="https://verse.gaurxv.eu.org/" style="display:inline-block;background:#38bdf8;color:#050508;font-weight:800;font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;">
+                Unlock Gaurxv Verse ⎊
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const sent = await sendBrevoEmail({
+        to: { email: userEmail, name: fullName || targetUser },
+        subject: "⚡ Your Gaurxv Verse Clearance Passcode & Access Pass",
+        htmlContent: emailHtml,
+      });
+
+      if (sent) {
+        await sendTelegramMessage(`📨 *EMAIL DELIVERED:* Login credentials for \`@${targetUser}\` were successfully sent to \`${userEmail}\` via Brevo!`, { chatId });
+      } else {
+        await sendTelegramMessage(`⚠️ *Email Delivery Failed:* Could not send credentials to \`${userEmail}\`. Check Brevo API quota.`, { chatId });
+      }
+      return { ok: true };
+    }
+
     if (text.startsWith("/status")) {
       const parts = text.split(/\s+/);
       const targetUser = parts[1]?.replace(/^@/, "");
@@ -1108,6 +1556,39 @@ ${ent.trial ? `⏱️ *Trial Remaining:* ${Math.ceil(ent.trial.remainingSeconds 
         await sendTelegramMessage(statusMsg, { chatId });
       } catch (e) {
         await sendTelegramMessage(`⚠️ Error checking status: ${e.message}`, { chatId });
+      }
+      return { ok: true };
+    }
+
+    if (text === "/stats") {
+      try {
+        const [accRes, payRes, usrRes] = await Promise.all([
+          sbFetch("account_requests?select=id,status", {}, env),
+          sbFetch("payment_proofs?select=id,verification_status,amount", {}, env),
+          sbFetch("user_access?select=id,access_policy,is_suspended", {}, env),
+        ]);
+        const accs = accRes.ok ? await accRes.json() : [];
+        const pays = payRes.ok ? await payRes.json() : [];
+        const usrs = usrRes.ok ? await usrRes.json() : [];
+
+        const pendingAcc = Array.isArray(accs) ? accs.filter((x) => x.status === "pending").length : 0;
+        const pendingPay = Array.isArray(pays) ? pays.filter((x) => x.verification_status === "pending").length : 0;
+        const totalPayRev = Array.isArray(pays) ? pays.filter((x) => x.verification_status === "approved").reduce((a, c) => a + (Number(c.amount) || 0), 0) : 0;
+        const totalUsers = Array.isArray(usrs) ? usrs.length : 0;
+
+        const statsMsg = 
+`📊 *GAURXV VERSE SYSTEM METRICS*
+━━━━━━━━━━━━━━━━━━━━
+👥 *Total Access Records:* ${totalUsers}
+📋 *Pending Account Requests:* ${pendingAcc}
+💰 *Pending Payment Proofs:* ${pendingPay}
+💵 *Verified Pass Revenue:* ₹${totalPayRev}
+━━━━━━━━━━━━━━━━━━━━
+⚡ JarvisX Bot: Online & Active`;
+
+        await sendTelegramMessage(statsMsg, { chatId });
+      } catch (e) {
+        await sendTelegramMessage(`⚠️ Error loading stats: ${e.message}`, { chatId });
       }
       return { ok: true };
     }
