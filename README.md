@@ -1,10 +1,12 @@
 <div align="center">
 
-<img src="docs/logo.svg" alt="Gaurxv Verse logo" width="112" height="112" />
+<img src="docs/banner.jpg" alt="Stark Entertainment / Gaurxv Verse Banner" width="100%" />
 
-# Gaurxv Verse ⎊
+<br /><br />
 
-**Next-Gen Media Server & Reader**
+# Stark Entertainment / Gaurxv Verse ⎊
+
+**Next-Gen Media Ecosystem & Universal Reader**
 
 *Stream anime, movies & series. Read manga, light novels & ebooks. Listen to high-fidelity ad-free music. Zero tracking, zero ads, zero compromise.*
 
