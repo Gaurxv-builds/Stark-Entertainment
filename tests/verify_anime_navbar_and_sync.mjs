@@ -27,13 +27,15 @@ assert(themeIdx < logoutIdx, 'Theme must appear before Logout')
 assert(logoutIdx < profileIdx, 'Logout must appear before Profile/avatar')
 console.log('[PASS] NavbarActions enforces strictly: Home -> Admin -> Theme -> Logout -> Profile')
 
-// 2. Verify Navbar.tsx uses NavbarActions and has anime navigation preserved
+// 2. Verify Navbar.tsx uses NavbarActions and has anime navigation preserved with rounded button styling
 const navbarFile = fs.readFileSync('src/components/Navbar.tsx', 'utf8')
 assert(navbarFile.includes('<NavbarActions'), 'Navbar must render NavbarActions')
 assert(navbarFile.includes('NAV_LINKS'), 'Navbar must retain anime NAV_LINKS')
 assert(navbarFile.includes('Search anime'), 'Navbar must retain Search anime')
 assert(navbarFile.includes('Get app'), 'Navbar must retain Get app')
-console.log('[PASS] Navbar.tsx preserves all anime navigation and utilizes unified NavbarActions')
+assert(navbarFile.includes('rounded-full border px-2.5 sm:px-3 text-xs font-semibold backdrop-blur'), 'Anime nav links must use rounded pill button styling')
+assert(navbarFile.includes('border-border bg-card/60 text-muted-foreground hover:border-accent/40 hover:bg-card hover:text-accent'), 'Anime nav links must have card background and hover transitions')
+console.log('[PASS] Navbar.tsx preserves all anime navigation with unified rounded button styling')
 
 // 3. Verify LandingPage uses NavbarActions
 const landingFile = fs.readFileSync('src/pages/LandingPage.tsx', 'utf8')

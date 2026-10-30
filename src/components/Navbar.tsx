@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import { Compass, Download, Search } from 'lucide-react'
 import { MOVIE_LINKS, NAV_LINKS } from '../lib/constants'
 import { sectionOf } from '../lib/sections'
@@ -9,7 +8,7 @@ import { useSearch } from '../context/SearchContext'
 import { Logo } from './Logo'
 import { NavbarActions } from './NavbarActions'
 
-/** Floating glass navbar (Aceternity "Floating Navbar") with an animated hover pill. */
+/** Floating glass navbar with unified button design system across all navigation links & actions */
 export function Navbar() {
   const { openSearch } = useSearch()
   const { pathname, search } = useLocation()
@@ -21,7 +20,6 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   // Movies home / details open on a dark full-bleed backdrop: keep the bar light-on-dark until it turns into glass
   const overHero = movies && !scrolled && (pathname === '/movies' || /^\/movies\/(movie|tv)\/\d+$/.test(pathname))
-  const [hovered, setHovered] = useState<string | null>(null)
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
 
   useEffect(() => {
@@ -40,46 +38,56 @@ export function Navbar() {
           scrolled ? 'border-border bg-glass shadow-xl shadow-black/10 md:backdrop-blur-xl' : 'border-transparent bg-transparent',
         )}
       >
-        <Logo size={34} to="/" />
+        <Logo size={34} to="/" className="shrink-0" />
 
         {links && (
-        <ul className="hidden items-center md:flex" onMouseLeave={() => setHovered(null)}>
-          {links.map((l) => (
-            <li key={l.to} className="relative" onMouseEnter={() => setHovered(l.to)}>
-              {hovered === l.to && (
-                <motion.span
-                  layoutId="nav-hover"
-                  className="absolute inset-0 rounded-full bg-foreground/10"
-                  transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-                />
-              )}
-              {l.to.startsWith('http') ? (
-                <a
-                  href={l.to}
-                  className="relative z-10 block px-4 py-2 text-sm font-medium text-muted transition-colors hover:text-foreground"
-                >
-                  {l.label}
-                </a>
-              ) : (
-                <Link
-                  to={l.to}
-                  className={cn(
-                    'relative z-10 block px-4 py-2 text-sm font-medium transition-colors hover:text-foreground',
-                    pathname + (l.to.includes('?') ? search : '') === l.to ? 'text-foreground' : 'text-muted',
+          <ul className="hidden items-center gap-1 sm:gap-1.5 md:flex shrink-0">
+            {links.map((l) => {
+              const currentPath = pathname + (l.to.includes('?') ? search : '')
+              const isActive =
+                currentPath === l.to ||
+                (l.to === '/anime' && (pathname === '/anime' || pathname === '/anime/')) ||
+                (l.to !== '/' && l.to !== '/anime' && !l.to.includes('?') && pathname.startsWith(l.to))
+
+              const linkClasses = cn(
+                'inline-flex h-9 items-center gap-1.5 rounded-full border px-2.5 sm:px-3 text-xs font-semibold backdrop-blur transition active:scale-95 shrink-0 whitespace-nowrap',
+                isActive
+                  ? 'border-accent/50 bg-accent/10 text-accent font-bold shadow-xs'
+                  : 'border-border bg-card/60 text-muted-foreground hover:border-accent/40 hover:bg-card hover:text-accent'
+              )
+
+              return (
+                <li key={l.to} className="shrink-0">
+                  {l.to.startsWith('http') ? (
+                    <a
+                      href={l.to}
+                      className={linkClasses}
+                    >
+                      {l.label}
+                    </a>
+                  ) : (
+                    <Link
+                      to={l.to}
+                      className={linkClasses}
+                    >
+                      {l.label}
+                    </Link>
                   )}
-                >
-                  {l.label}
-                </Link>
-              )}
-            </li>
-          ))}
-        </ul>
+                </li>
+              )
+            })}
+          </ul>
         )}
 
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {!anime && !movies && (
-            <Link to={`/${section}`} className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3.5 py-1.5 text-sm font-semibold backdrop-blur transition active:scale-95">
-              <span className="font-display font-semibold text-accent">{section === 'novel' ? 'Novels' : section === 'ebooks' ? 'Ebooks' : section === 'music' ? 'Music' : 'Manga'}</span>
+            <Link
+              to={`/${section}`}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 text-xs font-semibold backdrop-blur transition hover:border-accent/40 hover:bg-card hover:text-accent active:scale-95 shrink-0 whitespace-nowrap"
+            >
+              <span className="font-display font-semibold text-accent">
+                {section === 'novel' ? 'Novels' : section === 'ebooks' ? 'Ebooks' : section === 'music' ? 'Music' : 'Manga'}
+              </span>
             </Link>
           )}
           {(section === 'manga' || movies) && (
@@ -87,11 +95,13 @@ export function Navbar() {
               to={browseTo}
               aria-label={movies ? 'Browse movies' : 'Browse manga'}
               className={cn(
-                'inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold transition active:scale-95 sm:px-4',
-                pathname === browseTo ? 'bg-foreground text-background' : 'bg-accent text-accent-fg hover:brightness-110',
+                'inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold backdrop-blur transition active:scale-95 shrink-0 whitespace-nowrap',
+                pathname === browseTo
+                  ? 'border-accent/50 bg-accent/10 text-accent font-bold shadow-xs'
+                  : 'border-border bg-card/60 text-muted-foreground hover:border-accent/40 hover:bg-card hover:text-accent'
               )}
             >
-              <Compass className="size-4" />
+              <Compass className="size-3.5 text-accent" />
               <span className="hidden sm:inline">Browse</span>
             </Link>
           )}
@@ -100,11 +110,12 @@ export function Navbar() {
               <button
                 type="button"
                 onClick={() => openSearch()}
-                className="hidden h-9 items-center gap-2 rounded-full border border-border bg-card/60 pl-3 pr-2 text-sm text-muted transition hover:text-foreground sm:flex"
+                aria-label={movies ? 'Search movies' : 'Search anime'}
+                className="hidden h-9 items-center gap-2 rounded-full border border-border bg-card/60 px-3 text-xs font-semibold text-muted-foreground backdrop-blur transition hover:border-accent/40 hover:bg-card hover:text-accent active:scale-95 sm:inline-flex shrink-0 whitespace-nowrap"
               >
-                <Search className="size-4" />
+                <Search className="size-3.5 text-accent" />
                 <span>{movies ? 'Search movies' : 'Search anime'}</span>
-                <kbd className="rounded-md border border-border bg-background/60 px-1.5 py-0.5 text-[10px] font-medium">
+                <kbd className="rounded-md border border-border/80 bg-background/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                   {isMac ? '⌘' : 'Ctrl'} K
                 </kbd>
               </button>
@@ -112,20 +123,24 @@ export function Navbar() {
                 type="button"
                 aria-label="Search"
                 onClick={() => openSearch()}
-                className="grid size-9 place-items-center rounded-full border border-border bg-card/60 transition active:scale-90 sm:hidden"
+                className="grid size-9 place-items-center rounded-full border border-border bg-card/60 text-muted-foreground backdrop-blur transition hover:border-accent/40 hover:bg-card hover:text-accent active:scale-90 sm:hidden shrink-0"
               >
-                <Search className="size-4" />
+                <Search className="size-3.5 text-accent" />
               </button>
               {anime && (
                 <Link
                   to="/app"
+                  title="Get Desktop & Mobile App"
+                  aria-label="Get app"
                   className={cn(
-                    'hidden h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition active:scale-95 xl:inline-flex',
-                    pathname === '/app' ? 'bg-foreground text-background' : 'bg-accent text-accent-fg hover:brightness-110',
+                    'hidden h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold backdrop-blur transition active:scale-95 shrink-0 whitespace-nowrap xl:inline-flex',
+                    pathname === '/app'
+                      ? 'border-accent/50 bg-accent/10 text-accent font-bold shadow-xs'
+                      : 'border-border bg-card/60 text-muted-foreground hover:border-accent/40 hover:bg-card hover:text-accent'
                   )}
                 >
-                  <Download className="size-4" />
-                  Get app
+                  <Download className="size-3.5 text-accent" />
+                  <span>Get app</span>
                 </Link>
               )}
             </>
