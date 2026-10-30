@@ -21,6 +21,7 @@ import {
   History,
   Ban,
   Maximize2,
+  AlertCircle,
 } from 'lucide-react'
 import {
   useStarkAuth,
@@ -30,6 +31,7 @@ import {
   generateDeviceSyncUrl,
   checkAndImportSyncPayload,
   syncCredentialsWithCloud,
+  createClientToken,
   type Credential,
 } from '../lib/starkAuth'
 import { toast } from '../lib/toast'
@@ -103,6 +105,7 @@ export default function AdminPage() {
 
   // Subscriptions Management State
   const [subLoading, setSubLoading] = useState(false)
+  const [subError, setSubError] = useState<string | null>(null)
   const [metrics, setMetrics] = useState({
     totalUsers: 0,
     activeSubscriptions: 0,
@@ -120,14 +123,54 @@ export default function AdminPage() {
   // Action states
   const [processingProofId, setProcessingProofId] = useState<string | null>(null)
 
+  // Robust Admin Headers with Stark HMAC & Supabase Auth Tokens
+  const getAdminHeaders = async (): Promise<Record<string, string>> => {
+    let tok = localStorage.getItem('gaurxv_verse_auth_token') || ''
+    if ((!tok || tok.split('.').length !== 2) && isAdmin) {
+      try {
+        tok = await createClientToken(user || 'gaurxv', true, Date.now() + 30 * 24 * 60 * 60 * 1000)
+        localStorage.setItem('gaurxv_verse_auth_token', tok)
+      } catch {}
+    }
+    const sbToken = localStorage.getItem('gaurxv_verse_sb_token') || ''
+    const headers: Record<string, string> = {}
+    if (tok) {
+      headers.Authorization = `Bearer ${tok}`
+      headers['X-Stark-Token'] = tok
+    }
+    if (sbToken) {
+      headers['X-Supabase-Auth'] = sbToken
+      if (!headers.Authorization) {
+        headers.Authorization = `Bearer ${sbToken}`
+      }
+    }
+    return headers
+  }
+
   // Fetch Subscriptions Dashboard Data
   const fetchSubscriptionData = async () => {
     setSubLoading(true)
+    setSubError(null)
     try {
-      const token = localStorage.getItem('gaurxv_verse_auth_token') || ''
-      const res = await fetch('/api/admin/subscriptions', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      let headers = await getAdminHeaders()
+      let res = await fetch('/api/admin/subscriptions', { headers })
+
+      // Auto-retry if 401/403 with a freshly generated Stark HMAC token
+      if ((res.status === 401 || res.status === 403) && isAdmin) {
+        try {
+          const fresh = await createClientToken(user || 'gaurxv', true, Date.now() + 30 * 24 * 60 * 60 * 1000)
+          localStorage.setItem('gaurxv_verse_auth_token', fresh)
+          const sbTok = localStorage.getItem('gaurxv_verse_sb_token') || ''
+          res = await fetch('/api/admin/subscriptions', {
+            headers: {
+              Authorization: `Bearer ${fresh}`,
+              'X-Stark-Token': fresh,
+              ...(sbTok ? { 'X-Supabase-Auth': sbTok } : {}),
+            },
+          })
+        } catch {}
+      }
+
       if (res.ok) {
         const data = await res.json()
         if (data.success) {
@@ -136,10 +179,17 @@ export default function AdminPage() {
           setAllUsersAccess(data.users || [])
           setAuditLogs(data.auditLogs || [])
           setAccountRequests(data.accountRequests || [])
+        } else {
+          setSubError(data.error || 'Failed to load subscription queue')
         }
+      } else {
+        const err = await res.json().catch(() => ({}))
+        const msg = err.error || `Server returned ${res.status}`
+        setSubError(msg)
       }
-    } catch (e) {
+    } catch (e: any) {
       console.warn('Failed to fetch subscription data:', e)
+      setSubError(e?.message || 'Network communication error')
     } finally {
       setSubLoading(false)
     }
@@ -199,13 +249,13 @@ export default function AdminPage() {
 
     setProcessingProofId(proof.id)
     try {
-      const token = localStorage.getItem('gaurxv_verse_auth_token') || ''
+      const headers = {
+        ...(await getAdminHeaders()),
+        'Content-Type': 'application/json',
+      }
       const res = await fetch('/api/admin/subscription/action', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           action: 'approve_payment',
           proofId: proof.id,
@@ -232,13 +282,13 @@ export default function AdminPage() {
 
     setProcessingProofId(proof.id)
     try {
-      const token = localStorage.getItem('gaurxv_verse_auth_token') || ''
+      const headers = {
+        ...(await getAdminHeaders()),
+        'Content-Type': 'application/json',
+      }
       const res = await fetch('/api/admin/subscription/action', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           action: 'reject_payment',
           proofId: proof.id,
@@ -262,13 +312,13 @@ export default function AdminPage() {
   // Set User Policy
   const handleSetUserPolicy = async (targetUsername: string, policy: string, days = 30) => {
     try {
-      const token = localStorage.getItem('gaurxv_verse_auth_token') || ''
+      const headers = {
+        ...(await getAdminHeaders()),
+        'Content-Type': 'application/json',
+      }
       const res = await fetch('/api/admin/subscription/action', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           action: 'set_policy',
           targetUser: targetUsername,
@@ -294,13 +344,13 @@ export default function AdminPage() {
     if (!confirm(`${currentlySuspended ? 'Restore' : 'Suspend'} access for @${targetUsername}?`)) return
 
     try {
-      const token = localStorage.getItem('gaurxv_verse_auth_token') || ''
+      const headers = {
+        ...(await getAdminHeaders()),
+        'Content-Type': 'application/json',
+      }
       const res = await fetch('/api/admin/subscription/action', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           action: nextAction,
           targetUser: targetUsername,
@@ -508,7 +558,27 @@ export default function AdminPage() {
                 </span>
               </div>
 
-              {pendingProofs.length === 0 ? (
+              {subLoading ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
+                  <RefreshCw className="size-8 animate-spin text-amber-400" />
+                  <p className="text-sm font-semibold text-white">Loading payment verification queue...</p>
+                  <p className="text-xs text-muted">Synchronizing pending UPI receipts from Stark database...</p>
+                </div>
+              ) : subError ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center space-y-3">
+                  <AlertCircle className="size-10 text-red-400" />
+                  <p className="text-sm font-semibold text-white">Unable to Load Payment Queue</p>
+                  <p className="max-w-md text-xs font-mono text-red-300/80">{subError}</p>
+                  <button
+                    type="button"
+                    onClick={() => fetchSubscriptionData()}
+                    className="mt-2 inline-flex items-center gap-2 rounded-xl bg-amber-500/20 px-4 py-2 text-xs font-bold text-amber-400 hover:bg-amber-500/30 transition active:scale-95"
+                  >
+                    <RefreshCw className="size-3.5" />
+                    <span>Retry Sync</span>
+                  </button>
+                </div>
+              ) : pendingProofs.length === 0 ? (
                 <div className="py-12 text-center space-y-2">
                   <CheckCircle2 className="mx-auto size-10 text-emerald-400" />
                   <p className="text-sm font-semibold text-white">All caught up!</p>

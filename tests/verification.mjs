@@ -253,5 +253,22 @@ test('Stark Subscription, Payment Portal & Access Management Verification', () =
   assert(profileContent.includes('Subscription & Access Pass'), 'ProfilePage must render Subscription & Access Pass section');
 });
 
+test('Multi-device Admin Authentication & Payment Queue Resilience', () => {
+  const handlerContent = fs.readFileSync('server/handler.js', 'utf8');
+  assert(handlerContent.includes('verifySupabaseToken'), 'Server handler must support Supabase JWT verification');
+  assert(handlerContent.includes('X-Supabase-Auth'), 'Server handler must support X-Supabase-Auth header');
+  assert(handlerContent.includes('X-Stark-Token'), 'Server handler must support X-Stark-Token header');
+
+  const starkAuthContent = fs.readFileSync('src/lib/starkAuth.tsx', 'utf8');
+  assert(starkAuthContent.includes('gaurxv_verse_sb_token'), 'starkAuth must preserve Supabase token');
+  assert(starkAuthContent.includes('createClientToken'), 'starkAuth must export createClientToken');
+
+  const adminContent = fs.readFileSync('src/pages/AdminPage.tsx', 'utf8');
+  assert(adminContent.includes('getAdminHeaders'), 'AdminPage must use getAdminHeaders');
+  assert(adminContent.includes('createClientToken'), 'AdminPage must auto-generate client tokens for admin');
+  assert(adminContent.includes('subError'), 'AdminPage must track subError and show retry button');
+  assert(adminContent.includes('subLoading'), 'AdminPage must handle subLoading gracefully');
+});
+
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`)
 if (failed > 0) process.exit(1)

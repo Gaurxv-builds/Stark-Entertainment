@@ -430,12 +430,17 @@ export async function syncCredentialsWithCloud(): Promise<{ kvConnected: boolean
 
 export async function pushCredentialsToCloud(users: Credential[]): Promise<boolean> {
   try {
-    const token = getAuthToken()
+    let token = getAuthToken()
+    if (!token && isCurrentAdmin()) {
+      token = await createClientToken('gaurxv', true, Date.now() + 30 * 24 * 60 * 60 * 1000)
+    }
+    const sbToken = localStorage.getItem('gaurxv_verse_sb_token') || ''
     const res = await fetch('/api/auth/credentials', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(token ? { Authorization: `Bearer ${token}`, 'X-Stark-Token': token } : {}),
+        ...(sbToken ? { 'X-Supabase-Auth': sbToken } : {}),
       },
       body: JSON.stringify({ users }),
     })
@@ -487,21 +492,33 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
           data: { subscription },
         } = client.auth.onAuthStateChange(async (event: string, session: any) => {
           if (session?.user) {
+            const emailLower = session.user.email?.toLowerCase() || ''
             const uName =
               session.user.user_metadata?.full_name ||
               session.user.user_metadata?.name ||
-              session.user.email?.split('@')[0] ||
+              (emailLower === 'gaurav@pepperonyx.dpdns.org' ? 'gaurxv' : session.user.email?.split('@')[0]) ||
               'Member'
             const adminFlag = Boolean(
-              session.user.app_metadata?.is_admin || session.user.user_metadata?.is_admin
+              session.user.app_metadata?.is_admin ||
+              session.user.user_metadata?.is_admin ||
+              emailLower === 'gaurav@pepperonyx.dpdns.org'
             )
             setUserId(session.user.id)
             setUser(uName)
             setIsAdmin(adminFlag)
-            setToken(session.access_token)
             setAuthenticated(true)
             setIsCloudSynced(true)
-            saveAuthSession(uName, adminFlag, true, session.access_token)
+
+            try {
+              localStorage.setItem('gaurxv_verse_sb_token', session.access_token)
+              const exp = Date.now() + 30 * 24 * 60 * 60 * 1000
+              const hmacTok = await createClientToken(uName, adminFlag, exp)
+              setToken(hmacTok)
+              saveAuthSession(uName, adminFlag, true, hmacTok)
+            } catch {
+              setToken(session.access_token)
+              saveAuthSession(uName, adminFlag, true, session.access_token)
+            }
             pullCloudData(session.user.id).catch(() => {})
           } else if (event === 'SIGNED_OUT') {
             setUserId(null)
@@ -560,16 +577,24 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
                 sbUser.user_metadata?.is_admin ||
                 emailLower === 'gaurav@pepperonyx.dpdns.org'
               )
+              const exp = Date.now() + 30 * 24 * 60 * 60 * 1000
+              let activeToken = data.session.access_token
+              try {
+                localStorage.setItem('gaurxv_verse_sb_token', data.session.access_token)
+                activeToken = await createClientToken(uName, adminFlag, exp)
+                saveAuthSession(uName, adminFlag, true, activeToken)
+              } catch {
+                saveAuthSession(uName, adminFlag, true, data.session.access_token)
+              }
               if (!cancelled) {
                 setUserId(sbUser.id)
                 setUser(uName)
                 setIsAdmin(adminFlag)
-                setToken(data.session.access_token)
+                setToken(activeToken)
                 setAuthenticated(true)
                 setIsCloudSynced(true)
                 setLoading(false)
               }
-              saveAuthSession(uName, adminFlag, true, data.session.access_token)
               pullCloudData(sbUser.id).catch(() => {})
               diagnoseCloudSync().then((d) => !cancelled && setSyncDiagnostics(d))
               return
@@ -710,7 +735,15 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
             data.user.user_metadata?.is_admin ||
             email === 'gaurav@pepperonyx.dpdns.org'
           )
-          saveAuthSession(authUser, adminFlag, remember, data.session.access_token)
+          const exp = remember ? Date.now() + 30 * 24 * 60 * 60 * 1000 : Date.now() + 24 * 60 * 60 * 1000
+          let activeToken = data.session.access_token
+          try {
+            localStorage.setItem('gaurxv_verse_sb_token', data.session.access_token)
+            activeToken = await createClientToken(authUser, adminFlag, exp)
+            saveAuthSession(authUser, adminFlag, remember, activeToken)
+          } catch {
+            saveAuthSession(authUser, adminFlag, remember, data.session.access_token)
+          }
           saveProfile({
             name: authUser,
             username: u,
@@ -719,7 +752,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
           setUserId(data.user.id)
           setUser(authUser)
           setIsAdmin(adminFlag)
-          setToken(data.session.access_token)
+          setToken(activeToken)
           setIsCloudSynced(true)
           setAuthenticated(true)
           await pullCloudData(data.user.id)
