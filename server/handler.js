@@ -636,24 +636,85 @@ export async function handle(request, env) {
         const p = String(password || "").trim();
         const uLower = u.toLowerCase();
 
-        const MASTER_PASSCODES = ["GAURXV-VERSE-2026", "STARK-2026", "STARK-⎊", "GAURXV-⎊"];
-        const envAdminUser = (env?.VITE_ADMIN_USER || "admin").toLowerCase().trim();
-        const envAdminPass = (env?.VITE_ADMIN_PASS || "GAURXV-VERSE-2026").trim();
+        if (!p) {
+          return json({ success: false, ok: false, error: "Password required" }, 400);
+        }
+
+        // 1. Resolve email according to Stark Gate -> Supabase mapping
+        let email = "";
+        if (uLower === "gaurxv" || uLower === "admin" || uLower === "gaurav") {
+          email = "gaurav@pepperonyx.dpdns.org";
+        } else if (u.includes("@")) {
+          email = u;
+        } else {
+          email = `${uLower.replace(/[^a-z0-9_]/g, "")}@pepperonyx.dpdns.org`;
+        }
+
+        // 2. Fetch Supabase configuration
+        const envVal = (key) => (env && env[key]) || (typeof process !== "undefined" && process.env && process.env[key]) || "";
+        let sbUrl = envVal("VITE_SUPABASE_URL") || envVal("SUPABASE_URL") || "";
+        const sbKey = envVal("VITE_SUPABASE_ANON_KEY") || envVal("SUPABASE_ANON_KEY") || envVal("VITE_SUPABASE_PUBLISHABLE_KEY") || "";
+        if (sbKey && sbKey.includes(".")) {
+          try {
+            const parts = sbKey.split(".");
+            let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+            while (b64.length % 4) b64 += "=";
+            const payload = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
+            if (payload?.ref) sbUrl = `https://${payload.ref}.supabase.co`;
+          } catch {}
+        }
+        if (sbUrl.includes("tfykktkuoohjyjvrjxop")) {
+          sbUrl = sbUrl.replace("tfykktkuoohjyjvrjxop", "tfykttkuoohjyjvrjxop");
+        }
+
+        // 3. Attempt direct Supabase Auth verification
+        let supabaseSession = null;
+        if (sbUrl && sbKey && email && p) {
+          try {
+            const sbAuthRes = await fetch(`${sbUrl}/auth/v1/token?grant_type=password`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                apikey: sbKey,
+              },
+              body: JSON.stringify({ email, password: p }),
+            });
+            if (sbAuthRes.ok) {
+              supabaseSession = await sbAuthRes.json();
+            }
+          } catch {}
+        }
+
+        // 4. Server-configured admin credentials
+        const envAdminUser = (envVal("VITE_ADMIN_USER") || envVal("ADMIN_USER") || "gaurxv").toLowerCase().trim();
+        const envAdminPass = (envVal("VITE_ADMIN_PASS") || envVal("ADMIN_PASS") || "").trim();
+
+        const isConfiguredAdmin =
+          Boolean(envAdminPass) &&
+          (uLower === envAdminUser || uLower === "gaurxv" || uLower === "admin" || uLower === "gaurav") &&
+          p === envAdminPass;
+
+        const isSupabaseAdmin = Boolean(
+          supabaseSession?.user &&
+          (supabaseSession.user.email?.toLowerCase() === "gaurav@pepperonyx.dpdns.org" ||
+           supabaseSession.user.app_metadata?.is_admin ||
+           supabaseSession.user.user_metadata?.is_admin)
+        );
 
         let ok = false;
-        let authUser = u;
         let isAdmin = false;
+        let authUser = u || "gaurxv";
+        let passwordMismatch = false;
 
-        // 1. Admin match
-        if ((uLower === envAdminUser && (p === envAdminPass || p === "GAURXV-VERSE-2026")) ||
-            (uLower === "gaurav" && (p === "GAURXV-VERSE-2026" || p === envAdminPass))) {
+        if (isSupabaseAdmin) {
           ok = true;
-          authUser = u || "Administrator";
           isAdmin = true;
-        } else if (p && MASTER_PASSCODES.some((k) => k.toLowerCase() === p.toLowerCase())) {
+          authUser = supabaseSession.user.user_metadata?.full_name || u || "gaurxv";
+        } else if (isConfiguredAdmin) {
           ok = true;
-          authUser = u || "Administrator";
           isAdmin = true;
+          authUser = u || "gaurxv";
+          passwordMismatch = !supabaseSession;
         } else {
           // Check KV users
           let kvUsers = [];
@@ -668,17 +729,26 @@ export async function handle(request, env) {
             ok = true;
             authUser = matchKv.displayName || matchKv.username;
             isAdmin = false;
-          } else if ((uLower.endsWith("@gaurxv.eu.org") || uLower.endsWith("@pepperonyx.dpdns.org")) && p) {
-            ok = true;
-            authUser = u;
-            isAdmin = false;
           }
         }
 
         if (ok) {
           const exp = remember !== false ? Date.now() + 30 * 24 * 60 * 60 * 1000 : Date.now() + 24 * 60 * 60 * 1000;
           const token = await createAuthToken(authUser, isAdmin, exp);
-          return json({ success: true, ok: true, token, user: authUser, isAdmin, exp });
+          return json({
+            success: true,
+            ok: true,
+            token,
+            user: authUser,
+            isAdmin,
+            exp,
+            supabaseSession: supabaseSession ? {
+              access_token: supabaseSession.access_token,
+              refresh_token: supabaseSession.refresh_token,
+              user: supabaseSession.user,
+            } : null,
+            passwordMismatch,
+          });
         }
         return json({ success: false, ok: false, error: "Access Denied: Invalid credentials" }, 401);
       } catch (err) {

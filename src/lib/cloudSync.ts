@@ -105,7 +105,20 @@ export async function diagnoseCloudSync(): Promise<CloudSyncDiagnostics> {
       return currentDiagnostics
     }
 
-    const userId = sessionData.session.user.id
+    // Verify token validity against Supabase Auth service
+    const { data: userData, error: userErr } = await client.auth.getUser()
+    if (userErr || !userData?.user) {
+      currentDiagnostics = {
+        status: 'local_only',
+        code: 'AUTH_SESSION_MISSING',
+        message: 'Supabase session expired or unverified. Sign in via Stark Gate to refresh.',
+        details: userErr?.message,
+      }
+      return currentDiagnostics
+    }
+
+    const userId = userData.user.id
+    const userEmail = userData.user.email?.toLowerCase() || ''
 
     // 3. Test table availability and RLS permissions on user_profiles
     const { error: profileErr } = await client
@@ -115,7 +128,7 @@ export async function diagnoseCloudSync(): Promise<CloudSyncDiagnostics> {
       .maybeSingle()
 
     if (profileErr) {
-      if (profileErr.code === 'PGRST204' || profileErr.message?.includes('does not exist')) {
+      if (profileErr.code === 'PGRST204' || profileErr.code === '42P01' || profileErr.message?.includes('does not exist')) {
         currentDiagnostics = {
           status: 'error',
           code: 'TABLE_MISSING',
@@ -145,7 +158,7 @@ export async function diagnoseCloudSync(): Promise<CloudSyncDiagnostics> {
     currentDiagnostics = {
       status: 'connected',
       code: 'SUCCESS',
-      message: 'Synced via Supabase PostgreSQL RLS (cross-device profile, watchlist & reading progress)',
+      message: `Synced via Supabase PostgreSQL RLS (${userEmail || 'authenticated user'})`,
       lastSyncedAt: Date.now(),
     }
     return currentDiagnostics

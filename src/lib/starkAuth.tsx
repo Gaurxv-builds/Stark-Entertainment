@@ -29,12 +29,16 @@ export interface Credential {
 
 export const BUILTIN_CREDENTIALS: Credential[] = []
 
-const MASTER_PASSCODES = [
-  'GAURXV-VERSE-2026',
-  'STARK-2026',
-  'STARK-⎊',
-  'GAURXV-⎊',
-]
+export function resolveStarkUserToEmail(username: string): string {
+  const u = (username || '').trim().toLowerCase();
+  if (u === 'gaurxv' || u === 'admin' || u === 'gaurav') {
+    return 'gaurav@pepperonyx.dpdns.org';
+  }
+  if (u.includes('@')) {
+    return u;
+  }
+  return `${u.replace(/[^a-z0-9_]/g, '')}@pepperonyx.dpdns.org`;
+}
 
 /* ---------------- Web Crypto HMAC Helpers ---------------- */
 const enc = new TextEncoder()
@@ -234,28 +238,7 @@ export function verifyCredentials(
     return { ok: false, user: '', isAdmin: false }
   }
 
-  const envAdminUser = (import.meta.env.VITE_ADMIN_USER as string | undefined)?.trim() || 'admin'
-  const envAdminPass = (import.meta.env.VITE_ADMIN_PASS as string | undefined)?.trim() || 'GAURXV-VERSE-2026'
-
-  // 1. Direct Admin Match
-  const isDirectAdmin =
-    (uLower === envAdminUser.toLowerCase() && (p === envAdminPass || p === 'GAURXV-VERSE-2026' || p === 'STARK-2026')) ||
-    (uLower === 'gaurav' && (p === 'GAURXV-VERSE-2026' || p === envAdminPass))
-
-  if (isDirectAdmin) {
-    return { ok: true, user: u || 'Administrator', isAdmin: true }
-  }
-
-  // 2. Direct Master Passcode or VITE_ACCESS_KEY
-  const envKey = (import.meta.env.VITE_ACCESS_KEY as string | undefined)?.trim()
-  if (p && envKey && p.toLowerCase() === envKey.toLowerCase()) {
-    return { ok: true, user: u || 'Administrator', isAdmin: true }
-  }
-  if (p && MASTER_PASSCODES.some((k) => k.toLowerCase() === p.toLowerCase())) {
-    return { ok: true, user: u || 'Administrator', isAdmin: true }
-  }
-
-  // 3. Check Credentials created by Admin
+  // 1. Check viewer credentials created by Admin
   const created = getCreatedCredentials()
   const matchCreated = created.find(
     (c) => c.username.toLowerCase() === uLower && c.password === p
@@ -264,7 +247,7 @@ export function verifyCredentials(
     return { ok: true, user: matchCreated.displayName || matchCreated.username, isAdmin: false }
   }
 
-  // 4. Check Custom Credentials (from Env)
+  // 2. Check Custom Credentials (from VITE_AUTH_CREDENTIALS)
   const custom = getCustomCredentials()
   const matchCustom = custom.find(
     (c) => c.username.toLowerCase() === uLower && c.password === p
@@ -273,17 +256,12 @@ export function verifyCredentials(
     return { ok: true, user: matchCustom.displayName || matchCustom.username, isAdmin: false }
   }
 
-  // 5. Check Built-in Credentials
+  // 3. Check Built-in Credentials
   const matchBuiltin = BUILTIN_CREDENTIALS.find(
     (c) => c.username.toLowerCase() === uLower && c.password === p
   )
   if (matchBuiltin) {
     return { ok: true, user: matchBuiltin.displayName || matchBuiltin.username, isAdmin: false }
-  }
-
-  // 6. Check Authorized Email domain
-  if ((uLower.endsWith('@gaurxv.eu.org') || uLower.endsWith('@pepperonyx.dpdns.org')) && p) {
-    return { ok: true, user: u, isAdmin: false }
   }
 
   return { ok: false, user: '', isAdmin: false }
@@ -568,28 +546,34 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
         try {
           const { data, error } = await sbClient.auth.getSession()
           if (!error && data?.session?.user) {
-            const sbUser = data.session.user
-            const uName =
-              sbUser.user_metadata?.full_name ||
-              sbUser.user_metadata?.name ||
-              sbUser.email?.split('@')[0] ||
-              'Member'
-            const adminFlag = Boolean(
-              sbUser.app_metadata?.is_admin || sbUser.user_metadata?.is_admin
-            )
-            if (!cancelled) {
-              setUserId(sbUser.id)
-              setUser(uName)
-              setIsAdmin(adminFlag)
-              setToken(data.session.access_token)
-              setAuthenticated(true)
-              setIsCloudSynced(true)
-              setLoading(false)
+            const { data: userData, error: userErr } = await sbClient.auth.getUser()
+            const sbUser = userData?.user || data.session.user
+            if (!userErr && sbUser) {
+              const emailLower = sbUser.email?.toLowerCase() || ''
+              const uName =
+                sbUser.user_metadata?.full_name ||
+                sbUser.user_metadata?.name ||
+                (emailLower === 'gaurav@pepperonyx.dpdns.org' ? 'gaurxv' : sbUser.email?.split('@')[0]) ||
+                'Member'
+              const adminFlag = Boolean(
+                sbUser.app_metadata?.is_admin ||
+                sbUser.user_metadata?.is_admin ||
+                emailLower === 'gaurav@pepperonyx.dpdns.org'
+              )
+              if (!cancelled) {
+                setUserId(sbUser.id)
+                setUser(uName)
+                setIsAdmin(adminFlag)
+                setToken(data.session.access_token)
+                setAuthenticated(true)
+                setIsCloudSynced(true)
+                setLoading(false)
+              }
+              saveAuthSession(uName, adminFlag, true, data.session.access_token)
+              pullCloudData(sbUser.id).catch(() => {})
+              diagnoseCloudSync().then((d) => !cancelled && setSyncDiagnostics(d))
+              return
             }
-            saveAuthSession(uName, adminFlag, true, data.session.access_token)
-            pullCloudData(sbUser.id).catch(() => {})
-            diagnoseCloudSync().then((d) => !cancelled && setSyncDiagnostics(d))
-            return
           }
         } catch {
           // Supabase session lookup non-blocking fallback
@@ -705,103 +689,46 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
     const p = password.trim()
     if (!p) return false
 
+    const email = resolveStarkUserToEmail(u)
     const client = supabase || (await getOrInitSupabase())
 
-    const email = u.includes('@')
-      ? u
-      : (u.toLowerCase() === 'admin' || u.toLowerCase() === 'gaurav'
-          ? 'gaurxv@gaurxv.eu.org'
-          : `${u.toLowerCase().replace(/[^a-z0-9_]/g, '')}@gaurxv.com`)
-    const sbPassword = p.length >= 6 ? p : `${p}__stark2026`
-
-    // 1. Try Supabase Auth if client is ready
+    // 1. Direct Supabase Auth attempt
     if (client) {
       try {
-        let authSession = null
-        const res1 = await client.auth.signInWithPassword({ email, password: p })
-        if (!res1.error && res1.data?.session?.user) {
-          authSession = res1.data.session
-        } else if (sbPassword !== p) {
-          const res2 = await client.auth.signInWithPassword({ email, password: sbPassword })
-          if (!res2.error && res2.data?.session?.user) {
-            authSession = res2.data.session
-          }
-        }
+        const { data, error } = await client.auth.signInWithPassword({
+          email,
+          password: p,
+        })
 
-        if (authSession?.user) {
+        if (!error && data?.session?.user) {
           const authUser =
-            authSession.user.user_metadata?.full_name ||
-            authSession.user.user_metadata?.name ||
-            u
+            data.user.user_metadata?.full_name ||
+            data.user.user_metadata?.name ||
+            (email === 'gaurav@pepperonyx.dpdns.org' ? 'gaurxv' : u)
           const adminFlag = Boolean(
-            authSession.user.app_metadata?.is_admin || authSession.user.user_metadata?.is_admin
+            data.user.app_metadata?.is_admin ||
+            data.user.user_metadata?.is_admin ||
+            email === 'gaurav@pepperonyx.dpdns.org'
           )
-          saveAuthSession(authUser, adminFlag, remember, authSession.access_token)
+          saveAuthSession(authUser, adminFlag, remember, data.session.access_token)
           saveProfile({
             name: authUser,
             username: u,
-            avatar: authSession.user.user_metadata?.avatar_url || null,
+            avatar: data.user.user_metadata?.avatar_url || null,
           })
-          setUserId(authSession.user.id)
+          setUserId(data.user.id)
           setUser(authUser)
           setIsAdmin(adminFlag)
-          setToken(authSession.access_token)
+          setToken(data.session.access_token)
           setIsCloudSynced(true)
           setAuthenticated(true)
-          pullCloudData(authSession.user.id).catch(() => {})
+          await pullCloudData(data.user.id)
+          pushCloudData(data.user.id).catch(() => {})
           diagnoseCloudSync().then((d) => setSyncDiagnostics(d))
           return true
         }
-      } catch {
-        // Supabase sign in failed; fall through to server / local check
-      }
-    }
-
-    // Helper to attempt linking local auth to Supabase
-    const linkSupabase = async (authUser: string, adminFlag: boolean) => {
-      const sb = supabase || (await getOrInitSupabase())
-      if (!sb) return
-      try {
-        let sData = null
-        const res1 = await sb.auth.signInWithPassword({ email, password: p })
-        if (!res1.error && res1.data?.session?.user) {
-          sData = res1.data
-        } else if (sbPassword !== p) {
-          const res2 = await sb.auth.signInWithPassword({ email, password: sbPassword })
-          if (!res2.error && res2.data?.session?.user) sData = res2.data
-        }
-
-        if (sData?.session?.user) {
-          setUserId(sData.session.user.id)
-          setIsCloudSynced(true)
-          await pullCloudData(sData.session.user.id)
-          await pushCloudData(sData.session.user.id)
-          const diag = await diagnoseCloudSync()
-          setSyncDiagnostics(diag)
-          return
-        }
-
-        const { data: upData, error: upErr } = await sb.auth.signUp({
-          email,
-          password: sbPassword,
-          options: {
-            data: {
-              name: authUser,
-              full_name: authUser,
-              is_admin: adminFlag,
-            },
-          },
-        })
-        if (!upErr && upData?.user) {
-          setUserId(upData.user.id)
-          setIsCloudSynced(true)
-          await pullCloudData(upData.user.id)
-          await pushCloudData(upData.user.id)
-          const diag = await diagnoseCloudSync()
-          setSyncDiagnostics(diag)
-        }
       } catch (err) {
-        console.warn('[StarkAuth] Supabase linking deferred:', err)
+        console.warn('[StarkAuth] Supabase direct auth attempt failed:', err)
       }
     }
 
@@ -825,7 +752,38 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
           setIsAdmin(adminFlag)
           setToken(sessionToken)
           setAuthenticated(true)
-          linkSupabase(authUser, adminFlag)
+
+          // If server established Supabase session, sync client
+          if (data.supabaseSession?.access_token && client) {
+            try {
+              await client.auth.setSession({
+                access_token: data.supabaseSession.access_token,
+                refresh_token: data.supabaseSession.refresh_token,
+              })
+              const { data: suData } = await client.auth.getUser()
+              if (suData?.user) {
+                setUserId(suData.user.id)
+                setIsCloudSynced(true)
+                await pullCloudData(suData.user.id)
+                pushCloudData(suData.user.id).catch(() => {})
+                diagnoseCloudSync().then((d) => setSyncDiagnostics(d))
+                return true
+              }
+            } catch {}
+          }
+
+          if (data.passwordMismatch) {
+            setIsCloudSynced(false)
+            setSyncDiagnostics({
+              status: 'local_only',
+              code: 'IDENTITY_MISMATCH',
+              message: `Stark Gate unlocked, but your password differs from the Supabase Auth account (${email}). Connect Cloud on the Profile page to sync.`,
+            })
+            toast('Stark Gate unlocked · Cloud sync requires matching Supabase password', 'info')
+          } else {
+            diagnoseCloudSync().then((d) => setSyncDiagnostics(d))
+          }
+
           return true
         }
       }
@@ -833,7 +791,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       // Backend not running or offline; proceed to verified local credentials check
     }
 
-    // 3. Local verified credentials fallback (master passcodes, admin credentials, domain emails)
+    // 3. Fallback for viewer accounts created in AdminPage
     const localRes = verifyCredentials(u, p)
     if (localRes.ok) {
       const exp = remember ? Date.now() + 30 * 24 * 60 * 60 * 1000 : Date.now() + 24 * 60 * 60 * 1000
@@ -844,7 +802,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(localRes.isAdmin)
       setToken(sessionToken)
       setAuthenticated(true)
-      linkSupabase(localRes.user, localRes.isAdmin)
+      diagnoseCloudSync().then((d) => setSyncDiagnostics(d))
       return true
     }
 
@@ -859,17 +817,17 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       return { ok: false, message: 'Supabase client unavailable. Check environment variables.' }
     }
 
-    // 1. Check if session is already active
+    // 1. Check if session is already active and verified
     try {
-      const { data: sessData } = await sb.auth.getSession()
-      if (sessData?.session?.user) {
-        setUserId(sessData.session.user.id)
+      const { data: userData } = await sb.auth.getUser()
+      if (userData?.user) {
+        setUserId(userData.user.id)
         setIsCloudSynced(true)
-        await pullCloudData(sessData.session.user.id)
-        await pushCloudData(sessData.session.user.id)
+        await pullCloudData(userData.user.id)
+        await pushCloudData(userData.user.id)
         const diag = await diagnoseCloudSync()
         setSyncDiagnostics(diag)
-        return { ok: true, message: 'Supabase session verified and cloud synchronized.' }
+        return { ok: true, message: `Cloud account verified (${userData.user.email}) and synchronized.` }
       }
     } catch {}
 
@@ -878,67 +836,27 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
       return { ok: false, message: 'Passcode required to link cloud account.' }
     }
 
-    const currentU = user || getAuthenticatedUser() || 'gaurav'
-    const email = currentU.includes('@')
-      ? currentU
-      : (currentU.toLowerCase() === 'admin' || currentU.toLowerCase() === 'gaurav'
-          ? 'gaurxv@gaurxv.eu.org'
-          : `${currentU.toLowerCase().replace(/[^a-z0-9_]/g, '')}@gaurxv.com`)
-    const sbPassword = p.length >= 6 ? p : `${p}__stark2026`
+    const currentU = user || getAuthenticatedUser() || 'gaurxv'
+    const email = resolveStarkUserToEmail(currentU)
 
     try {
-      let activeUser = null
-      let activeToken = ''
+      const { data: inData, error: inErr } = await sb.auth.signInWithPassword({
+        email,
+        password: p,
+      })
 
-      // Attempt 1: direct password
-      const res1 = await sb.auth.signInWithPassword({ email, password: p })
-      if (!res1.error && res1.data?.session?.user) {
-        activeUser = res1.data.user
-        activeToken = res1.data.session.access_token
-      } else if (sbPassword !== p) {
-        // Attempt 2: padded password
-        const res2 = await sb.auth.signInWithPassword({ email, password: sbPassword })
-        if (!res2.error && res2.data?.session?.user) {
-          activeUser = res2.data.user
-          activeToken = res2.data.session.access_token
-        }
-      }
-
-      // Attempt 3: signup if not found
-      if (!activeUser) {
-        const { data: upData, error: upErr } = await sb.auth.signUp({
-          email,
-          password: sbPassword,
-          options: {
-            data: {
-              name: currentU,
-              full_name: currentU,
-              is_admin: isAdmin,
-            },
-          },
-        })
-        if (!upErr && upData?.user) {
-          activeUser = upData.user
-          activeToken = upData.session?.access_token || ''
-        } else if (upErr) {
-          return { ok: false, message: `Supabase Auth error: ${upErr.message}` }
-        }
-      }
-
-      if (activeUser) {
-        setUserId(activeUser.id)
+      if (!inErr && inData?.session?.user) {
+        setUserId(inData.user.id)
         setIsCloudSynced(true)
-        if (activeToken) {
-          saveAuthSession(currentU, isAdmin, true, activeToken)
-        }
-        await pullCloudData(activeUser.id)
-        await pushCloudData(activeUser.id)
+        saveAuthSession(currentU, isAdmin, true, inData.session.access_token)
+        await pullCloudData(inData.user.id)
+        await pushCloudData(inData.user.id)
         const diag = await diagnoseCloudSync()
         setSyncDiagnostics(diag)
         return { ok: true, message: 'Cloud account connected and synchronized successfully!' }
       }
 
-      return { ok: false, message: 'Unable to connect to Supabase Auth.' }
+      return { ok: false, message: inErr ? inErr.message : 'Invalid Supabase credentials.' }
     } catch (err: any) {
       return { ok: false, message: err?.message || 'Connection failed' }
     }
