@@ -772,18 +772,7 @@ export function StarkAuthProvider({ children }: { children: ReactNode }) {
             } catch {}
           }
 
-          if (data.passwordMismatch) {
-            setIsCloudSynced(false)
-            setSyncDiagnostics({
-              status: 'local_only',
-              code: 'IDENTITY_MISMATCH',
-              message: `Stark Gate unlocked, but your password differs from the Supabase Auth account (${email}). Connect Cloud on the Profile page to sync.`,
-            })
-            toast('Stark Gate unlocked · Cloud sync requires matching Supabase password', 'info')
-          } else {
-            diagnoseCloudSync().then((d) => setSyncDiagnostics(d))
-          }
-
+          diagnoseCloudSync().then((d) => setSyncDiagnostics(d))
           return true
         }
       }

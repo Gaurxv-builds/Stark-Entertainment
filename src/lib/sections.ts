@@ -9,15 +9,38 @@ export const SECTIONS: { id: Section; label: string; to: string }[] = [
   { id: 'music', label: 'Music', to: '/music' },
 ]
 
-/** Which part of the site a pathname belongs to (null on the opening page). */
+/** Which part of the site a pathname belongs to (null on opening page, profile, admin, or non-media pages). */
 export function sectionOf(pathname: string): Section | null {
-  if (pathname === '/') return null
+  if (
+    !pathname ||
+    pathname === '/' ||
+    pathname === '/home' ||
+    pathname.startsWith('/profile') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/auth')
+  ) {
+    return null
+  }
   if (pathname.startsWith('/novel')) return 'novel'
   if (pathname.startsWith('/manga')) return 'manga'
   if (pathname.startsWith('/movies')) return 'movies'
   if (pathname.startsWith('/ebooks')) return 'ebooks'
   if (pathname.startsWith('/music')) return 'music'
-  return 'anime'
+  if (
+    pathname === '/anime' ||
+    pathname.startsWith('/anime/') ||
+    pathname === '/trending' ||
+    pathname === '/popular' ||
+    pathname === '/top' ||
+    pathname === '/browse' ||
+    pathname === '/list' ||
+    pathname === '/schedule' ||
+    pathname.startsWith('/watch/') ||
+    pathname.startsWith('/mal/')
+  ) {
+    return 'anime'
+  }
+  return null
 }
 
 /** Full-screen readers hide the site chrome. */

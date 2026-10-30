@@ -37,10 +37,21 @@ assert(navbarFile.includes('rounded-full border px-2.5 sm:px-3 text-xs font-semi
 assert(navbarFile.includes('border-border bg-card/60 text-muted-foreground hover:border-accent/40 hover:bg-card hover:text-accent'), 'Anime nav links must have card background and hover transitions')
 console.log('[PASS] Navbar.tsx preserves all anime navigation with unified rounded button styling')
 
-// 3. Verify LandingPage uses NavbarActions
+// 3. Verify LandingPage uses NavbarActions and ProfilePage removes redundant Connect Cloud button
 const landingFile = fs.readFileSync('src/pages/LandingPage.tsx', 'utf8')
 assert(landingFile.includes('<NavbarActions showHome={false} />'), 'LandingPage must render NavbarActions')
 console.log('[PASS] LandingPage renders unified NavbarActions')
+
+const profileFile = fs.readFileSync('src/pages/ProfilePage.tsx', 'utf8')
+assert(!profileFile.includes('Connect Cloud'), 'Connect Cloud button must be removed from ProfilePage')
+assert(!profileFile.includes('Local Only'), 'Local Only label must be removed from ProfilePage')
+console.log('[PASS] ProfilePage removes redundant Connect Cloud button and Local Only status')
+
+// 3b. Verify section routing: /profile and /admin do NOT render anime buttons
+const sectionsFile = fs.readFileSync('src/lib/sections.ts', 'utf8')
+assert(sectionsFile.includes("pathname.startsWith('/profile')"), 'sectionOf must exclude /profile from anime section')
+assert(sectionsFile.includes("pathname.startsWith('/admin')"), 'sectionOf must exclude /admin from anime section')
+console.log('[PASS] /profile and /admin cleanly excluded from anime navigation')
 
 // 4. Verify Supabase URL sanitization and ref derivation
 const supabaseTs = fs.readFileSync('src/lib/supabase.ts', 'utf8')

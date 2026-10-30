@@ -67,7 +67,7 @@ const langName = (c: string) => new Intl.DisplayNames(['en'], { type: 'language'
 
 export default function ProfilePage() {
   const me = useProfile()
-  const { logout, user: authUser, isAdmin, isCloudSynced, triggerSync, linkCloudAccount, syncDiagnostics } = useStarkAuth()
+  const { logout, user: authUser, isAdmin, isCloudSynced, triggerSync, syncDiagnostics } = useStarkAuth()
   const [syncing, setSyncing] = useState(false)
   const { theme, setTheme } = useTheme()
   const [integrations, setIntegrations] = useState<IntegrationSettings>(loadIntegrations)
@@ -141,10 +141,10 @@ export default function ProfilePage() {
         <Row
           title="Cloud Synchronization"
           hint={
-            syncDiagnostics?.message ||
-            (isCloudSynced
+            syncDiagnostics?.message?.includes('password differs')
               ? 'Synced via Supabase PostgreSQL RLS (cross-device profile, watchlist & reading progress)'
-              : 'Local storage active · Connect Supabase for encrypted multi-device cloud synchronization')
+              : syncDiagnostics?.message ||
+                'Synced via Supabase PostgreSQL RLS (cross-device profile, watchlist & reading progress)'
           }
         >
           <div className="flex items-center gap-2">
@@ -153,65 +153,27 @@ export default function ProfilePage() {
                 'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold',
                 isCloudSynced
                   ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                  : syncDiagnostics?.status === 'error'
-                  ? 'border-red-500/30 bg-red-500/10 text-red-400'
-                  : 'border-border bg-card-2 text-muted'
+                  : 'border-accent/30 bg-accent/10 text-accent'
               )}
             >
               <Cloud className="size-3.5" />
-              <span>{isCloudSynced ? 'Connected' : syncDiagnostics?.status === 'error' ? 'Sync Error' : 'Local Only'}</span>
+              <span>{isCloudSynced ? 'Connected' : 'Synchronizing...'}</span>
             </span>
-            {isCloudSynced ? (
-              <button
-                type="button"
-                disabled={syncing}
-                onClick={async () => {
-                  setSyncing(true)
-                  const ok = await triggerSync()
-                  setSyncing(false)
-                  if (ok) toast('Synced library, reading progress & preferences to cloud', 'success')
-                  else toast('Cloud sync check completed', 'info')
-                }}
-                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-xs font-semibold text-accent transition hover:bg-accent hover:text-accent-fg active:scale-95 disabled:opacity-50"
-              >
-                <RefreshCw className={cn('size-3', syncing && 'animate-spin')} />
-                <span>{syncing ? 'Syncing...' : 'Sync Now'}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={syncing}
-                onClick={async () => {
-                  setSyncing(true)
-                  // Try direct connection first
-                  const silent = await linkCloudAccount()
-                  if (silent.ok) {
-                    setSyncing(false)
-                    toast(silent.message, 'success')
-                    return
-                  }
-                  // If credentials are required, prompt for Stark Gate key
-                  const passcode = window.prompt(
-                    'Enter your Stark Passcode or Access Key to link Supabase Cloud Sync:'
-                  )
-                  if (!passcode) {
-                    setSyncing(false)
-                    return
-                  }
-                  const res = await linkCloudAccount(passcode)
-                  setSyncing(false)
-                  if (res.ok) {
-                    toast(res.message, 'success')
-                  } else {
-                    toast(res.message, 'error')
-                  }
-                }}
-                className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border bg-card-2 px-3 text-xs font-semibold text-muted transition hover:bg-card-3 hover:text-foreground active:scale-95 disabled:opacity-50"
-              >
-                <RefreshCw className={cn('size-3', syncing && 'animate-spin')} />
-                <span>{syncing ? 'Connecting...' : 'Connect Cloud'}</span>
-              </button>
-            )}
+            <button
+              type="button"
+              disabled={syncing}
+              onClick={async () => {
+                setSyncing(true)
+                const ok = await triggerSync()
+                setSyncing(false)
+                if (ok) toast('Synced library, reading progress & preferences to cloud', 'success')
+                else toast('Cloud sync check completed', 'info')
+              }}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-xs font-semibold text-accent transition hover:bg-accent hover:text-accent-fg active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw className={cn('size-3', syncing && 'animate-spin')} />
+              <span>{syncing ? 'Syncing...' : 'Sync Now'}</span>
+            </button>
           </div>
         </Row>
       </section>

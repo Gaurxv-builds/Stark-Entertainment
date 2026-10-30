@@ -80,7 +80,7 @@ export function Navbar() {
         )}
 
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {!anime && !movies && (
+          {Boolean(section && section !== 'anime' && section !== 'movies') && (
             <Link
               to={`/${section}`}
               className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 text-xs font-semibold backdrop-blur transition hover:border-accent/40 hover:bg-card hover:text-accent active:scale-95 shrink-0 whitespace-nowrap"
