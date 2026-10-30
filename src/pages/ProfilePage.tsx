@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Moon, Sun, ShieldCheck, ShieldAlert, Cloud, RefreshCw, LogOut } from 'lucide-react'
+import { Moon, Sun, ShieldCheck, ShieldAlert, Cloud, RefreshCw, LogOut, Zap, ExternalLink, Clock, CreditCard, AlertTriangle } from 'lucide-react'
 import { useStarkAuth } from '../lib/starkAuth'
+import { useEntitlement } from '../hooks/useEntitlement'
 import { loadIntegrations, saveIntegrations, testJellyfinConnection, testKomgaConnection, type IntegrationSettings } from '../services/integrations'
 import { AniListCard } from '../components/AniListCard'
 import { ProfileCustomizer, ProfileHero, type SectionKey } from '../components/ProfileCustomizer'
@@ -68,6 +69,7 @@ const langName = (c: string) => new Intl.DisplayNames(['en'], { type: 'language'
 export default function ProfilePage() {
   const me = useProfile()
   const { logout, user: authUser, isAdmin, isCloudSynced, triggerSync, syncDiagnostics } = useStarkAuth()
+  const { entitlement, refresh: refreshEntitlement, formatTimeRemaining } = useEntitlement()
   const [syncing, setSyncing] = useState(false)
   const { theme, setTheme } = useTheme()
   const [integrations, setIntegrations] = useState<IntegrationSettings>(loadIntegrations)
@@ -178,6 +180,93 @@ export default function ProfilePage() {
         </Row>
       </section>
 
+      {/* Stark Subscription & Access Pass */}
+      <section className={card} aria-label="Subscription Pass">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className={h2}>Subscription &amp; Access Pass</h2>
+            <p className="mt-0.5 text-xs text-muted">
+              Controls access to all 6 pillars of Stark Entertainment.
+            </p>
+          </div>
+          <a
+            href={`https://payments.gaurxv.eu.org/?user=${encodeURIComponent(authUser || '')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-accent px-4 text-xs font-bold text-accent-fg transition hover:brightness-110 active:scale-95 shadow-md shadow-accent/20"
+          >
+            <CreditCard className="size-3.5" />
+            <span>Renew / Upgrade Pass (₹29)</span>
+            <ExternalLink className="size-3" />
+          </a>
+        </div>
+
+        <Row
+          title="Current Access Policy"
+          hint={
+            entitlement?.policy === 'lifetime'
+              ? 'Unlimited lifetime clearance granted by administrator'
+              : entitlement?.policy === 'trial'
+              ? 'One-time 30-minute free trial starting from your first login'
+              : entitlement?.policy === 'custom'
+              ? 'Custom duration access assigned by administrator'
+              : '₹29 / 30-Day manual renewal access pass'
+          }
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            {entitlement?.policy === 'lifetime' ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3.5 py-1 text-xs font-bold text-emerald-400">
+                <ShieldCheck className="size-3.5" />
+                <span>Lifetime Free Access</span>
+              </span>
+            ) : entitlement?.isSuspended ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3.5 py-1 text-xs font-bold text-red-400">
+                <AlertTriangle className="size-3.5" />
+                <span>Access Suspended</span>
+              </span>
+            ) : entitlement?.isExpired ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-3.5 py-1 text-xs font-bold text-red-400">
+                <Clock className="size-3.5" />
+                <span>Access Expired</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3.5 py-1 text-xs font-bold text-accent">
+                <Zap className="size-3.5 animate-pulse" />
+                <span>{entitlement?.policy === 'trial' ? '30-Min Free Trial' : 'Active Premium Pass'}</span>
+              </span>
+            )}
+          </div>
+        </Row>
+
+        <Row
+          title="Remaining Access Time"
+          hint={
+            entitlement?.policy === 'lifetime'
+              ? 'Permanent clearance • No renewal required'
+              : entitlement?.isExpired
+              ? 'Expired • Renew via payments.gaurxv.eu.org to restore access'
+              : 'Countdown active • Accurate server-determined duration'
+          }
+        >
+          <div className="flex items-center gap-2">
+            <span className="rounded-xl border border-border bg-card-2 px-3 py-1.5 font-mono text-sm font-bold text-foreground">
+              {formatTimeRemaining()}
+            </span>
+            <button
+              type="button"
+              onClick={async () => {
+                await refreshEntitlement()
+                toast('Clearance status refreshed from server')
+              }}
+              className="grid size-8 place-items-center rounded-xl border border-border bg-card-2 text-muted transition hover:bg-card-3 hover:text-foreground"
+              title="Refresh clearance"
+            >
+              <RefreshCw className="size-3.5" />
+            </button>
+          </div>
+        </Row>
+      </section>
+
       {/* Preferences */}
       <section className={card} aria-label="Preferences">
         <h2 className={cn(h2, 'mb-4')}>Preferences</h2>
@@ -223,7 +312,6 @@ export default function ProfilePage() {
         </Row>
       </section>
 
-      
       {/* Optional External Media Integrations */}
       <section className={card} aria-label="Media Integrations">
         <div className="mb-4 flex items-center justify-between">

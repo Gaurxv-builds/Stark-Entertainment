@@ -219,5 +219,39 @@ test('Read Aloud supports strictly six Indian voices with language detection and
   assert(readerContent.includes('TtsEngine'), 'EbookReaderPage must initialize TtsEngine')
 })
 
+
+test('Stark Subscription, Payment Portal & Access Management Verification', () => {
+  // 1. Payment portal checks
+  assert(fs.existsSync('payment-portal/index.html'), 'payment-portal/index.html must exist');
+  const portalHtml = fs.readFileSync('payment-portal/index.html', 'utf8');
+  assert(portalHtml.includes('paytmqr6qi789@ptys'), 'Portal must contain Paytm UPI ID paytmqr6qi789@ptys');
+  assert(portalHtml.includes('payment_upi.png'), 'Portal must display Cloudinary UPI QR code');
+  assert(portalHtml.includes('screenshotFileInput'), 'Portal must provide direct file upload input');
+  assert(!portalHtml.includes('type="url"'), 'Portal must not ask for screenshot URL link');
+  assert(portalHtml.includes('STARK-ORD-'), 'Portal must generate unique STARK-ORD reference');
+
+  // 2. Server backend checks
+  assert(fs.existsSync('server/subscription.js'), 'server/subscription.js must exist');
+  const subServer = fs.readFileSync('server/subscription.js', 'utf8');
+  assert(subServer.includes('9261746621'), 'Telegram bot token must be configured');
+  assert(subServer.includes('895044844'), 'Admin chat ID must be 895044844');
+  assert(subServer.includes('updates@gaurxv.eu.org'), 'Brevo sender updates@gaurxv.eu.org must be configured');
+
+  const handlerContent = fs.readFileSync('server/handler.js', 'utf8');
+  assert(handlerContent.includes('/api/subscription/submit-payment'), 'Handler must expose submit-payment route');
+  assert(handlerContent.includes('/api/subscription/entitlement'), 'Handler must expose entitlement route');
+  assert(handlerContent.includes('/api/admin/subscriptions'), 'Handler must expose admin subscriptions route');
+  assert(handlerContent.includes('/api/admin/subscription/action'), 'Handler must expose admin action route');
+
+  // 3. Frontend checks
+  assert(fs.existsSync('src/components/SubscriptionModal.tsx'), 'SubscriptionModal.tsx must exist');
+  assert(fs.existsSync('src/hooks/useEntitlement.ts'), 'useEntitlement.ts must exist');
+  const adminContent = fs.readFileSync('src/pages/AdminPage.tsx', 'utf8');
+  assert(adminContent.includes('Subscription Management'), 'AdminPage must have Subscription Management tab');
+  assert(adminContent.includes('Pending Payment Queue'), 'AdminPage must display Pending Payment Queue');
+  const profileContent = fs.readFileSync('src/pages/ProfilePage.tsx', 'utf8');
+  assert(profileContent.includes('Subscription & Access Pass'), 'ProfilePage must render Subscription & Access Pass section');
+});
+
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`)
 if (failed > 0) process.exit(1)

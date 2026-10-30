@@ -15,6 +15,8 @@ import { StarkLoginGate } from './components/StarkLoginGate'
 import { StarkLoadingScreen } from './components/StarkLoadingScreen'
 import { PwaInstallPrompt } from './components/PwaInstallPrompt'
 import { useStarkAuth } from './lib/starkAuth'
+import { SubscriptionModal } from './components/SubscriptionModal'
+import { useEntitlement } from './hooks/useEntitlement'
 import { MusicPlayerProvider } from './context/MusicContext'
 import { MusicMiniPlayer } from './components/music/MusicMiniPlayer'
 import { MusicPlayerExpanded } from './components/music/MusicPlayerExpanded'
@@ -50,6 +52,7 @@ const MusicPage = lazy(() => import('./pages/MusicPage'))
 
 export default function App() {
   const { authenticated, loading, unlock } = useStarkAuth()
+  const { entitlement, refresh: refreshEntitlement } = useEntitlement()
   const { pathname } = useLocation()
   const bare = pathname === '/' || isReaderPath(pathname) || isWatchPath(pathname)
   const isDetails = isDetailsPath(pathname)
@@ -160,6 +163,11 @@ export default function App() {
       )}
       <MusicMiniPlayer />
       <MusicPlayerExpanded />
+      <SubscriptionModal
+        isOpen={Boolean(authenticated && entitlement?.isExpired && pathname !== '/profile' && pathname !== '/admin')}
+        entitlement={entitlement}
+        onRefresh={refreshEntitlement}
+      />
     </MusicPlayerProvider>
   )
 }

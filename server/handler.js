@@ -8,6 +8,13 @@ import { shield } from "./shield.js";
 import novelEngine from "./novel.js";
 import * as manga from "./manga.js";
 import { searchSaavn, getTrendingSaavn, searchPiped, getTrendingPiped, resolvePipedStream } from "./music.js";
+import {
+  submitPaymentProof,
+  getUserEntitlement,
+  getAdminSubscriptionsData,
+  handleAdminSubscriptionAction,
+  handleAccountRequest,
+} from "./subscription.js";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const TMDB = "https://aniversee.vercel.app/api/tmdb";
@@ -856,6 +863,102 @@ export async function handle(request, env) {
         return json({ success: false, error: "Invalid payload" }, 400);
       } catch (e) {
         return json({ success: false, error: String(e.message || e) }, 500);
+      }
+    }
+  }
+
+  /* ====================================================================
+   * Subscription & Access Management Endpoints
+   * ==================================================================== */
+
+  // 1. Submit Payment Proof (direct image/receipt upload to Telegram bot + Brevo notification)
+  if (path === "/api/subscription/submit-payment") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "POST, OPTIONS" } });
+    }
+    if (request.method === "POST") {
+      try {
+        const body = await request.json();
+        const result = await submitPaymentProof({ ...body, env });
+        return json(result);
+      } catch (e) {
+        return json({ success: false, error: e.message || "Failed to submit payment proof." }, 400);
+      }
+    }
+  }
+
+  // 2. User Entitlement & Trial Countdown
+  if (path === "/api/subscription/entitlement") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "GET, OPTIONS" } });
+    }
+    if (request.method === "GET") {
+      const user = q("user") || q("username");
+      if (!user) return json({ hasAccess: false, error: "Missing user parameter" }, 400);
+      try {
+        const entitlement = await getUserEntitlement(user, env);
+        return json(entitlement);
+      } catch (e) {
+        return json({ hasAccess: false, error: e.message || "Failed to check entitlement." }, 500);
+      }
+    }
+  }
+
+  // 3. Admin Subscriptions Dashboard Data
+  if (path === "/api/admin/subscriptions") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "GET, OPTIONS" } });
+    }
+    if (request.method === "GET") {
+      const authHeader = request.headers.get("Authorization") || "";
+      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      const verified = await verifyAuthToken(token);
+      if (!verified || !verified.a) {
+        return json({ success: false, error: "Unauthorized: Admin clearance required" }, 403);
+      }
+      try {
+        const data = await getAdminSubscriptionsData(env);
+        return json({ success: true, ...data });
+      } catch (e) {
+        return json({ success: false, error: e.message || "Failed to load subscription dashboard data." }, 500);
+      }
+    }
+  }
+
+  // 4. Admin Subscription Actions (Approve, Reject, Policy, Suspend, Extend)
+  if (path === "/api/admin/subscription/action") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "POST, OPTIONS" } });
+    }
+    if (request.method === "POST") {
+      const authHeader = request.headers.get("Authorization") || "";
+      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      const verified = await verifyAuthToken(token);
+      if (!verified || !verified.a) {
+        return json({ success: false, error: "Unauthorized: Admin clearance required" }, 403);
+      }
+      try {
+        const body = await request.json();
+        const result = await handleAdminSubscriptionAction(body, verified.u, env);
+        return json(result);
+      } catch (e) {
+        return json({ success: false, error: e.message || "Action failed." }, 400);
+      }
+    }
+  }
+
+  // 5. Account Requests
+  if (path === "/api/auth/request-account") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "POST, OPTIONS" } });
+    }
+    if (request.method === "POST") {
+      try {
+        const body = await request.json();
+        const result = await handleAccountRequest({ ...body, env });
+        return json(result);
+      } catch (e) {
+        return json({ success: false, error: e.message || "Failed to submit account request." }, 400);
       }
     }
   }
