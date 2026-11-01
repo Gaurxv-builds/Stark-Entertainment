@@ -25,7 +25,7 @@ export function SubscriptionModal({ isOpen, entitlement, onRefresh }: Subscripti
   const description = isSuspended
     ? 'Your access to Gaurxv Verse has been suspended by the administrator.'
     : isTrial
-    ? 'Your 30-minute complimentary free trial has concluded. Renew with a 30-day Stark Premium Pass (₹29) to continue streaming.'
+    ? 'Your 20-minute complimentary free trial has concluded. Renew with a 30-day Stark Premium Pass (₹29) to continue streaming.'
     : 'An active ₹29 / 30-day pass is required to access Stark Entertainment.'
 
   const paymentUrl = `https://payments.gaurxv.eu.org/?user=${encodeURIComponent(user || '')}`

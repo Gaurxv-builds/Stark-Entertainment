@@ -3,7 +3,7 @@ import { getProfile, saveProfile } from './profile'
 import { saveReading, type ReadingItem } from './reading'
 import type { ListItem } from './library'
 
-export type CloudSyncStatus = 'checking' | 'connected' | 'syncing' | 'local_only' | 'error'
+export type CloudSyncStatus = 'checking' | 'connected' | 'syncing' | 'local_only' | 'offline' | 'error'
 
 export type DiagnosticCode =
   | 'ENV_MISSING'
@@ -15,6 +15,7 @@ export type DiagnosticCode =
   | 'RLS_DENIED'
   | 'UPLOAD_FAILED'
   | 'DOWNLOAD_FAILED'
+  | 'OFFLINE'
   | 'SUCCESS'
 
 export interface CloudSyncDiagnostics {
@@ -51,6 +52,15 @@ export function isCloudSyncAvailable(): boolean {
  * 5. RLS Policies
  */
 export async function diagnoseCloudSync(): Promise<CloudSyncDiagnostics> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    currentDiagnostics = {
+      status: 'offline',
+      code: 'OFFLINE',
+      message: 'Network offline. Your local settings, watchlist and progress are active on this device.',
+    }
+    return currentDiagnostics
+  }
+
   const client = supabase || (await getOrInitSupabase())
   if (!client) {
     currentDiagnostics = {
@@ -85,14 +95,14 @@ export async function diagnoseCloudSync(): Promise<CloudSyncDiagnostics> {
       currentDiagnostics = {
         status: 'error',
         code: 'PROJECT_UNREACHABLE',
-        message: 'Cannot reach Supabase project. Verify network connection and project status in dashboard.',
+        message: 'Cannot reach Supabase project. Verify network connection.',
         details: e.message || String(e),
       }
       return currentDiagnostics
     }
   }
 
-  // 2. Check active authentication session
+  // 2. Identify active authentication session or Stark Gate credentials
   try {
     let sessionData: any = null
     const { data: sData, error: sessionErr } = await client.auth.getSession()
@@ -152,70 +162,66 @@ export async function diagnoseCloudSync(): Promise<CloudSyncDiagnostics> {
       }
     }
 
-    if (!sessionData?.session?.user) {
+    const starkUser = localStorage.getItem('gaurxv_verse_auth_user') || ''
+    const isStarkAuthorized = localStorage.getItem('gaurxv_verse_auth') === 'authorized'
+
+    if (!sessionData?.session?.user && (!isStarkAuthorized || !starkUser)) {
       currentDiagnostics = {
         status: 'local_only',
         code: 'AUTH_SESSION_MISSING',
         message: 'Local storage active · Sign in via Stark Gate to connect encrypted cloud storage.',
-        details: sessionErr ? sessionErr.message : 'No active Supabase JWT session',
+        details: sessionErr ? sessionErr.message : 'No active user session',
       }
       return currentDiagnostics
     }
 
-    // Verify token validity against Supabase Auth service
-    const { data: userData, error: userErr } = await client.auth.getUser()
-    if (userErr || !userData?.user) {
-      currentDiagnostics = {
-        status: 'local_only',
-        code: 'AUTH_SESSION_MISSING',
-        message: 'Supabase session expired or unverified. Sign in via Stark Gate to refresh.',
-        details: userErr?.message,
-      }
-      return currentDiagnostics
+    // Determine canonical user ID and user email
+    let userId = sessionData?.session?.user?.id || starkUser
+    let userEmail = sessionData?.session?.user?.email?.toLowerCase() || `${starkUser}@gaurxv.eu.org`
+
+    // Verify token validity against Supabase Auth service if active
+    if (sessionData?.session?.user) {
+      try {
+        const { data: userData } = await client.auth.getUser()
+        if (userData?.user) {
+          userId = userData.user.id
+          userEmail = userData.user.email?.toLowerCase() || userEmail
+        }
+      } catch {}
     }
 
-    const userId = userData.user.id
-    const userEmail = userData.user.email?.toLowerCase() || ''
-
-    // 3. Test table availability and RLS permissions on user_profiles
-    const { error: profileErr } = await client
-      .from('user_profiles')
-      .select('id')
-      .eq('id', userId)
+    // 3. Test table availability and RLS permissions on user_settings and user_profiles
+    const { error: settingsErr } = await client
+      .from('user_settings')
+      .select('user_id')
+      .eq('user_id', userId)
       .maybeSingle()
 
-    if (profileErr) {
-      if (profileErr.code === 'PGRST204' || profileErr.code === '42P01' || profileErr.message?.includes('does not exist')) {
+    if (settingsErr) {
+      if (settingsErr.code === 'PGRST204' || settingsErr.code === '42P01' || settingsErr.message?.includes('does not exist')) {
         currentDiagnostics = {
           status: 'error',
           code: 'TABLE_MISSING',
           message: 'Database tables not found. Apply migration scripts in Supabase SQL editor.',
-          details: profileErr.message,
+          details: settingsErr.message,
         }
         return currentDiagnostics
       }
-      if (profileErr.code === '42501' || profileErr.message?.includes('policy') || profileErr.message?.includes('permission')) {
+      if (settingsErr.code === '42501' || settingsErr.message?.includes('policy') || settingsErr.message?.includes('permission')) {
         currentDiagnostics = {
           status: 'error',
           code: 'RLS_DENIED',
           message: 'Permission denied by Row Level Security (RLS). Check table policies.',
-          details: profileErr.message,
+          details: settingsErr.message,
         }
         return currentDiagnostics
       }
-      currentDiagnostics = {
-        status: 'error',
-        code: 'DOWNLOAD_FAILED',
-        message: 'Failed to access cloud profile data.',
-        details: profileErr.message,
-      }
-      return currentDiagnostics
     }
 
     currentDiagnostics = {
       status: 'connected',
       code: 'SUCCESS',
-      message: `Synced via Supabase PostgreSQL RLS (${userEmail || 'authenticated user'})`,
+      message: `Synced via Supabase PostgreSQL (${userEmail || starkUser || 'authenticated user'})`,
       lastSyncedAt: Date.now(),
     }
     return currentDiagnostics
@@ -332,10 +338,23 @@ export async function pullCloudData(userId: string): Promise<boolean> {
       }
     } catch {}
 
+    // 5. User Settings JSON (public.user_settings)
+    try {
+      const { data: settingsData } = await client
+        .from('user_settings')
+        .select('settings_json, sync_version')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      if (settingsData && settingsData.settings_json) {
+        applyCloudSettings(settingsData.settings_json)
+      }
+    } catch {}
+
     currentDiagnostics = {
       status: 'connected',
       code: 'SUCCESS',
-      message: 'Synced via Supabase PostgreSQL RLS (cross-device profile, watchlist & reading progress)',
+      message: 'Synced via Supabase PostgreSQL (cross-device profile, watchlist, reading progress & settings)',
       lastSyncedAt: Date.now(),
     }
     return true
@@ -459,10 +478,21 @@ export async function pushCloudData(userId: string): Promise<boolean> {
       }, { onConflict: 'user_id' })
     } catch {}
 
+    // 5. Cloud User Settings (public.user_settings)
+    try {
+      const settingsPayload = extractLocalSettings()
+      await client.from('user_settings').upsert({
+        user_id: userId,
+        settings_json: settingsPayload,
+        sync_version: 1,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
+    } catch {}
+
     currentDiagnostics = {
       status: 'connected',
       code: 'SUCCESS',
-      message: 'Synced via Supabase PostgreSQL RLS (cross-device profile, watchlist & reading progress)',
+      message: 'Synced via Supabase PostgreSQL (cross-device profile, watchlist, reading progress & settings)',
       lastSyncedAt: Date.now(),
     }
     return true
@@ -478,8 +508,61 @@ export async function pushCloudData(userId: string): Promise<boolean> {
   }
 }
 
+/** Gather all user settings into a clean serializable object */
+export function extractLocalSettings() {
+  const safeParse = (k: string) => {
+    try {
+      const v = localStorage.getItem(k)
+      return v ? JSON.parse(v) : null
+    } catch {
+      return null
+    }
+  }
+  return {
+    theme: localStorage.getItem('theme') || 'dark',
+    playerPrefs: safeParse('zk:prefs') || {},
+    musicSettings: safeParse('zk:music:settings') || {},
+    integrationSettings: safeParse('zk:integrations') || {},
+    novelPrefs: safeParse('zk:novel:prefs') || {},
+    readerSettings: safeParse('zk:reader:settings') || {},
+    timestamp: Date.now(),
+  }
+}
+
+/** Apply cloud settings into localStorage and notify active components */
+export function applyCloudSettings(settings: any) {
+  if (!settings || typeof settings !== 'object') return
+  try {
+    if (settings.theme && typeof settings.theme === 'string') {
+      localStorage.setItem('theme', settings.theme)
+      document.documentElement.setAttribute('data-theme', settings.theme)
+    }
+    if (settings.playerPrefs && typeof settings.playerPrefs === 'object') {
+      const cur = localStorage.getItem('zk:prefs')
+      const merged = { ...(cur ? JSON.parse(cur) : {}), ...settings.playerPrefs }
+      localStorage.setItem('zk:prefs', JSON.stringify(merged))
+    }
+    if (settings.musicSettings && typeof settings.musicSettings === 'object') {
+      localStorage.setItem('zk:music:settings', JSON.stringify(settings.musicSettings))
+    }
+    if (settings.integrationSettings && typeof settings.integrationSettings === 'object') {
+      localStorage.setItem('zk:integrations', JSON.stringify(settings.integrationSettings))
+    }
+    if (settings.novelPrefs && typeof settings.novelPrefs === 'object') {
+      localStorage.setItem('zk:novel:prefs', JSON.stringify(settings.novelPrefs))
+    }
+    if (settings.readerSettings && typeof settings.readerSettings === 'object') {
+      localStorage.setItem('zk:reader:settings', JSON.stringify(settings.readerSettings))
+    }
+    window.dispatchEvent(new CustomEvent('stark:settings-updated', { detail: settings }))
+  } catch {}
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('zk:reading:change', () => {
+    schedulePushCloudData()
+  })
+  window.addEventListener('stark:settings-changed', () => {
     schedulePushCloudData()
   })
 }

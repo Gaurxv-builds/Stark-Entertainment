@@ -294,5 +294,98 @@ test('Telegram Bot Direct Approval & In-Chat Action Engine', () => {
   assert(gateContent.includes('text-center'), 'Subscription & Payment Portal text must be aligned in center');
 });
 
+// 16. Feature One: Permanent Account Deletion Engine & Safeguards
+test('Feature One: Permanent Account Deletion Engine & Safeguards', () => {
+  const handlerContent = fs.readFileSync('server/handler.js', 'utf8');
+  assert(handlerContent.includes('/api/admin/delete-account'), 'Handler must route /api/admin/delete-account');
+
+  const subContent = fs.readFileSync('server/subscription.js', 'utf8');
+  assert(subContent.includes('handleDeleteAccount'), 'subscription.js must export handleDeleteAccount');
+  assert(subContent.includes('Cannot delete primary administrator account (@gaurxv)'), 'Must protect primary admin @gaurxv');
+  assert(subContent.includes('user_access?username=ilike.'), 'Must cascade delete user_access');
+  assert(subContent.includes('user_profiles?username=ilike.'), 'Must cascade delete user_profiles');
+  assert(subContent.includes('user_settings?user_id=eq.'), 'Must cascade delete user_settings');
+  assert(subContent.includes('admin_audit_logs'), 'Must preserve audit log for deletions');
+
+  const adminContent = fs.readFileSync('src/pages/AdminPage.tsx', 'utf8');
+  assert(adminContent.includes('handlePermanentDelete'), 'AdminPage must have handlePermanentDelete');
+  assert(adminContent.includes('Permanently Delete Account'), 'AdminPage must have delete confirmation dialog');
+  assert(adminContent.includes('deleteConfirmText'), 'AdminPage must require typing username to confirm');
+});
+
+// 17. Feature Two: Canonical Email Preservation & Domain Replacement Guard
+test('Feature Two: Canonical Email Preservation & Domain Replacement Guard', () => {
+  const authContent = fs.readFileSync('src/lib/starkAuth.tsx', 'utf8');
+  assert(!authContent.includes("return `${u.replace(/[^a-z0-9_]/g, '')}@pepperonyx.dpdns.org`"), 'starkAuth must never synthesize pepperonyx domain for normal users');
+
+  const subContent = fs.readFileSync('server/subscription.js', 'utf8');
+  assert(!subContent.includes("`${ident}@pepperonyx.dpdns.org`"), 'subscription.js must never synthesize pepperonyx domain for normal users');
+  assert(subContent.includes('account_requests?username=ilike.'), 'subscription.js must lookup canonical email from account_requests before default');
+
+  const handlerContent = fs.readFileSync('server/handler.js', 'utf8');
+  assert(!handlerContent.includes("`${uLower.replace(/[^a-z0-9_]/g, \"\")}@pepperonyx.dpdns.org`"), 'handler.js must never synthesize pepperonyx domain for normal users');
+});
+
+// 18. Feature Three: Settings Cloud Sync & Status Reporting
+test('Feature Three: Settings Cloud Sync & Accurate Sync Status', () => {
+  const syncContent = fs.readFileSync('src/lib/cloudSync.ts', 'utf8');
+  assert(syncContent.includes('extractLocalSettings'), 'cloudSync must export extractLocalSettings');
+  assert(syncContent.includes('applyCloudSettings'), 'cloudSync must export applyCloudSettings');
+  assert(syncContent.includes("from('user_settings')"), 'cloudSync must sync with user_settings table');
+  assert(syncContent.includes("'offline'"), 'cloudSync must handle offline status');
+  assert(syncContent.includes('stark:settings-updated'), 'cloudSync must dispatch stark:settings-updated event');
+
+  const profileContent = fs.readFileSync('src/pages/ProfilePage.tsx', 'utf8');
+  assert(profileContent.includes('Synced'), 'ProfilePage must display Synced status');
+  assert(profileContent.includes('Sync Error'), 'ProfilePage must handle Sync Error state');
+});
+
+// 19. Feature Four & Five: Stark Gate Redesign & Account Request Workflow
+test('Feature Four & Five: Stark Gate Redesign & Account Request Workflow', () => {
+  const gateContent = fs.readFileSync('src/components/StarkLoginGate.tsx', 'utf8');
+  assert(gateContent.includes('Request Account') && gateContent.includes('Paid Plan'), 'Gate must have primary Request Account • Paid Plan CTA');
+  assert(gateContent.includes('₹29 / 30 Days'), 'Gate must display ₹29 / 30 Days badge');
+  assert(gateContent.includes('Explore App / Take a Tour'), 'Gate must have secondary Explore App / Take a Tour CTA');
+  assert(gateContent.includes('Account Request Dispatched!'), 'Gate must show post-submission screen');
+  assert(gateContent.includes('https://payments.gaurxv.eu.org/?user='), 'Gate must provide direct link to payment portal post-submission');
+
+  const adminContent = fs.readFileSync('src/pages/AdminPage.tsx', 'utf8');
+  assert(adminContent.includes('Account Requests Queue'), 'AdminPage must have dedicated Account Requests Queue tab');
+});
+
+// 20. Feature Six: Application Preview / Interactive Tour
+test('Feature Six: Application Preview / Interactive Tour', () => {
+  assert(fs.existsSync('src/components/AppTourModal.tsx'), 'AppTourModal.tsx must exist');
+  assert(fs.existsSync('public/tour/anime.png'), 'Anime tour preview must exist');
+  assert(fs.existsSync('public/tour/movies.png'), 'Movies tour preview must exist');
+  assert(fs.existsSync('public/tour/manga.png'), 'Manga tour preview must exist');
+  assert(fs.existsSync('public/tour/novels.png'), 'Novels tour preview must exist');
+  assert(fs.existsSync('public/tour/music.png'), 'Music tour preview must exist');
+  assert(fs.existsSync('public/tour/account.png'), 'Account tour preview must exist');
+
+  const tourContent = fs.readFileSync('src/components/AppTourModal.tsx', 'utf8');
+  assert(tourContent.includes('Anime Universe'), 'Tour must feature Anime pillar');
+  assert(tourContent.includes('Cinema & TV Series'), 'Tour must feature Movies pillar');
+  assert(tourContent.includes('Manga & Manhwa'), 'Tour must feature Manga pillar');
+  assert(tourContent.includes('Novels & Ebooks Vault'), 'Tour must feature Novels pillar');
+  assert(tourContent.includes('Lossless Music Engine'), 'Tour must feature Music pillar');
+  assert(tourContent.includes('Cloud Sync & Security Vault'), 'Tour must feature Cloud Sync pillar');
+
+  const gateContent = fs.readFileSync('src/components/StarkLoginGate.tsx', 'utf8');
+  assert(gateContent.includes('<AppTourModal'), 'StarkLoginGate must embed AppTourModal');
+});
+
+// 21. Trial Duration Standardized to 20 Minutes
+test('Trial duration standardized to 20 minutes across codebase', () => {
+  const subContent = fs.readFileSync('server/subscription.js', 'utf8');
+  assert(subContent.includes('20 * 60 * 1000'), 'subscription.js must use 20 minutes trial');
+
+  const modalContent = fs.readFileSync('src/components/SubscriptionModal.tsx', 'utf8');
+  assert(modalContent.includes('20-minute'), 'SubscriptionModal must announce 20-minute trial');
+
+  const adminContent = fs.readFileSync('src/pages/AdminPage.tsx', 'utf8');
+  assert(adminContent.includes('20-min trial'), 'AdminPage must describe 20-min trial');
+});
+
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`)
 if (failed > 0) process.exit(1)

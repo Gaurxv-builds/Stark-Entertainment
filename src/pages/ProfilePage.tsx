@@ -149,28 +149,44 @@ export default function ProfilePage() {
         <Row
           title="Cloud Synchronization"
           hint={
-            isCloudSynced
-              ? syncDiagnostics?.message?.includes('password differs')
-                ? 'Synced via Supabase PostgreSQL RLS (cross-device profile, watchlist & reading progress)'
-                : syncDiagnostics?.message ||
-                  'Synced via Supabase PostgreSQL RLS (cross-device profile, watchlist & reading progress)'
+            syncDiagnostics?.status === 'offline'
+              ? 'Network offline · Changes saved locally and will sync when connection returns'
+              : syncDiagnostics?.status === 'error'
+              ? `Sync Error: ${syncDiagnostics.message} · Tap Retry Sync to reconnect`
+              : isCloudSynced
+              ? 'Synced via Supabase PostgreSQL (cross-device profile, watchlist, reading progress & settings)'
               : authUser
               ? 'Synchronizing encrypted cloud storage across devices... Tap Sync Now to refresh.'
-              : syncDiagnostics?.message ||
-                'Local storage active · Sign in via Stark Gate to connect encrypted cloud storage.'
+              : 'Local storage active · Sign in via Stark Gate to connect encrypted cloud storage.'
           }
         >
           <div className="flex items-center gap-2">
             <span
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold',
-                isCloudSynced
+                syncing
+                  ? 'border-accent/40 bg-accent/15 text-accent animate-pulse'
+                  : syncDiagnostics?.status === 'offline'
+                  ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+                  : syncDiagnostics?.status === 'error'
+                  ? 'border-red-500/30 bg-red-500/10 text-red-400'
+                  : isCloudSynced
                   ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
                   : 'border-accent/30 bg-accent/10 text-accent'
               )}
             >
               <Cloud className="size-3.5" />
-              <span>{isCloudSynced ? 'Connected' : 'Synchronizing...'}</span>
+              <span>
+                {syncing
+                  ? 'Syncing...'
+                  : syncDiagnostics?.status === 'offline'
+                  ? 'Offline'
+                  : syncDiagnostics?.status === 'error'
+                  ? 'Sync Error'
+                  : isCloudSynced
+                  ? 'Synced'
+                  : 'Local Only'}
+              </span>
             </span>
             <button
               type="button"
@@ -179,13 +195,13 @@ export default function ProfilePage() {
                 setSyncing(true)
                 const ok = await triggerSync()
                 setSyncing(false)
-                if (ok) toast('Synced library, reading progress & preferences to cloud', 'success')
+                if (ok) toast('Synced profile, library, reading progress & settings to cloud', 'success')
                 else toast('Cloud sync check completed', 'info')
               }}
               className="inline-flex h-8 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/15 px-3 text-xs font-semibold text-accent transition hover:bg-accent hover:text-accent-fg active:scale-95 disabled:opacity-50"
             >
               <RefreshCw className={cn('size-3', syncing && 'animate-spin')} />
-              <span>{syncing ? 'Syncing...' : 'Sync Now'}</span>
+              <span>{syncing ? 'Syncing...' : syncDiagnostics?.status === 'error' ? 'Retry Sync' : 'Sync Now'}</span>
             </button>
           </div>
         </Row>

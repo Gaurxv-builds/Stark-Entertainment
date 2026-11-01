@@ -13,6 +13,7 @@ import {
   getUserEntitlement,
   getAdminSubscriptionsData,
   handleAdminSubscriptionAction,
+  handleDeleteAccount,
   handleAccountRequest,
   handleTelegramWebhook,
   setTelegramWebhook,
@@ -844,14 +845,45 @@ export async function handle(request, env) {
           return json({ success: false, ok: false, error: "Password required" }, 400);
         }
 
-        // 1. Resolve email according to Stark Gate -> Supabase mapping
+        // 1. Resolve canonical email safely (NEVER synthesize pepperonyx domain for non-admin)
         let email = "";
         if (uLower === "gaurxv" || uLower === "admin" || uLower === "gaurav") {
           email = "gaurav@pepperonyx.dpdns.org";
         } else if (u.includes("@")) {
           email = u;
         } else {
-          email = `${uLower.replace(/[^a-z0-9_]/g, "")}@pepperonyx.dpdns.org`;
+          // Check user_access or account_requests for the user's real registered email
+          const envVal = (key) => (env && env[key]) || (typeof process !== "undefined" && process.env && process.env[key]) || "";
+          const sbUrlPre = envVal("VITE_SUPABASE_URL") || envVal("SUPABASE_URL") || "https://tfykttkuoohjyjvrjxop.supabase.co";
+          const sbKeyPre = envVal("VITE_SUPABASE_ANON_KEY") || envVal("SUPABASE_ANON_KEY") || envVal("VITE_SUPABASE_PUBLISHABLE_KEY") || "";
+          if (sbUrlPre && sbKeyPre) {
+            try {
+              const cleanUrl = sbUrlPre.replace("tfykktkuoohjyjvrjxop", "tfykttkuoohjyjvrjxop");
+              const uCheck = await fetch(`${cleanUrl}/rest/v1/user_access?username=ilike.${encodeURIComponent(uLower)}&select=email&limit=1`, {
+                headers: { apikey: sbKeyPre, Authorization: `Bearer ${sbKeyPre}` }
+              });
+              if (uCheck.ok) {
+                const uRows = await uCheck.json();
+                if (Array.isArray(uRows) && uRows.length > 0 && uRows[0].email) {
+                  email = uRows[0].email;
+                }
+              }
+              if (!email) {
+                const reqCheck = await fetch(`${cleanUrl}/rest/v1/account_requests?username=ilike.${encodeURIComponent(uLower)}&select=email&limit=1`, {
+                  headers: { apikey: sbKeyPre, Authorization: `Bearer ${sbKeyPre}` }
+                });
+                if (reqCheck.ok) {
+                  const reqRows = await reqCheck.json();
+                  if (Array.isArray(reqRows) && reqRows.length > 0 && reqRows[0].email) {
+                    email = reqRows[0].email;
+                  }
+                }
+              }
+            } catch {}
+          }
+          if (!email) {
+            email = `${uLower}@gaurxv.eu.org`;
+          }
         }
 
         // 2. Fetch Supabase configuration
@@ -1185,6 +1217,38 @@ export async function handle(request, env) {
         return json(result);
       } catch (e) {
         return json({ success: false, error: e.message || "Action failed." }, 400);
+      }
+    }
+  }
+
+  // 4B. Admin Account Permanent Deletion
+  if (path === "/api/admin/delete-account") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "POST, OPTIONS" } });
+    }
+    if (request.method === "POST") {
+      const authHeader = request.headers.get("Authorization") || "";
+      let token = authHeader.replace(/^Bearer\s+/i, "").trim();
+      const sbAuth = (request.headers.get("X-Supabase-Auth") || "").replace(/^Bearer\s+/i, "").trim();
+      const starkAuth = (request.headers.get("X-Stark-Token") || "").replace(/^Bearer\s+/i, "").trim();
+
+      let verified = await verifyAuthToken(token);
+      if (!verified && starkAuth) verified = await verifyAuthToken(starkAuth);
+      if (!verified && sbAuth) verified = await verifyAuthToken(sbAuth);
+
+      if (!verified || !verified.a) {
+        return json({ success: false, error: "Unauthorized: Admin clearance required" }, 403);
+      }
+      try {
+        const body = await request.json();
+        const result = await handleDeleteAccount({
+          targetUser: body.targetUser || body.username,
+          currentAdmin: verified.u,
+          env,
+        });
+        return json(result);
+      } catch (e) {
+        return json({ success: false, error: e.message || "Account deletion failed." }, 400);
       }
     }
   }

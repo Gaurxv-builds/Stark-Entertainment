@@ -37,7 +37,12 @@ export function resolveStarkUserToEmail(username: string): string {
   if (u.includes('@')) {
     return u;
   }
-  return `${u.replace(/[^a-z0-9_]/g, '')}@pepperonyx.dpdns.org`;
+  try {
+    const creds = getAllCredentials();
+    const match = creds.find((c) => c.username.toLowerCase() === u);
+    if ((match as any)?.email) return (match as any).email;
+  } catch {}
+  return `${u.replace(/[^a-z0-9_]/g, '')}@gaurxv.eu.org`;
 }
 
 /* ---------------- Web Crypto HMAC Helpers ---------------- */

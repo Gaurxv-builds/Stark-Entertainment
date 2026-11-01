@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   ShieldAlert,
   ShieldCheck,
@@ -92,12 +93,18 @@ export default function AdminPage() {
   const { isAdmin, user } = useStarkAuth()
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<'subscriptions' | 'credentials'>('subscriptions')
+  const [activeTab, setActiveTab] = useState<'subscriptions' | 'credentials' | 'requests'>('subscriptions')
+
+  // Permanent Account Deletion Modal State
+  const [deleteTarget, setDeleteTarget] = useState<UserAccessRecord | null>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [isDeletingUser, setIsDeletingUser] = useState(false)
 
   // Form inputs (Credentials Tab)
   const [newUsername, setNewUsername] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newDisplayName, setNewDisplayName] = useState('')
+  const [newEmail, setNewEmail] = useState('')
   const [showFormPassword, setShowFormPassword] = useState(false)
   const [usersList, setUsersList] = useState<Credential[]>(() => getAllCredentials())
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({})
@@ -368,6 +375,45 @@ export default function AdminPage() {
     }
   }
 
+  // Handle Permanent User Deletion
+  const handlePermanentDelete = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!deleteTarget) return
+    const cleanConfirm = deleteConfirmText.trim().replace(/^@/, '').toLowerCase()
+    if (cleanConfirm !== deleteTarget.username.toLowerCase()) {
+      toast(`Please type the exact username '${deleteTarget.username}' to confirm.`, 'error')
+      return
+    }
+
+    setIsDeletingUser(true)
+    try {
+      const headers = {
+        ...(await getAdminHeaders()),
+        'Content-Type': 'application/json',
+      }
+      const res = await fetch('/api/admin/delete-account', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ targetUser: deleteTarget.username }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast(`Account @${deleteTarget.username} permanently deleted.`, 'info')
+        deleteAnyUser(deleteTarget.username)
+        setUsersList(getAllCredentials())
+        setDeleteTarget(null)
+        setDeleteConfirmText('')
+        fetchSubscriptionData()
+      } else {
+        toast(data.error || 'Failed to delete account.', 'error')
+      }
+    } catch {
+      toast('Network error during account deletion.', 'error')
+    } finally {
+      setIsDeletingUser(false)
+    }
+  }
+
   // Credentials Tab Helpers
   const generateRandomKey = () => {
     const randomNum = Math.floor(1000 + Math.random() * 9000)
@@ -378,10 +424,11 @@ export default function AdminPage() {
     toast(`Generated passcode: ${key}`)
   }
 
-  const handleCreateUser = (e: FormEvent) => {
+  const handleCreateUser = async (e: FormEvent) => {
     e.preventDefault()
     const u = newUsername.trim()
     const p = newPassword.trim()
+    const em = newEmail.trim().toLowerCase()
     if (!u || !p) {
       toast('Please enter both a username and password')
       return
@@ -393,11 +440,29 @@ export default function AdminPage() {
       displayName: newDisplayName.trim() || u,
     })
 
+    if (em) {
+      try {
+        const headers = await getAdminHeaders()
+        await fetch('/api/admin/subscription/action', {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'set_policy',
+            targetUser: u,
+            policy: 'trial',
+            email: em,
+          }),
+        })
+      } catch {}
+    }
+
     setUsersList(getAllCredentials())
     setNewUsername('')
     setNewPassword('')
     setNewDisplayName('')
+    setNewEmail('')
     toast(`Created user clearance for @${u} ⎊`)
+    fetchSubscriptionData()
   }
 
   const handleDeleteUser = (username: string) => {
@@ -491,6 +556,24 @@ export default function AdminPage() {
             <span className="rounded-full bg-foreground/10 px-2 py-0.5 font-mono text-[10px]">
               {usersList.length}
             </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('requests')}
+            className={`inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-bold transition ${
+              activeTab === 'requests'
+                ? 'bg-accent text-accent-fg shadow-lg shadow-accent/20'
+                : 'text-muted hover:bg-card hover:text-foreground'
+            }`}
+          >
+            <UserPlus className="size-4" />
+            <span>Account Requests</span>
+            {accountRequests.length > 0 && (
+              <span className="flex size-5 items-center justify-center rounded-full bg-accent text-accent-fg font-mono text-[10px] font-black">
+                {accountRequests.length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -653,7 +736,7 @@ export default function AdminPage() {
               <div className="flex items-center justify-between border-b border-border pb-4">
                 <div>
                   <h2 className="font-display text-xl font-bold">User Access Policies</h2>
-                  <p className="text-xs text-muted">Configurable 30-min trial, lifetime free, custom duration, or ₹29 subscription</p>
+                  <p className="text-xs text-muted">Configurable 20-min trial, lifetime free, custom duration, or ₹29 subscription</p>
                 </div>
                 <span className="font-mono text-xs text-muted">{allUsersAccess.length} Users</span>
               </div>
@@ -727,11 +810,11 @@ export default function AdminPage() {
                               Lifetime
                             </button>
 
-                            {/* Set 30-Min Trial */}
+                            {/* Set 20-Min Trial */}
                             <button
                               type="button"
                               onClick={() => handleSetUserPolicy(acc.username, 'trial')}
-                              title="Assign 30-Minute Trial"
+                              title="Assign 20-Minute Trial"
                               className="rounded-lg border border-border bg-card px-2 py-1 text-[11px] font-semibold text-stark-300 hover:border-stark-400"
                             >
                               Trial
@@ -758,6 +841,24 @@ export default function AdminPage() {
                               }`}
                             >
                               {acc.is_suspended ? 'Restore' : 'Suspend'}
+                            </button>
+
+                            {/* Delete Permanently */}
+                            <button
+                              type="button"
+                              disabled={acc.username.toLowerCase() === 'gaurxv' || (Boolean(user) && acc.username.toLowerCase() === user.toLowerCase())}
+                              onClick={() => {
+                                setDeleteTarget(acc)
+                                setDeleteConfirmText('')
+                              }}
+                              title={
+                                acc.username.toLowerCase() === 'gaurxv' || (Boolean(user) && acc.username.toLowerCase() === user.toLowerCase())
+                                  ? 'Primary administrator cannot be deleted'
+                                  : 'Permanently Delete User Account'
+                              }
+                              className="rounded-lg border border-red-500/40 bg-red-500/10 px-2 py-1 text-[11px] font-semibold text-red-400 hover:bg-red-500/20 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              Delete
                             </button>
                           </div>
                         </td>
@@ -876,6 +977,19 @@ export default function AdminPage() {
                       value={newDisplayName}
                       onChange={(e) => setNewDisplayName(e.target.value)}
                       placeholder="e.g. Alex Stark"
+                      className="h-11 w-full rounded-2xl border border-border bg-background/60 px-3.5 text-sm font-medium outline-none transition focus:border-accent"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label className="text-xs font-semibold text-muted uppercase tracking-wider">
+                      Registered Email Address (Recommended)
+                    </label>
+                    <input
+                      type="email"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="e.g. alex@gmail.com"
                       className="h-11 w-full rounded-2xl border border-border bg-background/60 px-3.5 text-sm font-medium outline-none transition focus:border-accent"
                     />
                   </div>
@@ -1018,7 +1132,188 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* ====================================================================
+         * TAB 3: ACCOUNT REQUESTS DIRECTORY & PROVISIONING
+         * ==================================================================== */}
+        {activeTab === 'requests' && (
+          <div className="space-y-6">
+            <section className="rounded-3xl border border-border bg-card/80 p-6 shadow-xl backdrop-blur-xl sm:p-8">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="grid size-10 place-items-center rounded-2xl bg-accent/15 text-accent ring-1 ring-accent/30">
+                    <UserPlus className="size-5" />
+                  </div>
+                  <div>
+                    <h2 className="font-display text-xl font-bold">Account Access Requests Queue</h2>
+                    <p className="text-xs text-muted">Review, provision credentials, and verify ₹29 paid plan submissions</p>
+                  </div>
+                </div>
+                <span className="font-mono text-xs font-bold text-accent rounded-full bg-accent/15 px-3 py-1">
+                  {accountRequests.length} Total Requests
+                </span>
+              </div>
+
+              {accountRequests.length === 0 ? (
+                <div className="py-12 text-center space-y-2">
+                  <CheckCircle2 className="mx-auto size-10 text-emerald-400" />
+                  <p className="text-sm font-semibold text-white">No Pending Account Requests</p>
+                  <p className="text-xs text-muted">All incoming account applications have been processed.</p>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-3">
+                  {accountRequests.map((req) => (
+                    <div
+                      key={req.id}
+                      className="flex flex-col gap-4 rounded-2xl border border-border/80 bg-background/60 p-4 sm:flex-row sm:items-center sm:justify-between text-xs"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-sm">@{req.username}</span>
+                          <span className="text-muted">({req.email})</span>
+                          {req.full_name && (
+                            <span className="rounded-md bg-foreground/10 px-2 py-0.5 text-[10px] text-gray-300">
+                              {req.full_name}
+                            </span>
+                          )}
+                          <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">
+                            {req.status}
+                          </span>
+                        </div>
+                        {req.note && (
+                          <p className="text-muted italic bg-foreground/[0.03] rounded-lg p-2 max-w-xl">
+                            &ldquo;{req.note}&rdquo;
+                          </p>
+                        )}
+                        <span className="text-[10px] font-mono text-gray-500">
+                          Submitted: {new Date(req.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewUsername(req.username)
+                            setNewDisplayName(req.full_name || req.username)
+                            setNewEmail(req.email)
+                            setActiveTab('credentials')
+                            generateRandomKey()
+                          }}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-accent px-4 font-bold text-accent-fg active:scale-95 shadow-md shadow-accent/20"
+                        >
+                          <UserPlus className="size-3.5" />
+                          <span>Issue Credentials</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
       </div>
+
+      {/* PERMANENT ACCOUNT DELETION CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {deleteTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg rounded-3xl border border-red-500/40 bg-[#0e0f18] p-6 sm:p-8 shadow-2xl text-left space-y-5"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex size-12 items-center justify-center rounded-2xl bg-red-500/15 text-red-400 ring-1 ring-red-500/30">
+                  <Trash2 className="size-6" />
+                </div>
+                <div>
+                  <h3 className="font-display text-xl font-black text-white">Permanently Delete Account</h3>
+                  <p className="text-xs text-muted">Irreversible administrator action on Gaurxv Verse</p>
+                </div>
+              </div>
+
+              {/* Target Account Summary */}
+              <div className="rounded-2xl border border-border/80 bg-background/60 p-4 space-y-2 text-xs">
+                <div className="flex items-center justify-between text-muted">
+                  <span>Username</span>
+                  <strong className="text-white text-sm font-bold">@{deleteTarget.username}</strong>
+                </div>
+                <div className="flex items-center justify-between text-muted">
+                  <span>Registered Email</span>
+                  <span className="font-mono text-gray-200">{deleteTarget.email || 'No email registered'}</span>
+                </div>
+                <div className="flex items-center justify-between text-muted">
+                  <span>User ID</span>
+                  <span className="font-mono text-[11px] text-gray-400 select-all">{deleteTarget.user_id || deleteTarget.id}</span>
+                </div>
+                <div className="flex items-center justify-between text-muted">
+                  <span>Current Access Policy</span>
+                  <span className="font-bold text-accent uppercase text-[11px]">{deleteTarget.access_policy}</span>
+                </div>
+                <div className="flex items-center justify-between text-muted">
+                  <span>Status</span>
+                  <span className={deleteTarget.is_suspended ? 'text-red-400 font-bold' : 'text-emerald-400 font-bold'}>
+                    {deleteTarget.is_suspended ? 'Suspended' : 'Active'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Danger Warning Alert Box */}
+              <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-xs text-red-200 space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-red-400">
+                  <AlertCircle className="size-4 shrink-0" />
+                  <span>Warning: Permanent Deletion Cannot Be Undone</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-red-200/80">
+                  All user-owned data including profile details, watchlist, reading progress, preferences, cloud settings, and login credentials will be permanently erased.
+                </p>
+              </div>
+
+              {/* Confirmation Input Form */}
+              <form onSubmit={handlePermanentDelete} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-300">
+                    Type <strong className="text-white font-mono">@{deleteTarget.username}</strong> or <strong className="text-white font-mono">{deleteTarget.username}</strong> to confirm:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value.trim().replace(/^@/, ''))}
+                    placeholder={`Type ${deleteTarget.username} to confirm`}
+                    className="h-11 w-full rounded-xl border border-red-500/40 bg-background/80 px-3.5 text-xs font-mono text-white outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteTarget(null)
+                      setDeleteConfirmText('')
+                    }}
+                    className="flex-1 h-11 rounded-xl border border-border bg-card px-4 text-xs font-semibold text-muted hover:text-foreground active:scale-95"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isDeletingUser || deleteConfirmText.toLowerCase() !== deleteTarget.username.toLowerCase()}
+                    className="flex-1 h-11 inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-xs font-bold text-white shadow-lg shadow-red-600/25 hover:bg-red-500 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="size-4" />
+                    <span>{isDeletingUser ? 'Deleting Account...' : 'Permanently Delete Account'}</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </main>
   )
 }

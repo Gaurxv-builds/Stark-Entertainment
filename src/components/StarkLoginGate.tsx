@@ -1,12 +1,31 @@
 import { createElement, useEffect, useState, type FormEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { User, KeyRound, Lock, Unlock, Eye, EyeOff, ShieldCheck, AlertCircle, ArrowRight, Mail, UserPlus, HelpCircle, X, CheckCircle2 } from 'lucide-react'
+import {
+  User,
+  KeyRound,
+  Lock,
+  Unlock,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  AlertCircle,
+  ArrowRight,
+  Mail,
+  UserPlus,
+  HelpCircle,
+  X,
+  CheckCircle2,
+  Sparkles,
+  ExternalLink,
+  CreditCard,
+} from 'lucide-react'
 import { BRAND_NAME, BRAND_SYMBOL } from '../lib/brand'
 import { checkAndImportSyncPayload, syncCredentialsWithCloud } from '../lib/starkAuth'
 import { AuroraBackground } from './AuroraBackground'
 import { BorderBeam } from './BorderBeam'
 import { DotPattern } from './DotPattern'
 import { Logo } from './Logo'
+import { AppTourModal } from './AppTourModal'
 import { toast } from '../lib/toast'
 
 interface StarkLoginGateProps {
@@ -40,6 +59,7 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
   // Modals
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [showRecoverModal, setShowRecoverModal] = useState(false)
+  const [showTourModal, setShowTourModal] = useState(false)
 
   // Request form state
   const [reqUsername, setReqUsername] = useState('')
@@ -73,7 +93,25 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
 
   const handleRequestSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!reqUsername || !reqEmail) return
+    const cleanU = reqUsername.trim()
+    const cleanE = reqEmail.trim().toLowerCase()
+    const cleanName = reqFullName.trim()
+
+    if (!cleanU || !cleanE || !cleanName) {
+      toast('Full Name, Preferred Username, and Email Address are required.')
+      return
+    }
+
+    if (!/^[a-zA-Z0-9_]{3,24}$/.test(cleanU)) {
+      toast('Username must be 3-24 characters containing only letters, numbers, or underscores.')
+      return
+    }
+
+    if (!cleanE.includes('@') || !cleanE.includes('.')) {
+      toast('Please enter a valid email address.')
+      return
+    }
+
     setReqSubmitting(true)
 
     try {
@@ -81,16 +119,16 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username: reqUsername,
-          email: reqEmail,
-          fullName: reqFullName,
-          note: reqNote,
+          username: cleanU,
+          email: cleanE,
+          fullName: cleanName,
+          note: reqNote.trim(),
         }),
       })
       const data = await res.json()
       if (res.ok && data.success) {
         setReqSuccess(true)
-        toast('Account request dispatched to Telegram Bot!')
+        toast('Account request dispatched to Administrator Bot!')
       } else {
         toast(data.error || 'Failed to submit request.')
       }
@@ -266,32 +304,51 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
           </button>
         </form>
 
-        {/* Account Request & Recovery Buttons */}
-        <div className="mt-6 border-t border-border/60 pt-4 space-y-2">
-          <div className="flex items-center justify-between text-xs text-muted">
-            <span>New user or need access?</span>
+        {/* New User Clearance: Primary Request Account CTA & Secondary Tour CTA */}
+        <div className="mt-6 border-t border-border/60 pt-4 space-y-3">
+          <div className="space-y-1 text-center">
             <button
               type="button"
               onClick={() => {
                 setReqSuccess(false)
                 setShowRequestModal(true)
               }}
-              className="inline-flex items-center gap-1 font-semibold text-accent hover:underline"
+              className="group relative flex w-full items-center justify-between gap-2 rounded-2xl border border-accent/40 bg-accent/15 px-4 py-3 text-xs font-bold text-accent transition-all duration-200 hover:border-accent hover:bg-accent hover:text-accent-fg active:scale-[0.98] shadow-md shadow-accent/10"
             >
-              <UserPlus className="size-3.5" />
-              <span>Request Account</span>
+              <div className="flex items-center gap-2">
+                <UserPlus className="size-4 shrink-0 transition-transform group-hover:scale-110" />
+                <span className="font-display tracking-wide font-black uppercase">Request Account &bull; Paid Plan</span>
+              </div>
+              <span className="rounded-full bg-accent/25 px-2.5 py-0.5 font-mono text-[11px] font-black group-hover:bg-accent-fg/20 group-hover:text-accent-fg">
+                ₹29 / 30 Days
+              </span>
             </button>
+            <p className="text-[11px] text-muted">
+              30-day all-access clearance &bull; Verified manual UPI activation
+            </p>
           </div>
 
-          <a
-            href="https://payments.gaurxv.eu.org"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2.5 text-center text-xs font-semibold text-accent transition hover:border-accent hover:bg-accent hover:text-accent-fg active:scale-[0.98]"
-          >
-            <ShieldCheck className="size-3.5 shrink-0" />
-            <span className="text-center">Subscription &amp; Payment Portal (payments.gaurxv.eu.org)</span>
-          </a>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowTourModal(true)}
+              className="flex-1 flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card/60 px-3 text-xs font-semibold text-muted transition hover:bg-card hover:text-foreground active:scale-95"
+            >
+              <Sparkles className="size-3.5 text-accent" />
+              <span>Explore App / Take a Tour</span>
+            </button>
+            <a
+              href="https://payments.gaurxv.eu.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-border/80 bg-card/40 px-3 text-xs font-semibold text-muted transition hover:bg-card hover:text-accent active:scale-95"
+              title="Open Subscription & Payment Portal"
+            >
+              <ShieldCheck className="size-3.5 text-accent" />
+              <span className="text-center font-semibold text-[11px]">Portal</span>
+              <ExternalLink className="size-3" />
+            </a>
+          </div>
         </div>
       </motion.div>
 
@@ -315,7 +372,7 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
 
               <div className="flex items-center gap-2 text-accent font-mono text-xs font-bold uppercase tracking-wider mb-2">
                 <UserPlus className="size-4" />
-                <span>Request Access Clearance</span>
+                <span>Request Account Clearance &bull; ₹29 Paid Plan</span>
               </div>
               <h2 className="font-display text-xl font-black text-white">Join Stark Entertainment</h2>
               <p className="mt-1 text-xs text-muted">
@@ -323,26 +380,82 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
               </p>
 
               {reqSuccess ? (
-                <div className="my-6 text-center space-y-3">
+                <div className="my-6 space-y-4">
                   <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
                     <CheckCircle2 className="size-6" />
                   </div>
-                  <h3 className="font-bold text-white text-base">Request Dispatched!</h3>
-                  <p className="text-xs text-muted max-w-xs mx-auto">
-                    Your request was sent directly to the administrator's Telegram bot. You will receive an email once your account credentials are generated.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowRequestModal(false)}
-                    className="inline-flex h-10 items-center justify-center rounded-xl bg-accent px-6 text-xs font-bold text-accent-fg"
-                  >
-                    Close
-                  </button>
+                  <div className="text-center">
+                    <h3 className="font-bold text-white text-base">Account Request Dispatched!</h3>
+                    <p className="text-xs text-muted max-w-xs mx-auto mt-1">
+                      Your details have been transmitted directly to the administrator.
+                    </p>
+                  </div>
+
+                  {/* Submission Summary Card */}
+                  <div className="rounded-2xl border border-border/80 bg-background/70 p-3.5 space-y-2 text-xs">
+                    <div className="flex items-center justify-between text-muted">
+                      <span>Full Name</span>
+                      <strong className="text-white">{reqFullName}</strong>
+                    </div>
+                    <div className="flex items-center justify-between text-muted">
+                      <span>Username</span>
+                      <strong className="text-accent">@{reqUsername}</strong>
+                    </div>
+                    <div className="flex items-center justify-between text-muted">
+                      <span>Email</span>
+                      <strong className="text-white">{reqEmail}</strong>
+                    </div>
+                    <div className="flex items-center justify-between text-muted">
+                      <span>Pass Plan</span>
+                      <span className="font-bold text-emerald-400">₹29 / 30 Days</span>
+                    </div>
+                  </div>
+
+                  {/* Payment Next Step */}
+                  <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200/90 space-y-2">
+                    <p className="font-semibold text-amber-300">Next Step: Complete Payment</p>
+                    <p className="text-[11px] leading-relaxed text-amber-100/80">
+                      To activate your 30-day clearance, open the Payment Portal, complete the ₹29 UPI transfer, and upload your screenshot.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-2 pt-1">
+                    <a
+                      href={`https://payments.gaurxv.eu.org/?user=${encodeURIComponent(reqUsername)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent font-bold text-xs text-accent-fg shadow-lg shadow-accent/20 transition hover:brightness-110 active:scale-95"
+                    >
+                      <CreditCard className="size-4" />
+                      <span>Open Payment Portal (payments.gaurxv.eu.org)</span>
+                      <ExternalLink className="size-3.5" />
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowRequestModal(false)}
+                      className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-border text-xs font-semibold text-muted hover:text-foreground"
+                    >
+                      Back to Login Gate
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <form onSubmit={handleRequestSubmit} className="mt-4 space-y-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted">Desired Username *</label>
+                    <label className="text-xs font-semibold text-muted">Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={reqFullName}
+                      onChange={(e) => setReqFullName(e.target.value)}
+                      placeholder="Tony Stark"
+                      className="h-10 w-full rounded-xl border border-border bg-background px-3 text-xs outline-none focus:border-accent"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted">Preferred Username *</label>
                     <input
                       type="text"
                       required
@@ -354,24 +467,13 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted">Your Email *</label>
+                    <label className="text-xs font-semibold text-muted">Email Address *</label>
                     <input
                       type="email"
                       required
                       value={reqEmail}
                       onChange={(e) => setReqEmail(e.target.value)}
                       placeholder="name@example.com"
-                      className="h-10 w-full rounded-xl border border-border bg-background px-3 text-xs outline-none focus:border-accent"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted">Full Name</label>
-                    <input
-                      type="text"
-                      value={reqFullName}
-                      onChange={(e) => setReqFullName(e.target.value)}
-                      placeholder="Your name"
                       className="h-10 w-full rounded-xl border border-border bg-background px-3 text-xs outline-none focus:border-accent"
                     />
                   </div>
@@ -393,7 +495,7 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
                       disabled={reqSubmitting}
                       className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-accent font-bold text-xs text-accent-fg hover:brightness-110 active:scale-95 disabled:opacity-50"
                     >
-                      {reqSubmitting ? 'Transmitting to Admin...' : 'Transmit Account Request ⎊'}
+                      {reqSubmitting ? 'Transmitting to Admin...' : 'Transmit Account Request (₹29 Plan) ⎊'}
                     </button>
                   </div>
                 </form>
@@ -402,6 +504,17 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
           </div>
         )}
       </AnimatePresence>
+
+      {/* INTERACTIVE TOUR MODAL */}
+      <AppTourModal
+        isOpen={showTourModal}
+        onClose={() => setShowTourModal(false)}
+        onRequestAccount={() => {
+          setShowTourModal(false)
+          setReqSuccess(false)
+          setShowRequestModal(true)
+        }}
+      />
 
       {/* FORGOT PASSWORD MODAL */}
       <AnimatePresence>

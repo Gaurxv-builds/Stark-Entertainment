@@ -406,8 +406,10 @@ export async function getUserEntitlement(usernameOrEmail, env) {
     };
   }
 
-  // Look up user_access record
-  const queryParam = ident.includes("@") ? `email=eq.${encodeURIComponent(ident)}` : `username=eq.${encodeURIComponent(ident)}`;
+  // Look up user_access record (case-insensitive for username)
+  const queryParam = ident.includes("@")
+    ? `email=ilike.${encodeURIComponent(ident)}`
+    : `username=ilike.${encodeURIComponent(ident)}`;
   let userRecord = null;
 
   try {
@@ -420,14 +422,37 @@ export async function getUserEntitlement(usernameOrEmail, env) {
     console.warn("[Supabase] user_access query error:", e.message);
   }
 
-  // If no record exists, create default 30-minute trial starting on first login
+  // If no record exists in user_access, check account_requests for registered email
+  let resolvedEmail = ident.includes("@") ? ident : "";
+  let resolvedName = "";
+  if (!userRecord && !ident.includes("@")) {
+    try {
+      const reqRes = await sbFetch(
+        `account_requests?username=ilike.${encodeURIComponent(ident)}&order=created_at.desc&limit=1`,
+        {},
+        env
+      );
+      if (reqRes.ok) {
+        const rows = await reqRes.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          if (rows[0].email) resolvedEmail = rows[0].email;
+          if (rows[0].full_name) resolvedName = rows[0].full_name;
+        }
+      }
+    } catch (e) {
+      console.warn("[Supabase] account_requests lookup error:", e.message);
+    }
+  }
+
+  // If no record exists, create default 20-minute trial starting on first login
   if (!userRecord) {
     const now = new Date();
-    const trialExpiry = new Date(now.getTime() + 30 * 60 * 1000); // 30 mins
+    const trialExpiry = new Date(now.getTime() + 20 * 60 * 1000); // 20 mins trial duration
+    const finalEmail = resolvedEmail || (ident.includes("@") ? ident : `${ident.toLowerCase()}@gaurxv.eu.org`);
     const newRecord = {
       user_id: ident,
       username: ident.includes("@") ? ident.split("@")[0] : ident,
-      email: ident.includes("@") ? ident : `${ident}@pepperonyx.dpdns.org`,
+      email: finalEmail,
       access_policy: "trial",
       trial_started_at: now.toISOString(),
       trial_expires_at: trialExpiry.toISOString(),
@@ -863,7 +888,206 @@ export async function handleAdminSubscriptionAction(payload, adminUser, env) {
     return { success: true, message: `User @${user} ${suspend ? "suspended" : "restored"}.` };
   }
 
+  if (action === "delete_user") {
+    return await handleDeleteAccount({
+      targetUser: targetUser || username,
+      currentAdmin,
+      env,
+    });
+  }
+
   throw new Error(`Unknown action: ${action}`);
+}
+
+/* ---------------- Account Permanent Deletion Engine ---------------- */
+export async function handleDeleteAccount({ targetUser, currentAdmin, env }) {
+  const user = String(targetUser || "").trim();
+  if (!user) {
+    throw new Error("Target username is required for permanent account deletion.");
+  }
+  const userLower = user.toLowerCase();
+
+  // Guard: Protect primary administrator (@gaurxv) from deletion
+  if (
+    userLower === "gaurxv" ||
+    userLower === "admin" ||
+    userLower === "gaurav" ||
+    userLower === "gaurav@pepperonyx.dpdns.org"
+  ) {
+    throw new Error("Action Forbidden: Cannot delete primary administrator account (@gaurxv).");
+  }
+
+  // Guard: Prevent an administrator from deleting their own active account
+  if (currentAdmin && userLower === String(currentAdmin).toLowerCase()) {
+    throw new Error("Action Forbidden: Administrators cannot delete their own active account.");
+  }
+
+  // 1. Look up user_access record to determine canonical user_id and registered email
+  let userId = user;
+  let userEmail = "";
+  let userPolicy = "";
+  try {
+    const uRes = await sbFetch(
+      `user_access?username=ilike.${encodeURIComponent(user)}&select=*&limit=1`,
+      {},
+      env
+    );
+    if (uRes.ok) {
+      const uRows = await uRes.json();
+      if (Array.isArray(uRows) && uRows.length > 0) {
+        userId = uRows[0].user_id || user;
+        userEmail = uRows[0].email || "";
+        userPolicy = uRows[0].access_policy || "";
+      }
+    }
+  } catch (err) {
+    console.warn("[DeleteAccount] user_access lookup error:", err.message);
+  }
+
+  // 2. Cascade permanent deletion across all user-owned application tables
+  const deletionErrors = [];
+
+  // Table: user_access
+  try {
+    await sbFetch(`user_access?username=ilike.${encodeURIComponent(user)}`, { method: "DELETE" }, env);
+  } catch (e) {
+    deletionErrors.push(`user_access: ${e.message}`);
+  }
+
+  // Table: user_profiles
+  try {
+    await sbFetch(`user_profiles?username=ilike.${encodeURIComponent(user)}`, { method: "DELETE" }, env);
+    if (userId && userId !== user) {
+      await sbFetch(`user_profiles?id=eq.${encodeURIComponent(userId)}`, { method: "DELETE" }, env);
+    }
+  } catch (e) {
+    deletionErrors.push(`user_profiles: ${e.message}`);
+  }
+
+  // Table: user_library
+  try {
+    await sbFetch(`user_library?user_id=eq.${encodeURIComponent(user)}`, { method: "DELETE" }, env);
+    if (userId && userId !== user) {
+      await sbFetch(`user_library?user_id=eq.${encodeURIComponent(userId)}`, { method: "DELETE" }, env);
+    }
+  } catch (e) {
+    deletionErrors.push(`user_library: ${e.message}`);
+  }
+
+  // Table: user_reading_progress
+  try {
+    await sbFetch(`user_reading_progress?user_id=eq.${encodeURIComponent(user)}`, { method: "DELETE" }, env);
+    if (userId && userId !== user) {
+      await sbFetch(`user_reading_progress?user_id=eq.${encodeURIComponent(userId)}`, { method: "DELETE" }, env);
+    }
+  } catch (e) {
+    deletionErrors.push(`user_reading_progress: ${e.message}`);
+  }
+
+  // Table: user_preferences
+  try {
+    await sbFetch(`user_preferences?user_id=eq.${encodeURIComponent(user)}`, { method: "DELETE" }, env);
+    if (userId && userId !== user) {
+      await sbFetch(`user_preferences?user_id=eq.${encodeURIComponent(userId)}`, { method: "DELETE" }, env);
+    }
+  } catch (e) {
+    deletionErrors.push(`user_preferences: ${e.message}`);
+  }
+
+  // Table: user_settings
+  try {
+    await sbFetch(`user_settings?user_id=eq.${encodeURIComponent(user)}`, { method: "DELETE" }, env);
+    if (userId && userId !== user) {
+      await sbFetch(`user_settings?user_id=eq.${encodeURIComponent(userId)}`, { method: "DELETE" }, env);
+    }
+  } catch (e) {
+    deletionErrors.push(`user_settings: ${e.message}`);
+  }
+
+  // Table: account_requests
+  try {
+    await sbFetch(`account_requests?username=ilike.${encodeURIComponent(user)}`, { method: "DELETE" }, env);
+  } catch (e) {
+    deletionErrors.push(`account_requests: ${e.message}`);
+  }
+
+  // 3. Remove user credentials from STARK_KV if configured
+  if (env && env.STARK_KV) {
+    try {
+      const raw = await env.STARK_KV.get("stark_users");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((c) => c.username?.toLowerCase() !== userLower);
+          await env.STARK_KV.put("stark_users", JSON.stringify(filtered));
+        }
+      }
+    } catch (e) {
+      console.warn("[DeleteAccount] STARK_KV cleanup warning:", e.message);
+    }
+  }
+
+  // 4. Supabase Auth identity deletion (if user exists in auth.users and service role is present)
+  const { url } = getSbConfig(env);
+  const serviceKey =
+    (env && env.SUPABASE_SERVICE_ROLE_KEY) ||
+    (typeof process !== "undefined" && process.env && process.env.SUPABASE_SERVICE_ROLE_KEY) ||
+    "";
+  if (serviceKey && userId && userId.length === 36 && userId.includes("-")) {
+    try {
+      await fetch(`${url}/auth/v1/admin/users/${userId}`, {
+        method: "DELETE",
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+        },
+      });
+    } catch (e) {
+      console.warn("[DeleteAccount] Supabase Auth admin delete warning:", e.message);
+    }
+  }
+
+  // 5. Financial compliance: Preserve payment_proofs and record irreversible deletion in admin_audit_logs
+  try {
+    await sbFetch("admin_audit_logs", {
+      method: "POST",
+      body: JSON.stringify({
+        admin_user: currentAdmin || "gaurxv",
+        target_user: user,
+        action: "delete_user",
+        details: JSON.stringify({
+          deleted_user: user,
+          user_id: userId,
+          email: userEmail,
+          policy: userPolicy,
+          timestamp: new Date().toISOString(),
+          partial_errors: deletionErrors.length > 0 ? deletionErrors : undefined,
+        }),
+      }),
+    }, env);
+  } catch (e) {
+    console.warn("[DeleteAccount] admin_audit_logs error:", e.message);
+  }
+
+  // Alert Telegram bot of account deletion
+  try {
+    const alertMsg =
+`🗑️ *ACCOUNT PERMANENTLY DELETED*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Deleted User:* \`@${user}\`
+🆔 *User ID:* \`${userId}\`
+📧 *Email:* \`${userEmail || "None"}\`
+🛡️ *Deleted By:* \`@${currentAdmin || "gaurxv"}\`
+📅 *Timestamp:* ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+━━━━━━━━━━━━━━━━━━━━
+All profile, library, reading progress, preferences, and settings records were permanently expunged.`;
+    await sendTelegramMessage(alertMsg);
+  } catch {}
+
+  return {
+    success: true,
+    message: `Account @${user} permanently deleted. All user-owned records and credentials removed.`,
+  };
 }
 
 /* ---------------- Account Requests & Recovery ---------------- */
