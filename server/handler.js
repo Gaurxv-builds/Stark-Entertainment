@@ -869,7 +869,7 @@ export async function handle(request, env) {
                 }
               }
               if (!email) {
-                const reqCheck = await fetch(`${cleanUrl}/rest/v1/account_requests?username=ilike.${encodeURIComponent(uLower)}&select=email&limit=1`, {
+                const reqCheck = await fetch(`${cleanUrl}/rest/v1/account_requests?or=(username.ilike.${encodeURIComponent(uLower)},full_name.ilike.${encodeURIComponent(uLower)})&order=created_at.desc&select=email&limit=1`, {
                   headers: { apikey: sbKeyPre, Authorization: `Bearer ${sbKeyPre}` }
                 });
                 if (reqCheck.ok) {
@@ -881,9 +881,7 @@ export async function handle(request, env) {
               }
             } catch {}
           }
-          if (!email) {
-            email = `${uLower}@gaurxv.eu.org`;
-          }
+          // STRICT RULE: NEVER synthesize @gaurxv.eu.org or artificial email for normal users
         }
 
         // 2. Fetch Supabase configuration

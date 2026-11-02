@@ -43,6 +43,7 @@ export async function sendTelegramMessage(text, options = {}) {
   const chatId = options.chatId || TELEGRAM_ADMIN_CHAT_ID;
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
+      const disablePreview = options.disableWebPagePreview !== undefined ? options.disableWebPagePreview : true;
       const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Connection: "close" },
@@ -51,6 +52,8 @@ export async function sendTelegramMessage(text, options = {}) {
           text,
           parse_mode: options.parseMode || "Markdown",
           reply_markup: options.replyMarkup,
+          disable_web_page_preview: disablePreview,
+          link_preview_options: { is_disabled: disablePreview },
         }),
       });
       const data = await res.json();
@@ -65,6 +68,8 @@ export async function sendTelegramMessage(text, options = {}) {
             chat_id: chatId,
             text: text.replace(/[*_`\[\]()]/g, ""),
             reply_markup: options.replyMarkup,
+            disable_web_page_preview: disablePreview,
+            link_preview_options: { is_disabled: disablePreview },
           }),
         });
         const plainData = await plainRes.json();
@@ -428,7 +433,7 @@ export async function getUserEntitlement(usernameOrEmail, env) {
   if (!userRecord && !ident.includes("@")) {
     try {
       const reqRes = await sbFetch(
-        `account_requests?username=ilike.${encodeURIComponent(ident)}&order=created_at.desc&limit=1`,
+        `account_requests?or=(username.ilike.${encodeURIComponent(ident)},full_name.ilike.${encodeURIComponent(ident)},email.ilike.${encodeURIComponent(ident)})&order=created_at.desc&limit=1`,
         {},
         env
       );
@@ -437,6 +442,21 @@ export async function getUserEntitlement(usernameOrEmail, env) {
         if (Array.isArray(rows) && rows.length > 0) {
           if (rows[0].email) resolvedEmail = rows[0].email;
           if (rows[0].full_name) resolvedName = rows[0].full_name;
+
+          // Check if user_access already has a record under the canonical email or username
+          const canonicalEmail = rows[0].email;
+          const canonicalUser = rows[0].username;
+          const matchUa = await sbFetch(
+            `user_access?or=(email.ilike.${encodeURIComponent(canonicalEmail)},username.ilike.${encodeURIComponent(canonicalUser)})&select=*&limit=1`,
+            {},
+            env
+          );
+          if (matchUa.ok) {
+            const uaRows = await matchUa.json();
+            if (Array.isArray(uaRows) && uaRows.length > 0) {
+              userRecord = uaRows[0];
+            }
+          }
         }
       }
     } catch (e) {
@@ -444,11 +464,25 @@ export async function getUserEntitlement(usernameOrEmail, env) {
     }
   }
 
-  // If no record exists, create default 20-minute trial starting on first login
+  // If no record exists, verify personal email before provisioning a trial
   if (!userRecord) {
+    // STRICT REQUIREMENT: NEVER synthesize artificial domain emails (@gaurxv.eu.org).
+    // If no verified personal email is known, deny access without polluting database.
+    if (!resolvedEmail && !ident.includes("@")) {
+      return {
+        hasAccess: false,
+        policy: "subscription_required",
+        isExpired: true,
+        isSuspended: false,
+        remainingSeconds: 0,
+        username: ident,
+        message: "No active access clearance found. Please request an account or sign in.",
+      };
+    }
+
     const now = new Date();
     const trialExpiry = new Date(now.getTime() + 20 * 60 * 1000); // 20 mins trial duration
-    const finalEmail = resolvedEmail || (ident.includes("@") ? ident : `${ident.toLowerCase()}@gaurxv.eu.org`);
+    const finalEmail = resolvedEmail || ident;
     const newRecord = {
       user_id: ident,
       username: ident.includes("@") ? ident.split("@")[0] : ident,
@@ -850,10 +884,33 @@ export async function handleAdminSubscriptionAction(payload, adminUser, env) {
       updateData.custom_expires_at = new Date(Date.now() + numDays * 24 * 60 * 60 * 1000).toISOString();
     }
 
-    await sbFetch(`user_access?username=eq.${encodeURIComponent(user)}`, {
+    if (payload?.email && String(payload.email).includes("@")) {
+      updateData.email = String(payload.email).trim().toLowerCase();
+    }
+
+    const patchRes = await sbFetch(`user_access?username=eq.${encodeURIComponent(user)}`, {
       method: "PATCH",
+      headers: { Prefer: "return=representation" },
       body: JSON.stringify(updateData),
     }, env);
+
+    // If user does not yet exist in user_access, insert new row
+    let patchRows = [];
+    if (patchRes.ok) {
+      try { patchRows = await patchRes.json(); } catch {}
+    }
+    if (!Array.isArray(patchRows) || patchRows.length === 0) {
+      await sbFetch("user_access", {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: user,
+          username: user,
+          email: updateData.email || null,
+          ...updateData,
+          is_suspended: false,
+        }),
+      }, env);
+    }
 
     await sbFetch("admin_audit_logs", {
       method: "POST",
@@ -1267,7 +1324,7 @@ export async function handleTelegramWebhook(update, env) {
         let userEmail = "";
         let fullName = "";
         try {
-          const reqRes = await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}&order=created_at.desc&limit=1`, {}, env);
+          const reqRes = await sbFetch(`account_requests?or=(username.ilike.${encodeURIComponent(targetUser)},full_name.ilike.${encodeURIComponent(targetUser)})&order=created_at.desc&limit=1`, {}, env);
           if (reqRes.ok) {
             const rows = await reqRes.json();
             if (Array.isArray(rows) && rows.length > 0) {
@@ -1277,7 +1334,20 @@ export async function handleTelegramWebhook(update, env) {
           }
         } catch {}
 
-        if (!userEmail) userEmail = `${targetUser}@gaurxv.eu.org`;
+        if (!userEmail) {
+          try {
+            const uCheck = await sbFetch(`user_access?username=ilike.${encodeURIComponent(targetUser)}&select=email,user_id&limit=1`, {}, env);
+            if (uCheck.ok) {
+              const uRows = await uCheck.json();
+              if (Array.isArray(uRows) && uRows[0]?.email) userEmail = uRows[0].email;
+            }
+          } catch {}
+        }
+
+        // STRICT REQUIREMENT: NEVER synthesize @gaurxv.eu.org or artificial project domain emails.
+        if (!userEmail) {
+          throw new Error(`Cannot approve request: No personal email found for @${targetUser}.`);
+        }
 
         // Update Supabase account_requests
         try {
@@ -1368,9 +1438,9 @@ export async function handleTelegramWebhook(update, env) {
         let fullName = "";
         let passcode = "";
 
-        // Look up user details in account_requests
+        // Look up user details in account_requests or user_access
         try {
-          const reqRes = await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}&order=created_at.desc&limit=1`, {}, env);
+          const reqRes = await sbFetch(`account_requests?or=(username.ilike.${encodeURIComponent(targetUser)},full_name.ilike.${encodeURIComponent(targetUser)})&order=created_at.desc&limit=1`, {}, env);
           if (reqRes.ok) {
             const rows = await reqRes.json();
             if (Array.isArray(rows) && rows.length > 0) {
@@ -1380,6 +1450,16 @@ export async function handleTelegramWebhook(update, env) {
             }
           }
         } catch {}
+
+        if (!userEmail) {
+          try {
+            const uCheck = await sbFetch(`user_access?username=ilike.${encodeURIComponent(targetUser)}&select=email&limit=1`, {}, env);
+            if (uCheck.ok) {
+              const uRows = await uCheck.json();
+              if (Array.isArray(uRows) && uRows[0]?.email) userEmail = uRows[0].email;
+            }
+          } catch {}
+        }
 
         if (!passcode && env && env.STARK_KV) {
           try {
@@ -1399,7 +1479,7 @@ export async function handleTelegramWebhook(update, env) {
           passcode = `stark-${Math.random().toString(36).slice(2, 6)}-${Math.random().toString(36).slice(2, 6)}`;
         }
         if (!userEmail) {
-          userEmail = `${targetUser}@gaurxv.eu.org`;
+          throw new Error(`Cannot send credentials: No personal email on file for @${targetUser}.`);
         }
 
         const emailHtml = `
@@ -1636,7 +1716,7 @@ Interactive controls for subscriptions, payment approvals & account credentials!
       let userEmail = "";
       let fullName = "";
       try {
-        const reqRes = await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}&order=created_at.desc&limit=1`, {}, env);
+        const reqRes = await sbFetch(`account_requests?or=(username.ilike.${encodeURIComponent(targetUser)},full_name.ilike.${encodeURIComponent(targetUser)})&order=created_at.desc&limit=1`, {}, env);
         if (reqRes.ok) {
           const rows = await reqRes.json();
           if (Array.isArray(rows) && rows.length > 0) {
@@ -1646,7 +1726,20 @@ Interactive controls for subscriptions, payment approvals & account credentials!
         }
       } catch {}
 
-      if (!userEmail) userEmail = `${targetUser}@gaurxv.eu.org`;
+      if (!userEmail) {
+        try {
+          const uCheck = await sbFetch(`user_access?username=ilike.${encodeURIComponent(targetUser)}&select=email&limit=1`, {}, env);
+          if (uCheck.ok) {
+            const uRows = await uCheck.json();
+            if (Array.isArray(uRows) && uRows[0]?.email) userEmail = uRows[0].email;
+          }
+        } catch {}
+      }
+
+      if (!userEmail) {
+        await sendTelegramMessage(`⚠️ *Provisioning Failed:* No personal email found for \`@${targetUser}\`. Users must submit their personal email via the Request Account form first.`, { chatId });
+        return { ok: true };
+      }
 
       try {
         await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}`, {
@@ -1703,7 +1796,7 @@ Interactive controls for subscriptions, payment approvals & account credentials!
       let passcode = "";
 
       try {
-        const reqRes = await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}&order=created_at.desc&limit=1`, {}, env);
+        const reqRes = await sbFetch(`account_requests?or=(username.ilike.${encodeURIComponent(targetUser)},full_name.ilike.${encodeURIComponent(targetUser)})&order=created_at.desc&limit=1`, {}, env);
         if (reqRes.ok) {
           const rows = await reqRes.json();
           if (Array.isArray(rows) && rows.length > 0) {
@@ -1714,8 +1807,21 @@ Interactive controls for subscriptions, payment approvals & account credentials!
         }
       } catch {}
 
+      if (!userEmail) {
+        try {
+          const uCheck = await sbFetch(`user_access?username=ilike.${encodeURIComponent(targetUser)}&select=email&limit=1`, {}, env);
+          if (uCheck.ok) {
+            const uRows = await uCheck.json();
+            if (Array.isArray(uRows) && uRows[0]?.email) userEmail = uRows[0].email;
+          }
+        } catch {}
+      }
+
       if (!passcode) passcode = `stark-${Math.random().toString(36).slice(2, 6)}-${Math.random().toString(36).slice(2, 6)}`;
-      if (!userEmail) userEmail = `${targetUser}@gaurxv.eu.org`;
+      if (!userEmail) {
+        await sendTelegramMessage(`⚠️ *Email Delivery Failed:* No personal email found for \`@${targetUser}\`.`, { chatId });
+        return { ok: true };
+      }
 
       const emailHtml = `
         <div style="font-family:'Segoe UI',system-ui,sans-serif;background:#050508;color:#f1f5f9;padding:36px 24px;border-radius:18px;max-width:560px;margin:auto;border:1px solid rgba(255,255,255,0.1);">

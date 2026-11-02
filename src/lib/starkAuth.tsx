@@ -42,7 +42,8 @@ export function resolveStarkUserToEmail(username: string): string {
     const match = creds.find((c) => c.username.toLowerCase() === u);
     if ((match as any)?.email) return (match as any).email;
   } catch {}
-  return `${u.replace(/[^a-z0-9_]/g, '')}@gaurxv.eu.org`;
+  // STRICT RULE: Never synthesize artificial project-domain emails
+  return '';
 }
 
 /* ---------------- Web Crypto HMAC Helpers ---------------- */

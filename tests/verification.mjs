@@ -313,17 +313,23 @@ test('Feature One: Permanent Account Deletion Engine & Safeguards', () => {
   assert(adminContent.includes('deleteConfirmText'), 'AdminPage must require typing username to confirm');
 });
 
-// 17. Feature Two: Canonical Email Preservation & Domain Replacement Guard
-test('Feature Two: Canonical Email Preservation & Domain Replacement Guard', () => {
+// 17. Feature Two: Canonical Personal Email Preservation & Zero Domain Synthesis Guard
+test('Feature Two: Canonical Personal Email Preservation & Zero Domain Synthesis Guard', () => {
   const authContent = fs.readFileSync('src/lib/starkAuth.tsx', 'utf8');
   assert(!authContent.includes("return `${u.replace(/[^a-z0-9_]/g, '')}@pepperonyx.dpdns.org`"), 'starkAuth must never synthesize pepperonyx domain for normal users');
+  assert(!authContent.includes("@gaurxv.eu.org`"), 'starkAuth must never synthesize gaurxv.eu.org domain for normal users');
 
   const subContent = fs.readFileSync('server/subscription.js', 'utf8');
   assert(!subContent.includes("`${ident}@pepperonyx.dpdns.org`"), 'subscription.js must never synthesize pepperonyx domain for normal users');
-  assert(subContent.includes('account_requests?username=ilike.'), 'subscription.js must lookup canonical email from account_requests before default');
+  assert(!subContent.includes("@gaurxv.eu.org`"), 'subscription.js must never synthesize gaurxv.eu.org domain for normal users');
+  assert(subContent.includes('account_requests?or=('), 'subscription.js must lookup canonical personal email from account_requests across username and full_name');
 
   const handlerContent = fs.readFileSync('server/handler.js', 'utf8');
   assert(!handlerContent.includes("`${uLower.replace(/[^a-z0-9_]/g, \"\")}@pepperonyx.dpdns.org`"), 'handler.js must never synthesize pepperonyx domain for normal users');
+  assert(!handlerContent.includes("email = `${uLower}@gaurxv.eu.org`"), 'handler.js must never synthesize gaurxv.eu.org domain for normal users');
+
+  const syncContent = fs.readFileSync('src/lib/cloudSync.ts', 'utf8');
+  assert(!syncContent.includes("@gaurxv.eu.org`"), 'cloudSync.ts must never synthesize gaurxv.eu.org domain');
 });
 
 // 18. Feature Three: Settings Cloud Sync & Status Reporting

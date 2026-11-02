@@ -177,7 +177,7 @@ export async function diagnoseCloudSync(): Promise<CloudSyncDiagnostics> {
 
     // Determine canonical user ID and user email
     let userId = sessionData?.session?.user?.id || starkUser
-    let userEmail = sessionData?.session?.user?.email?.toLowerCase() || `${starkUser}@gaurxv.eu.org`
+    let userEmail = sessionData?.session?.user?.email?.toLowerCase() || ''
 
     // Verify token validity against Supabase Auth service if active
     if (sessionData?.session?.user) {
