@@ -12,7 +12,7 @@
 
 [![Repository](https://img.shields.io/badge/GitHub-Stark--Entertainment-00E5FF?style=for-the-badge&logo=github)](https://github.com/Gaurxv-builds/Stark-Entertainment)
 [![Branch](https://img.shields.io/badge/Branch-stark--features-7c3aed?style=for-the-badge&logo=git)](https://github.com/Gaurxv-builds/Stark-Entertainment/tree/stark-features)
-[![Latest Release](https://img.shields.io/badge/Release-v2.4.0-00E5FF?style=for-the-badge&logo=github)](https://github.com/Gaurxv-builds/Stark-Entertainment/releases)
+[![Latest Release](https://img.shields.io/badge/Release-v2.5.0-00E5FF?style=for-the-badge&logo=github)](https://github.com/Gaurxv-builds/Stark-Entertainment/releases)
 [![Upstream](https://img.shields.io/badge/Upstream-Zenkai-8b949e?style=for-the-badge&logo=git)](https://github.com/Bortus-AI/Zenkai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-00E5FF?style=for-the-badge)](LICENSE)
 
@@ -119,6 +119,7 @@ Every meaningful development milestone from platform genesis to present has been
 
 | Tag | Date | Type | Release Title & Highlights | Commit |
 | :--- | :--- | :--- | :--- | :--- |
+| [**v2.5.0**](https://github.com/Gaurxv-builds/Stark-Entertainment/releases/tag/v2.5.0) | 2026-11-03 | Minor | **Automated GitHub Releases & CI/CD Pipeline**<br>Autonomous GitHub Actions auto-release workflow (`auto-release.yml`), SemVer commit classifier and changelog generator (`scripts/generate-release.mjs`), and comprehensive documentation sync. | [`bda49fb`](https://github.com/Gaurxv-builds/Stark-Entertainment/commit/bda49fb) |
 | [**v2.4.0**](https://github.com/Gaurxv-builds/Stark-Entertainment/releases/tag/v2.4.0) | 2026-11-03 | Minor | **Automated Account Requests & Brevo Email Invitations**<br>Interactive Telegram bot account approval, in-chat policy selection, Brevo transactional email invitation engine, and `/auth/setup-password` user setup flow. | [`4cf56cd`](https://github.com/Gaurxv-builds/Stark-Entertainment/commit/4cf56cd) |
 | [**v2.3.1**](https://github.com/Gaurxv-builds/Stark-Entertainment/releases/tag/v2.3.1) | 2026-11-02 | Patch | **Personal Email Identity Protection**<br>Strict canonical personal email preservation across Supabase Auth, profiles, policies, and gate; elimination of synthetic domain emails. | [`4a37b2c`](https://github.com/Gaurxv-builds/Stark-Entertainment/commit/4a37b2c) |
 | [**v2.3.0**](https://github.com/Gaurxv-builds/Stark-Entertainment/releases/tag/v2.3.0) | 2026-11-02 | Minor | **Account Deletion, Cloud Settings & App Tour**<br>Permanent account deletion with two-step confirmation, settings cloud sync resolution, Stark Gate redesign, and 6-pillar interactive app tour. | [`1bba771`](https://github.com/Gaurxv-builds/Stark-Entertainment/commit/1bba771) |
