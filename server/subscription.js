@@ -207,6 +207,7 @@ export async function sendBrevoEmail({ to, subject, htmlContent }) {
       },
       body: JSON.stringify({
         sender: BREVO_SENDER,
+        replyTo: { name: "Gaurxv Verse Support", email: "work@gaurxv.eu.org" },
         to: Array.isArray(to) ? to : [to],
         subject,
         htmlContent,
