@@ -1,0 +1,25 @@
+changelog:
+  categories:
+    - title: "Major Changes"
+      labels:
+        - "breaking"
+        - "major"
+        - "architecture"
+    - title: "New Features"
+      labels:
+        - "feature"
+        - "enhancement"
+        - "feat"
+    - title: "Minor Bug Fixes & Improvements"
+      labels:
+        - "bug"
+        - "fix"
+        - "improvement"
+        - "performance"
+        - "security"
+        - "refactor"
+        - "style"
+  exclude:
+    labels:
+      - "ignore-for-release"
+      - "chore"

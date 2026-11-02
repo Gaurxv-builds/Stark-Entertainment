@@ -1,0 +1,88 @@
+name: Automated GitHub Release
+
+on:
+  push:
+    branches:
+      - stark-features
+    paths-ignore:
+      - '**.md'
+      - '.vscode/**'
+      - '.github/release.yml'
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release bump type override'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+      prerelease:
+        description: 'Publish as pre-release'
+        required: false
+        default: false
+        type: boolean
+      custom_title:
+        description: 'Optional release subtitle (e.g. Platform Genesis)'
+        required: false
+        default: ''
+        type: string
+
+concurrency:
+  group: auto-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, Verify & Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run verification test suite
+        run: npm test
+
+      - name: Build production application
+        run: npm run build
+
+      - name: Calculate version & generate release notes
+        id: generator
+        env:
+          INPUT_RELEASE_TYPE: ${{ github.event.inputs.release_type || 'auto' }}
+          INPUT_PRERELEASE: ${{ github.event.inputs.prerelease || 'false' }}
+          INPUT_CUSTOM_TITLE: ${{ github.event.inputs.custom_title || '' }}
+        run: node scripts/generate-release.mjs
+
+      - name: Publish GitHub Release
+        if: steps.generator.outputs.should_release == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXTRA_FLAGS=""
+          if [ "${{ github.event.inputs.prerelease }}" = "true" ]; then
+            EXTRA_FLAGS="--prerelease"
+          fi
+          gh release create "${{ steps.generator.outputs.tag_name }}" \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.generator.outputs.release_title }}" \
+            --notes-file release-notes.md \
+            $EXTRA_FLAGS

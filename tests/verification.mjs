@@ -430,5 +430,43 @@ test('Feature Seven: Automated Brevo Invitation System & Password Setup Flow', (
   assert(migrationContent.includes('invitation_token'), 'SQL migration must add invitation_token column');
 });
 
+// 23. GitHub Actions Release Automation & CI/CD Configuration
+test('Feature Eight: GitHub Actions Auto-Release Workflow & Release Configuration', () => {
+  const workflowPath = '.github/workflows/auto-release.yml';
+  assert(fs.existsSync(workflowPath), 'auto-release.yml must exist');
+  const workflowContent = fs.readFileSync(workflowPath, 'utf8');
+  assert(workflowContent.includes('branches:\n      - stark-features'), 'Workflow must trigger on stark-features branch');
+  assert(workflowContent.includes('paths-ignore:'), 'Workflow must ignore markdown and documentation updates');
+  assert(workflowContent.includes('workflow_dispatch:'), 'Workflow must support manual workflow_dispatch');
+  assert(workflowContent.includes('release_type:'), 'Workflow must accept release_type input');
+  assert(workflowContent.includes('concurrency:'), 'Workflow must define concurrency control');
+  assert(workflowContent.includes('npm test'), 'Workflow must execute test suite before release');
+  assert(workflowContent.includes('npm run build'), 'Workflow must execute production build before release');
+  assert(workflowContent.includes('scripts/generate-release.mjs'), 'Workflow must execute release generator script');
+  assert(workflowContent.includes('gh release create'), 'Workflow must publish release via GitHub CLI');
+
+  const releaseYmlPath = '.github/release.yml';
+  assert(fs.existsSync(releaseYmlPath), 'release.yml must exist');
+  const releaseYmlContent = fs.readFileSync(releaseYmlPath, 'utf8');
+  assert(releaseYmlContent.includes('Major Changes'), 'release.yml must define Major Changes category');
+  assert(releaseYmlContent.includes('New Features'), 'release.yml must define New Features category');
+  assert(releaseYmlContent.includes('Minor Bug Fixes & Improvements'), 'release.yml must define Minor Bug Fixes category');
+
+  const scriptPath = 'scripts/generate-release.mjs';
+  assert(fs.existsSync(scriptPath), 'generate-release.mjs must exist');
+  const scriptContent = fs.readFileSync(scriptPath, 'utf8');
+  assert(scriptContent.includes('git describe --tags'), 'Generator script must query git tags');
+  assert(scriptContent.includes('Minor Bug Fixes & Improvements'), 'Generator script must format minor updates');
+  assert(scriptContent.includes('release-notes.md'), 'Generator script must write release-notes.md');
+
+  const readmeContent = fs.readFileSync('README.md', 'utf8');
+  assert(readmeContent.includes('Stark Entertainment / Gaurxv Verse'), 'README must title project');
+  assert(readmeContent.includes('docs/banner.jpg'), 'README must feature official 1200x630 banner');
+  assert(readmeContent.includes('The Six Pillars of Verse'), 'README must detail 6 pillars');
+  assert(readmeContent.includes('Permanent Account Deletion'), 'README must document account deletion');
+  assert(readmeContent.includes('Personal Email Identity Protection'), 'README must document email protection');
+  assert(readmeContent.includes('Release History'), 'README must document release history');
+});
+
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`)
 if (failed > 0) process.exit(1)
