@@ -21,6 +21,33 @@ UPDATE public.account_requests
 SET request_reference = 'REQ-' || UPPER(SUBSTRING(id::text FROM 1 FOR 8)) 
 WHERE request_reference IS NULL;
 
+-- 2. Update status constraint to allow full invitation lifecycle
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'account_requests_status_check') THEN
+    ALTER TABLE public.account_requests DROP CONSTRAINT account_requests_status_check;
+  END IF;
+
+  ALTER TABLE public.account_requests ADD CONSTRAINT account_requests_status_check 
+    CHECK (status IN (
+      'pending', 
+      'pending_review', 
+      'approved_policy_pending', 
+      'invite_sent', 
+      'invite_accepted', 
+      'invitation_expired', 
+      'approved', 
+      'rejected'
+    ));
+END $$;
+
+-- 3. RLS Policies: Allow UPDATE and DELETE for account_requests
+DROP POLICY IF EXISTS "Public account_requests update" ON public.account_requests;
+CREATE POLICY "Public account_requests update" ON public.account_requests FOR UPDATE USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public account_requests delete" ON public.account_requests;
+CREATE POLICY "Public account_requests delete" ON public.account_requests FOR DELETE USING (true);
+
 -- Function: complete_user_invitation
 -- Securely activates an invited user with their chosen password, synchronizes auth.users, user_profiles, user_access, and user_settings.
 CREATE OR REPLACE FUNCTION public.complete_user_invitation(

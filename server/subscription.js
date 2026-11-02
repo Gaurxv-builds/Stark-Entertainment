@@ -1424,6 +1424,17 @@ export async function finalizeAccountPolicyAndInvite({ reqId, policy, customDays
   const fullName = String(req.full_name || req.username).trim();
   const reqRef = req.request_reference || "REQ-" + req.id.substring(0, 8).toUpperCase();
 
+  // Guard against duplicate email sends unless explicit admin resend
+  if ((req.status === "invite_sent" || req.status === "invite_accepted") && (!adminUser || !String(adminUser).includes("Resend"))) {
+    return {
+      success: true,
+      alreadySent: true,
+      message: `Invitation already sent previously to ${personalEmail}.`,
+      token: req.invitation_token,
+      setupUrl: `https://verse.gaurxv.eu.org/auth/setup-password?token=${encodeURIComponent(req.invitation_token || "")}`,
+    };
+  }
+
   // 1. Generate cryptographically secure single-use invitation token
   const invitationToken = "stark_inv_" + (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).substring(2)) + "_" + Math.random().toString(36).substring(2, 10);
   const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(); // 48-hour expiration window
@@ -1737,6 +1748,15 @@ export async function handleTelegramWebhook(update, env) {
       try {
         const req = await findAccountRequest(targetId, env);
         if (!req) throw new Error("Account request not found.");
+
+        if (req.status === "invite_sent" || req.status === "invite_accepted") {
+          await answerTelegramCallbackQuery(cb.id, `⚠️ Account @${req.username} is already approved and invitation was sent.`, true);
+          return { ok: true, action: "already_approved" };
+        }
+
+        if (req.status === "rejected") {
+          await answerTelegramCallbackQuery(cb.id, `⚠️ Notice: Request for @${req.username} was previously marked rejected.`, true);
+        }
 
         await sbFetch(`account_requests?id=eq.${req.id}`, {
           method: "PATCH",
@@ -2189,6 +2209,24 @@ The user has been emailed a secure link to create their password.`;
       try {
         const req = await findAccountRequest(targetId, env);
         if (!req) throw new Error("Account request not found.");
+
+        if (req.status === "rejected") {
+          await answerTelegramCallbackQuery(cb.id, `⚠️ Request for @${req.username} was already rejected.`);
+          if (cb.message) {
+            const chatId = cb.message.chat.id;
+            const messageId = cb.message.message_id;
+            const original = cb.message.caption || cb.message.text || "";
+            if (!original.includes("ALREADY REJECTED")) {
+              const updated = `${original}\n\n⚠️ *ALREADY REJECTED PREVIOUSLY*`;
+              if (cb.message.caption !== undefined) {
+                await editTelegramMessageCaption(chatId, messageId, updated, cb.message.reply_markup);
+              } else {
+                await editTelegramMessageText(chatId, messageId, updated, cb.message.reply_markup);
+              }
+            }
+          }
+          return { ok: true, action: "already_rejected" };
+        }
 
         await sbFetch(`account_requests?id=eq.${req.id}`, {
           method: "PATCH",
