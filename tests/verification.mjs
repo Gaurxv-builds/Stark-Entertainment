@@ -349,14 +349,16 @@ test('Feature Three: Settings Cloud Sync & Accurate Sync Status', () => {
 // 19. Feature Four & Five: Stark Gate Redesign & Account Request Workflow
 test('Feature Four & Five: Stark Gate Redesign & Account Request Workflow', () => {
   const gateContent = fs.readFileSync('src/components/StarkLoginGate.tsx', 'utf8');
-  assert(gateContent.includes('Request Account') && gateContent.includes('Paid Plan'), 'Gate must have primary Request Account • Paid Plan CTA');
-  assert(gateContent.includes('₹29 / 30 Days'), 'Gate must display ₹29 / 30 Days badge');
-  assert(gateContent.includes('Explore App / Take a Tour'), 'Gate must have secondary Explore App / Take a Tour CTA');
-  assert(gateContent.includes('Account Request Dispatched!'), 'Gate must show post-submission screen');
-  assert(gateContent.includes('https://payments.gaurxv.eu.org/?user='), 'Gate must provide direct link to payment portal post-submission');
+  assert(gateContent.includes('Request Account'), 'Gate must have Request Account CTA');
+  assert(gateContent.includes('Subscription &amp; Payment Portal'), 'Gate must display centered Subscription & Payment Portal');
+  assert(gateContent.includes('Explore Application / Take an Interactive Tour'), 'Gate must have Explore App / Take a Tour CTA');
+  assert(gateContent.includes('REQUEST SUBMITTED SUCCESSFULLY!'), 'Gate must show Section 12 confirmation popup');
+  assert(gateContent.includes('PLEASE CHECK YOUR EMAIL REGULARLY.'), 'Gate must show check email subtitle');
+  assert(gateContent.includes('6-Hour Response Window'), 'Gate must include 6-hour warning');
+  assert(gateContent.includes('Important Spam Folder Guidance'), 'Gate must provide spam folder guidance');
 
   const adminContent = fs.readFileSync('src/pages/AdminPage.tsx', 'utf8');
-  assert(adminContent.includes('Account Requests Queue'), 'AdminPage must have dedicated Account Requests Queue tab');
+  assert(adminContent.includes('Account Access Requests'), 'AdminPage must have Account Access Requests section');
 });
 
 // 20. Feature Six: Application Preview / Interactive Tour
@@ -391,6 +393,41 @@ test('Trial duration standardized to 20 minutes across codebase', () => {
 
   const adminContent = fs.readFileSync('src/pages/AdminPage.tsx', 'utf8');
   assert(adminContent.includes('20-min trial'), 'AdminPage must describe 20-min trial');
+});
+
+// 22. Automated Account Request, Telegram Admin Approval & Brevo Email Invitation System
+test('Feature Seven: Automated Brevo Invitation System & Password Setup Flow', () => {
+  assert(fs.existsSync('src/pages/PasswordSetupPage.tsx'), 'PasswordSetupPage.tsx must exist');
+  const setupContent = fs.readFileSync('src/pages/PasswordSetupPage.tsx', 'utf8');
+  assert(setupContent.includes('/api/auth/invitation-info'), 'PasswordSetupPage must fetch invitation info');
+  assert(setupContent.includes('/api/auth/setup-password'), 'PasswordSetupPage must call setup-password endpoint');
+  assert(setupContent.includes('min-h-svh'), 'PasswordSetupPage must follow full-viewport layout');
+
+  const appContent = fs.readFileSync('src/App.tsx', 'utf8');
+  assert(appContent.includes('/auth/setup-password'), 'App.tsx must route /auth/setup-password before unauthenticated login gate');
+  assert(appContent.includes('PasswordSetupPage'), 'App.tsx must load PasswordSetupPage');
+
+  const handlerContent = fs.readFileSync('server/handler.js', 'utf8');
+  assert(handlerContent.includes('/api/auth/invitation-info'), 'handler.js must route /api/auth/invitation-info');
+  assert(handlerContent.includes('/api/auth/setup-password'), 'handler.js must route /api/auth/setup-password');
+  assert(handlerContent.includes('getInvitationInfo'), 'handler.js must import getInvitationInfo');
+  assert(handlerContent.includes('completePasswordSetup'), 'handler.js must import completePasswordSetup');
+
+  const subContent = fs.readFileSync('server/subscription.js', 'utf8');
+  assert(subContent.includes('finalizeAccountPolicyAndInvite'), 'subscription.js must export finalizeAccountPolicyAndInvite');
+  assert(subContent.includes('resendAccountInvitation'), 'subscription.js must export resendAccountInvitation');
+  assert(subContent.includes('getInvitationInfo'), 'subscription.js must export getInvitationInfo');
+  assert(subContent.includes('completePasswordSetup'), 'subscription.js must export completePasswordSetup');
+  assert(subContent.includes('approve_req:'), 'Telegram webhook must support approve_req callback');
+  assert(subContent.includes('policy_trial:'), 'Telegram webhook must support policy_trial callback');
+  assert(subContent.includes('policy_lifetime:'), 'Telegram webhook must support policy_lifetime callback');
+  assert(subContent.includes('policy_sub:'), 'Telegram webhook must support policy_sub callback');
+  assert(subContent.includes('policy_custom:'), 'Telegram webhook must support policy_custom callback');
+  assert(subContent.includes('link_preview_options: { is_disabled: disablePreview }'), 'Telegram messages must disable link previews');
+
+  const migrationContent = fs.readFileSync('supabase/migrations/20261103_automated_account_invitation_system.sql', 'utf8');
+  assert(migrationContent.includes('complete_user_invitation'), 'SQL migration must define complete_user_invitation function');
+  assert(migrationContent.includes('invitation_token'), 'SQL migration must add invitation_token column');
 });
 
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`)

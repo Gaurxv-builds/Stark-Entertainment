@@ -953,6 +953,69 @@ export async function handleAdminSubscriptionAction(payload, adminUser, env) {
     });
   }
 
+  if (action === "approve_account_request") {
+    const reqId = payload.reqId || payload.requestId || proofId;
+    if (!reqId) throw new Error("Missing request ID to approve.");
+    return await finalizeAccountPolicyAndInvite({
+      reqId,
+      policy: policy || "trial",
+      customDays: days || null,
+      env,
+      adminUser: currentAdmin,
+    });
+  }
+
+  if (action === "resend_account_invite") {
+    const reqId = payload.reqId || payload.requestId || proofId;
+    if (!reqId) throw new Error("Missing request ID to resend invite.");
+    return await resendAccountInvitation({
+      reqId,
+      env,
+      adminUser: currentAdmin,
+    });
+  }
+
+  if (action === "reject_account_request") {
+    const reqId = payload.reqId || payload.requestId || proofId;
+    if (!reqId) throw new Error("Missing request ID to reject.");
+    const req = await findAccountRequest(reqId, env);
+    if (!req) throw new Error("Account request not found.");
+
+    await sbFetch(`account_requests?id=eq.${req.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        status: "rejected",
+        rejection_reason: reason || "Administrator declined clearance request.",
+        reviewed_by: currentAdmin,
+        reviewed_at: new Date().toISOString(),
+      }),
+    }, env);
+
+    if (req.email) {
+      try {
+        await sendBrevoEmail({
+          to: { email: req.email, name: req.full_name || req.username },
+          subject: "Gaurxv Verse — Account Request Status Update",
+          htmlContent: `
+            <div style="font-family:'Segoe UI',system-ui,sans-serif;background:#050508;color:#f1f5f9;padding:32px 20px;border-radius:16px;max-width:540px;margin:auto;border:1px solid rgba(239,68,68,0.3);">
+              <h2 style="color:#ef4444;margin-top:0;">Access Clearance Update</h2>
+              <p style="font-size:14px;color:#cbd5e1;line-height:1.6;">
+                Hello <strong>${req.full_name || req.username}</strong>,<br><br>
+                Thank you for your interest in Stark Entertainment. At this time, the administrator was unable to grant access clearance for request <code>${req.request_reference || req.id}</code>.
+              </p>
+              ${reason ? `<p style="font-size:13px;color:#94a3b8;"><strong>Reason:</strong> ${reason}</p>` : ""}
+              <p style="font-size:12px;color:#94a3b8;margin-top:20px;">
+                If you believe this is an error or have questions, contact us directly at <a href="mailto:work@gaurxv.eu.org" style="color:#38bdf8;">work@gaurxv.eu.org</a>.
+              </p>
+            </div>
+          `,
+        });
+      } catch {}
+    }
+
+    return { success: true, message: `Request for @${req.username} rejected.` };
+  }
+
   throw new Error(`Unknown action: ${action}`);
 }
 
@@ -1147,51 +1210,138 @@ All profile, library, reading progress, preferences, and settings records were p
   };
 }
 
-/* ---------------- Account Requests & Recovery ---------------- */
+/* ---------------- In-Memory Bot State for Custom Duration ---------------- */
+const adminBotStates = new Map();
+
+/* ---------------- Account Requests & Automated Invitations ---------------- */
 export async function handleAccountRequest({ username, email, fullName, note, env }) {
   const u = String(username || "").trim();
   const em = String(email || "").trim().toLowerCase();
   const name = String(fullName || "").trim();
   const msg = String(note || "").trim();
 
-  if (!u || !em) throw new Error("Username and email are required.");
+  if (!u || !em) throw new Error("Username and personal email are required.");
 
+  // Validation: Email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(em)) {
+    throw new Error("Invalid email format. Please provide your real personal email address.");
+  }
+
+  // Validation: Username format (3 to 30 characters, alphanumeric & underscore)
+  const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/;
+  if (!usernameRegex.test(u)) {
+    throw new Error("Username must be between 3 and 30 characters (letters, numbers, underscores only).");
+  }
+
+  // 1. Check for existing active accounts in user_access
   try {
-    await sbFetch("account_requests", {
+    const uaRes = await sbFetch(
+      `user_access?or=(email.ilike.${encodeURIComponent(em)},username.ilike.${encodeURIComponent(u)})&select=id,username,email,access_policy&limit=1`,
+      {},
+      env
+    );
+    if (uaRes.ok) {
+      const uaRows = await uaRes.json();
+      if (Array.isArray(uaRows) && uaRows.length > 0) {
+        throw new Error(
+          "An active account with this username or email already exists. Please sign in via the Stark Security Gate or request password recovery."
+        );
+      }
+    }
+  } catch (err) {
+    if (err.message && err.message.includes("already exists")) throw err;
+  }
+
+  // 2. Check for duplicate pending requests
+  try {
+    const dupRes = await sbFetch(
+      `account_requests?or=(email.ilike.${encodeURIComponent(em)},username.ilike.${encodeURIComponent(u)})&status=in.(pending_review,approved_policy_pending,invite_sent)&select=id,status,request_reference&limit=1`,
+      {},
+      env
+    );
+    if (dupRes.ok) {
+      const dupRows = await dupRes.json();
+      if (Array.isArray(dupRows) && dupRows.length > 0) {
+        throw new Error(
+          `A pending request (${dupRows[0].request_reference || "Active"}) already exists for this username or email. Please check your inbox or wait for administrator review.`
+        );
+      }
+    }
+  } catch (err) {
+    if (err.message && err.message.includes("already exists")) throw err;
+  }
+
+  // 3. Generate unique request reference
+  const requestReference = "REQ-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+
+  let insertedId = "";
+  try {
+    const insertRes = await sbFetch("account_requests", {
       method: "POST",
-      body: JSON.stringify({ username: u, email: em, full_name: name, note: msg, status: "pending" }),
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        request_reference: requestReference,
+        username: u,
+        email: em,
+        full_name: name || u,
+        note: msg,
+        status: "pending_review",
+        payment_status: "unpaid",
+        created_at: new Date().toISOString(),
+      }),
     }, env);
+    if (insertRes.ok) {
+      const insertedRows = await insertRes.json();
+      if (Array.isArray(insertedRows) && insertedRows[0]) {
+        insertedId = insertedRows[0].id;
+      }
+    }
   } catch (err) {
     console.warn("[Account Request] Supabase insert warning:", err?.message || err);
   }
 
-  // Alert admin on Telegram with One-Tap Action Buttons
+  const targetReqId = insertedId || u;
+
+  // 4. Alert administrator on Telegram with formatted card & actionable inline buttons
+  const formattedTime = new Date().toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
   const tgAlert = 
 `🔔 *NEW ACCOUNT REQUEST*
 ━━━━━━━━━━━━━━━━━━━━
-👤 *Username:* \`@${u}\`
-📛 *Name:* ${name || "Not provided"}
-📧 *Email:* \`${em}\`
+👤 *Name:* ${name || "Not provided"}
+🆔 *Username:* \`@${u}\`
+📧 *Personal Email:* \`${em}\`
 📝 *Note:* ${msg || "No note"}
+🔖 *Request ID:* \`${requestReference}\`
+🕒 *Submitted:* \`${formattedTime}\`
 ━━━━━━━━━━━━━━━━━━━━
-👉 Tap *[⚡ Approve & Generate Passcode]* to provision login credentials instantly.`;
+👉 *Admin Action Required:*
+Tap *[ ⚡ Approve Request ]* to choose access clearance type & dispatch Brevo invitation.`;
 
   const inlineKeyboard = {
     inline_keyboard: [
       [
-        { text: "⚡ Approve & Generate Passcode", callback_data: `approve_req:${u}` },
-        { text: "❌ Reject", callback_data: `reject_req:${u}` },
+        { text: "⚡ Approve Request", callback_data: `approve_req:${targetReqId}` },
+        { text: "❌ Reject", callback_data: `reject_req:${targetReqId}` },
       ],
       [
-        { text: "🔍 Open Admin Console", url: "https://verse.gaurxv.eu.org/admin" },
+        { text: "🔍 View Details", callback_data: `view_req:${targetReqId}` },
+        { text: "🛡️ Open Admin Console", url: "https://verse.gaurxv.eu.org/admin" },
       ],
     ],
   };
 
-  // Crucial: await sendTelegramMessage so background isolate on Cloudflare does not terminate
   await sendTelegramMessage(tgAlert, { replyMarkup: inlineKeyboard });
 
-  // Acknowledge user via Brevo
+  // 5. Acknowledge user via Brevo
   try {
     await sendBrevoEmail({
       to: { email: em, name: name || u },
@@ -1203,12 +1353,15 @@ export async function handleAccountRequest({ username, email, fullName, note, en
             <p style="font-size:12px;color:#94a3b8;margin:0;letter-spacing:1.5px;text-transform:uppercase;">Access Clearance Request Received</p>
           </div>
           <div style="background:#0c0d16;border:1px solid rgba(56,189,248,0.2);border-radius:12px;padding:20px;margin-bottom:20px;">
-            <p style="font-size:14px;margin:0 0 12px 0;">Hello <strong>@${u}</strong>,</p>
+            <p style="font-size:14px;margin:0 0 12px 0;">Hello <strong>${name || "@" + u}</strong>,</p>
             <p style="font-size:13px;line-height:1.6;color:#cbd5e1;margin:0 0 12px 0;">
-              Your request for an administrator-approved account on <strong>Gaurxv Verse</strong> has been transmitted directly to the administrator's Telegram bot.
+              Your request for an administrator-approved account on <strong>Gaurxv Verse</strong> has been securely received (Reference: <code>${requestReference}</code>).
             </p>
-            <p style="font-size:13px;line-height:1.6;color:#cbd5e1;margin:0;">
-              Once approved, your clearance passcode will be generated and dispatched to this email address.
+            <p style="font-size:13px;line-height:1.6;color:#cbd5e1;margin:0 0 12px 0;">
+              Once your request is approved by the administrator, you will receive a secure password-setup invitation email right here at <strong>${em}</strong>.
+            </p>
+            <p style="font-size:12px;line-height:1.5;color:#94a3b8;margin:0;">
+              <em>Notice:</em> If you don't receive an update within 6 hours, please reach out via Telegram at <a href="https://t.me/pepperonyx" style="color:#38bdf8;">@pepperonyx</a> or email <a href="mailto:work@gaurxv.eu.org" style="color:#38bdf8;">work@gaurxv.eu.org</a>.
             </p>
           </div>
         </div>
@@ -1216,7 +1369,270 @@ export async function handleAccountRequest({ username, email, fullName, note, en
     });
   } catch {}
 
-  return { success: true, message: "Account request submitted successfully." };
+  return {
+    success: true,
+    message: "Account request submitted successfully.",
+    requestReference,
+  };
+}
+
+/* ---------------- Helper: Lookup Account Request by ID or Username ---------------- */
+async function findAccountRequest(identifier, env) {
+  if (!identifier) return null;
+  const clean = String(identifier).trim();
+  // 1. Try by UUID id
+  if (clean.length === 36 && clean.includes("-")) {
+    try {
+      const res = await sbFetch(`account_requests?id=eq.${encodeURIComponent(clean)}&select=*&limit=1`, {}, env);
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows[0]) return rows[0];
+      }
+    } catch {}
+  }
+  // 2. Try by request_reference
+  if (clean.startsWith("REQ-")) {
+    try {
+      const res = await sbFetch(`account_requests?request_reference=eq.${encodeURIComponent(clean)}&select=*&limit=1`, {}, env);
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows[0]) return rows[0];
+      }
+    } catch {}
+  }
+  // 3. Try by username
+  try {
+    const res = await sbFetch(`account_requests?username=ilike.${encodeURIComponent(clean)}&order=created_at.desc&limit=1`, {}, env);
+    if (res.ok) {
+      const rows = await res.json();
+      if (Array.isArray(rows) && rows[0]) return rows[0];
+    }
+  } catch {}
+  return null;
+}
+
+/* ---------------- Finalize Account Policy & Dispatch Brevo Invitation ---------------- */
+export async function finalizeAccountPolicyAndInvite({ reqId, policy, customDays, env, adminUser }) {
+  const req = await findAccountRequest(reqId, env);
+  if (!req) {
+    throw new Error(`Account request not found: ${reqId}`);
+  }
+
+  const personalEmail = String(req.email).trim().toLowerCase();
+  const username = String(req.username).trim();
+  const fullName = String(req.full_name || req.username).trim();
+  const reqRef = req.request_reference || "REQ-" + req.id.substring(0, 8).toUpperCase();
+
+  // 1. Generate cryptographically secure single-use invitation token
+  const invitationToken = "stark_inv_" + (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).substring(2)) + "_" + Math.random().toString(36).substring(2, 10);
+  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(); // 48-hour expiration window
+
+  // 2. Update account_requests to invite_sent
+  await sbFetch(`account_requests?id=eq.${req.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      status: "invite_sent",
+      selected_access_policy: policy,
+      custom_duration_days: customDays || null,
+      invitation_token: invitationToken,
+      invitation_sent_at: new Date().toISOString(),
+      invitation_expires_at: expiresAt,
+      reviewed_by: adminUser || "Telegram Admin",
+      reviewed_at: new Date().toISOString(),
+    }),
+  }, env);
+
+  // 3. Construct secure password setup URL
+  const setupUrl = `https://verse.gaurxv.eu.org/auth/setup-password?token=${encodeURIComponent(invitationToken)}`;
+
+  // Policy description strings
+  let policyName = "Free Trial";
+  let durationDesc = "20 Minutes (Countdown begins on your first login)";
+  if (policy === "lifetime") {
+    policyName = "Lifetime Access";
+    durationDesc = "Permanent Free Access (Never expires)";
+  } else if (policy === "subscription") {
+    policyName = "Premium Subscription";
+    durationDesc = "30 Days All-Access Pass";
+  } else if (policy === "custom") {
+    policyName = "Custom Access Clearance";
+    durationDesc = `${customDays} Days (Begins on your first login)`;
+  }
+
+  // 4. Send official Stark Entertainment Branded HTML Invitation via Brevo
+  const emailHtml = `
+    <div style="font-family:'Segoe UI',system-ui,sans-serif;background:#050508;color:#f1f5f9;padding:36px 20px;border-radius:18px;max-width:560px;margin:auto;border:1px solid rgba(56,189,248,0.25);">
+      <div style="text-align:center;margin-bottom:28px;">
+        <h1 style="font-size:26px;color:#38bdf8;margin:0 0 6px 0;font-weight:900;letter-spacing:0.5px;">Gaurxv Verse ⎊</h1>
+        <p style="font-size:12px;color:#94a3b8;margin:0;letter-spacing:1.5px;text-transform:uppercase;">Stark Entertainment Access Clearance</p>
+      </div>
+      <div style="background:#0c0d16;border:1px solid rgba(56,189,248,0.2);border-radius:14px;padding:24px;margin-bottom:24px;">
+        <p style="font-size:16px;margin:0 0 14px 0;color:#fff;">Hello <strong>${fullName}</strong>,</p>
+        <p style="font-size:13px;line-height:1.6;color:#cbd5e1;margin:0 0 16px 0;">
+          Your request to join <strong>Stark Entertainment</strong> has been approved by the administrator.
+        </p>
+        <div style="background:#131522;border:1px dashed rgba(56,189,248,0.35);border-radius:12px;padding:16px;margin-bottom:20px;font-size:13px;">
+          <div style="margin-bottom:8px;color:#94a3b8;">
+            Preferred Username: <strong style="color:#38bdf8;font-size:14px;">@${username}</strong>
+          </div>
+          <div style="margin-bottom:8px;color:#94a3b8;">
+            Registered Email: <strong style="color:#f1f5f9;font-size:14px;">${personalEmail}</strong>
+          </div>
+          <div style="margin-bottom:8px;color:#94a3b8;">
+            Access Clearance Type: <strong style="color:#4ade80;font-size:14px;">${policyName}</strong>
+          </div>
+          <div style="color:#94a3b8;">
+            Access Duration: <strong style="color:#cbd5e1;font-size:14px;">${durationDesc}</strong>
+          </div>
+        </div>
+        <p style="font-size:13px;line-height:1.6;color:#cbd5e1;margin:0 0 20px 0;">
+          Your account is ready for password setup. Tap the button below to create your own password and unlock access:
+        </p>
+        <div style="text-align:center;margin:28px 0 20px 0;">
+          <a href="${setupUrl}" style="display:inline-block;background:#38bdf8;color:#050508;font-weight:900;font-size:14px;padding:14px 36px;border-radius:12px;text-decoration:none;box-shadow:0 4px 18px rgba(56,189,248,0.35);letter-spacing:0.5px;">
+            CREATE MY PASSWORD &rarr;
+          </a>
+        </div>
+        <p style="font-size:11px;color:#94a3b8;line-height:1.5;margin:0;text-align:center;">
+          This secure link is time-limited (48 hours) and single-use. After creating your password, sign in directly at <a href="https://verse.gaurxv.eu.org/" style="color:#38bdf8;">verse.gaurxv.eu.org</a>.
+        </p>
+      </div>
+      <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:14px;margin-bottom:20px;font-size:11px;color:#fde68a;line-height:1.5;">
+        <strong>Notice:</strong> If this email arrived in your Spam or Junk folder, please mark it as <em>"Not Spam"</em> and add <code>updates@gaurxv.eu.org</code> to your contacts or safe-senders list so future notifications reach your primary inbox.
+      </div>
+      <p style="font-size:11px;color:#64748b;text-align:center;margin:0;">
+        Stark Entertainment · Gaurxv Verse Ecosystem<br/>
+        Official Support: <a href="mailto:work@gaurxv.eu.org" style="color:#38bdf8;">work@gaurxv.eu.org</a> · Telegram: <a href="https://t.me/pepperonyx" style="color:#38bdf8;">@pepperonyx</a>
+      </p>
+    </div>
+  `;
+
+  const emailSent = await sendBrevoEmail({
+    to: { email: personalEmail, name: fullName },
+    subject: "Your Stark Entertainment Account Invitation",
+    htmlContent: emailHtml,
+  });
+
+  return {
+    success: true,
+    emailSent,
+    token: invitationToken,
+    setupUrl,
+    policyName,
+    durationDesc,
+    req,
+  };
+}
+
+/* ---------------- Resend Account Invitation ---------------- */
+export async function resendAccountInvitation(reqIdOrObj, maybeEnv) {
+  const reqId = typeof reqIdOrObj === "object" ? reqIdOrObj.reqId || reqIdOrObj.id : reqIdOrObj;
+  const env = typeof reqIdOrObj === "object" ? reqIdOrObj.env || maybeEnv : maybeEnv;
+  const admin = (typeof reqIdOrObj === "object" && reqIdOrObj.adminUser) || "Admin (Resend)";
+  const req = await findAccountRequest(reqId, env);
+  if (!req) throw new Error("Account request not found");
+  return await finalizeAccountPolicyAndInvite({
+    reqId: req.id,
+    policy: req.selected_access_policy || "trial",
+    customDays: req.custom_duration_days,
+    env,
+    adminUser: admin,
+  });
+}
+
+/* ---------------- Public / Setup Password Helpers ---------------- */
+export async function getInvitationInfo(token, env) {
+  if (!token) throw new Error("Missing invitation token");
+  const cleanToken = String(token).trim();
+
+  const res = await sbFetch(`account_requests?invitation_token=eq.${encodeURIComponent(cleanToken)}&select=*&limit=1`, {}, env);
+  if (!res.ok) throw new Error("Database query failed");
+  const rows = await res.json();
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("Invalid or already used invitation link.");
+  }
+  const req = rows[0];
+
+  if (req.status !== "invite_sent") {
+    throw new Error("This invitation has already been accepted or is no longer active.");
+  }
+  if (req.invitation_expires_at && new Date(req.invitation_expires_at) < new Date()) {
+    throw new Error("This invitation link has expired (48 hours exceeded). Please contact support for a fresh invitation.");
+  }
+
+  let policyTitle = "20-Minute Free Trial";
+  if (req.selected_access_policy === "lifetime") policyTitle = "Lifetime Free Access";
+  else if (req.selected_access_policy === "subscription") policyTitle = "30-Day Premium Subscription";
+  else if (req.selected_access_policy === "custom") policyTitle = `${req.custom_duration_days || 30}-Day Custom Access`;
+
+  return {
+    valid: true,
+    username: req.username,
+    email: req.email,
+    fullName: req.full_name || req.username,
+    accessPolicy: req.selected_access_policy || "trial",
+    policyTitle,
+    customDays: req.custom_duration_days || null,
+  };
+}
+
+export async function completePasswordSetup({ token, password, confirmPassword, env }) {
+  if (!token) throw new Error("Invitation token is required.");
+  const p = String(password || "").trim();
+  const cp = String(confirmPassword || "").trim();
+
+  if (p.length < 6) throw new Error("Password must be at least 6 characters.");
+  if (p !== cp) throw new Error("Passwords do not match.");
+
+  // Call the SECURITY DEFINER RPC function complete_user_invitation in Supabase PostgreSQL
+  const rpcRes = await sbFetch("rpc/complete_user_invitation", {
+    method: "POST",
+    body: JSON.stringify({
+      p_token: String(token).trim(),
+      p_password: p,
+    }),
+  }, env);
+
+  if (!rpcRes.ok) {
+    let errMsg = "Failed to complete password setup in Supabase.";
+    try {
+      const errData = await rpcRes.json();
+      if (errData.message) errMsg = errData.message;
+    } catch {}
+    throw new Error(errMsg);
+  }
+
+  const rpcResult = await rpcRes.json();
+  if (!rpcResult.success) {
+    throw new Error(rpcResult.error || "Password setup failed.");
+  }
+
+  // Generate Stark Auth token for immediate login
+  const exp = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30-day session
+  const authToken = await createAuthToken(rpcResult.username, false, exp);
+
+  // Notify administrator on Telegram
+  const alertMsg = 
+`🎉 *INVITATION ACCEPTED & ACCOUNT ACTIVATED*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Username:* \`@${rpcResult.username}\`
+📧 *Email:* \`${rpcResult.email}\`
+📛 *Name:* ${rpcResult.fullName}
+🎟️ *Policy:* \`${rpcResult.accessPolicy}\`
+🕒 *Activated:* \`${new Date().toLocaleTimeString("en-IN")}\`
+━━━━━━━━━━━━━━━━━━━━
+User has set their password and unlocked Gaurxv Verse.`;
+
+  sendTelegramMessage(alertMsg).catch(() => {});
+
+  return {
+    success: true,
+    user: rpcResult.username,
+    email: rpcResult.email,
+    userId: rpcResult.userId,
+    token: authToken,
+    exp,
+  };
 }
 
 /* ---------------- Telegram Webhook & In-Bot Direct Approval Engine ---------------- */
@@ -1225,7 +1641,7 @@ export async function handleTelegramWebhook(update, env) {
 
   const adminChatId = String(TELEGRAM_ADMIN_CHAT_ID);
 
-  // 1. One-tap Inline Button Callback (Approve / Reject / Generate Credentials / Email)
+  // 1. One-tap Inline Button Callback
   if (update.callback_query) {
     const cb = update.callback_query;
     const fromId = String(cb.from?.id || "");
@@ -1315,99 +1731,42 @@ export async function handleTelegramWebhook(update, env) {
       }
     }
 
-    // 1C. Approve Account Request & Generate Passcode
+    // 1C. Approve Account Request -> Display Policy Selection
     if (action === "approve_req") {
       try {
-        const targetUser = targetId;
-        const passcode = `stark-${Math.random().toString(36).slice(2, 6)}-${Math.random().toString(36).slice(2, 6)}`;
+        const req = await findAccountRequest(targetId, env);
+        if (!req) throw new Error("Account request not found.");
 
-        let userEmail = "";
-        let fullName = "";
-        try {
-          const reqRes = await sbFetch(`account_requests?or=(username.ilike.${encodeURIComponent(targetUser)},full_name.ilike.${encodeURIComponent(targetUser)})&order=created_at.desc&limit=1`, {}, env);
-          if (reqRes.ok) {
-            const rows = await reqRes.json();
-            if (Array.isArray(rows) && rows.length > 0) {
-              userEmail = rows[0].email;
-              fullName = rows[0].full_name;
-            }
-          }
-        } catch {}
+        await sbFetch(`account_requests?id=eq.${req.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: "approved_policy_pending" }),
+        }, env);
 
-        if (!userEmail) {
-          try {
-            const uCheck = await sbFetch(`user_access?username=ilike.${encodeURIComponent(targetUser)}&select=email,user_id&limit=1`, {}, env);
-            if (uCheck.ok) {
-              const uRows = await uCheck.json();
-              if (Array.isArray(uRows) && uRows[0]?.email) userEmail = uRows[0].email;
-            }
-          } catch {}
-        }
+        await answerTelegramCallbackQuery(cb.id, "Select access clearance type:");
 
-        // STRICT REQUIREMENT: NEVER synthesize @gaurxv.eu.org or artificial project domain emails.
-        if (!userEmail) {
-          throw new Error(`Cannot approve request: No personal email found for @${targetUser}.`);
-        }
-
-        // Update Supabase account_requests
-        try {
-          await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}`, {
-            method: "PATCH",
-            body: JSON.stringify({ status: "approved", passcode }),
-          }, env);
-        } catch {}
-
-        // Ensure user entry in user_access
-        try {
-          await sbFetch("user_access", {
-            method: "POST",
-            headers: { Prefer: "resolution=merge-duplicates" },
-            body: JSON.stringify({
-              user_id: targetUser,
-              username: targetUser,
-              email: userEmail,
-              access_policy: "trial",
-              is_suspended: false,
-              is_lifetime: false,
-            }),
-          }, env);
-        } catch {}
-
-        // Update STARK_KV if available
-        if (env && env.STARK_KV) {
-          try {
-            let kvUsers = [];
-            const raw = await env.STARK_KV.get("stark_users");
-            if (raw) kvUsers = JSON.parse(raw);
-            const filtered = Array.isArray(kvUsers) ? kvUsers.filter((x) => x.username?.toLowerCase() !== targetUser.toLowerCase()) : [];
-            filtered.push({
-              username: targetUser,
-              password: passcode,
-              displayName: fullName || targetUser,
-            });
-            await env.STARK_KV.put("stark_users", JSON.stringify(filtered));
-          } catch {}
-        }
-
-        await answerTelegramCallbackQuery(cb.id, `✅ Passcode generated: ${passcode}`);
-
-        const credText = 
-`⚡ *ACCOUNT APPROVED & PASSCODE GENERATED*
+        const policyText = 
+`✅ *ACCOUNT REQUEST APPROVED*
 ━━━━━━━━━━━━━━━━━━━━
-👤 *Username:* \`@${targetUser}\`
-🔑 *Passcode:* \`${passcode}\`
-📧 *Email:* \`${userEmail}\`
-📛 *Name:* ${fullName || "Not provided"}
+🔖 *Request ID:* \`${req.request_reference || req.id}\`
+👤 *Username:* \`@${req.username}\`
+📧 *Email:* \`${req.email}\`
+📛 *Name:* ${req.full_name || req.username}
 ━━━━━━━━━━━━━━━━━━━━
-👉 Tap *[📧 Send Credentials Email]* below to deliver credentials to user via Brevo.`;
+*Select the account clearance type to create:*
+The user will receive an official Brevo invitation link to create their own password.`;
 
-        const credKeyboard = {
+        const policyKeyboard = {
           inline_keyboard: [
             [
-              { text: `📧 Send Credentials Email (${userEmail})`, callback_data: `send_mail:${targetUser}` },
+              { text: "⏱️ Trial — 20 Minutes", callback_data: `policy_trial:${req.id}` },
+              { text: "👑 Lifetime — Free", callback_data: `policy_lifetime:${req.id}` },
             ],
             [
-              { text: "🔍 Open Admin Console", url: "https://verse.gaurxv.eu.org/admin" },
+              { text: "💳 Subscription — ₹29 / 30 Days", callback_data: `policy_sub:${req.id}` },
+              { text: "⏳ Custom Duration", callback_data: `policy_custom:${req.id}` },
+            ],
+            [
+              { text: "❌ Cancel", callback_data: `cancel_policy:${req.id}` },
             ],
           ],
         };
@@ -1416,139 +1775,456 @@ export async function handleTelegramWebhook(update, env) {
           const chatId = cb.message.chat.id;
           const messageId = cb.message.message_id;
           if (cb.message.caption !== undefined) {
-            await editTelegramMessageCaption(chatId, messageId, credText, credKeyboard);
+            await editTelegramMessageCaption(chatId, messageId, policyText, policyKeyboard);
           } else {
-            await editTelegramMessageText(chatId, messageId, credText, credKeyboard);
+            await editTelegramMessageText(chatId, messageId, policyText, policyKeyboard);
           }
         } else {
-          await sendTelegramMessage(credText, { replyMarkup: credKeyboard });
+          await sendTelegramMessage(policyText, { replyMarkup: policyKeyboard });
         }
-        return { ok: true, action: "account_approved", username: targetUser, passcode };
+        return { ok: true, action: "policy_selection_opened", reqId: req.id };
       } catch (err) {
         await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
         return { ok: false, error: err.message };
       }
     }
 
-    // 1D. Send Credentials Email via Brevo
-    if (action === "send_mail") {
+    // 1D. Policy: Trial (20 Minutes)
+    if (action === "policy_trial") {
       try {
-        const targetUser = targetId;
-        let userEmail = "";
-        let fullName = "";
-        let passcode = "";
+        const res = await finalizeAccountPolicyAndInvite({
+          reqId: targetId,
+          policy: "trial",
+          env,
+          adminUser: `Telegram Admin (@${cb.from?.username || "Admin"})`,
+        });
 
-        // Look up user details in account_requests or user_access
+        await answerTelegramCallbackQuery(cb.id, "✅ Trial Invitation sent via Brevo!");
+
+        const doneText = 
+`✅ *ACCOUNT INVITATION SENT*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Username:* \`@${res.req.username}\`
+📧 *Email:* \`${res.req.email}\`
+🔖 *Request ID:* \`${res.req.request_reference || res.req.id}\`
+🎟️ *Access Type:* \`Trial Access\`
+⏱️ *Duration:* \`20 Minutes (begins on first login)\`
+📩 *Invitation Status:* \`Delivered via Brevo\`
+━━━━━━━━━━━━━━━━━━━━
+The user has been emailed a secure link to create their password.`;
+
+        const doneKeyboard = {
+          inline_keyboard: [
+            [
+              { text: "🔍 View Request", callback_data: `view_req:${res.req.id}` },
+              { text: "🔄 Resend Invitation", callback_data: `resend_invite:${res.req.id}` },
+            ],
+            [
+              { text: "🛡️ Open Admin Console", url: "https://verse.gaurxv.eu.org/admin" },
+            ],
+          ],
+        };
+
+        if (cb.message) {
+          const chatId = cb.message.chat.id;
+          const messageId = cb.message.message_id;
+          if (cb.message.caption !== undefined) {
+            await editTelegramMessageCaption(chatId, messageId, doneText, doneKeyboard);
+          } else {
+            await editTelegramMessageText(chatId, messageId, doneText, doneKeyboard);
+          }
+        } else {
+          await sendTelegramMessage(doneText, { replyMarkup: doneKeyboard });
+        }
+        return { ok: true, action: "trial_invited" };
+      } catch (err) {
+        await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
+        return { ok: false, error: err.message };
+      }
+    }
+
+    // 1E. Policy: Lifetime (Free)
+    if (action === "policy_lifetime") {
+      try {
+        const res = await finalizeAccountPolicyAndInvite({
+          reqId: targetId,
+          policy: "lifetime",
+          env,
+          adminUser: `Telegram Admin (@${cb.from?.username || "Admin"})`,
+        });
+
+        await answerTelegramCallbackQuery(cb.id, "✅ Lifetime Invitation sent via Brevo!");
+
+        const doneText = 
+`✅ *ACCOUNT INVITATION SENT*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Username:* \`@${res.req.username}\`
+📧 *Email:* \`${res.req.email}\`
+🔖 *Request ID:* \`${res.req.request_reference || res.req.id}\`
+🎟️ *Access Type:* \`Lifetime Access (Free)\`
+⏱️ *Duration:* \`Permanent (Never expires)\`
+📩 *Invitation Status:* \`Delivered via Brevo\`
+━━━━━━━━━━━━━━━━━━━━
+The user has been emailed a secure link to create their password.`;
+
+        const doneKeyboard = {
+          inline_keyboard: [
+            [
+              { text: "🔍 View Request", callback_data: `view_req:${res.req.id}` },
+              { text: "🔄 Resend Invitation", callback_data: `resend_invite:${res.req.id}` },
+            ],
+            [
+              { text: "🛡️ Open Admin Console", url: "https://verse.gaurxv.eu.org/admin" },
+            ],
+          ],
+        };
+
+        if (cb.message) {
+          const chatId = cb.message.chat.id;
+          const messageId = cb.message.message_id;
+          if (cb.message.caption !== undefined) {
+            await editTelegramMessageCaption(chatId, messageId, doneText, doneKeyboard);
+          } else {
+            await editTelegramMessageText(chatId, messageId, doneText, doneKeyboard);
+          }
+        } else {
+          await sendTelegramMessage(doneText, { replyMarkup: doneKeyboard });
+        }
+        return { ok: true, action: "lifetime_invited" };
+      } catch (err) {
+        await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
+        return { ok: false, error: err.message };
+      }
+    }
+
+    // 1F. Policy: Subscription (₹29 / 30 Days) -> Payment Verification Gate
+    if (action === "policy_sub") {
+      try {
+        const req = await findAccountRequest(targetId, env);
+        if (!req) throw new Error("Account request not found.");
+
+        // Check if an approved payment proof already exists for this user
+        let hasApprovedProof = false;
         try {
-          const reqRes = await sbFetch(`account_requests?or=(username.ilike.${encodeURIComponent(targetUser)},full_name.ilike.${encodeURIComponent(targetUser)})&order=created_at.desc&limit=1`, {}, env);
-          if (reqRes.ok) {
-            const rows = await reqRes.json();
-            if (Array.isArray(rows) && rows.length > 0) {
-              userEmail = rows[0].email;
-              fullName = rows[0].full_name;
-              passcode = rows[0].passcode;
-            }
+          const pRes = await sbFetch(
+            `payment_proofs?verification_status=eq.approved&or=(username.ilike.${encodeURIComponent(req.username)},email.ilike.${encodeURIComponent(req.email)})&limit=1`,
+            {},
+            env
+          );
+          if (pRes.ok) {
+            const pRows = await pRes.json();
+            if (Array.isArray(pRows) && pRows.length > 0) hasApprovedProof = true;
           }
         } catch {}
 
-        if (!userEmail) {
-          try {
-            const uCheck = await sbFetch(`user_access?username=ilike.${encodeURIComponent(targetUser)}&select=email&limit=1`, {}, env);
-            if (uCheck.ok) {
-              const uRows = await uCheck.json();
-              if (Array.isArray(uRows) && uRows[0]?.email) userEmail = uRows[0].email;
+        if (hasApprovedProof) {
+          const res = await finalizeAccountPolicyAndInvite({
+            reqId: req.id,
+            policy: "subscription",
+            env,
+            adminUser: `Telegram Admin (@${cb.from?.username || "Admin"})`,
+          });
+
+          await answerTelegramCallbackQuery(cb.id, "✅ Verified Subscription Invitation sent!");
+
+          const doneText = 
+`✅ *ACCOUNT INVITATION SENT*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Username:* \`@${res.req.username}\`
+📧 *Email:* \`${res.req.email}\`
+🔖 *Request ID:* \`${res.req.request_reference || res.req.id}\`
+🎟️ *Access Type:* \`Premium Subscription (₹29 Plan)\`
+⏱️ *Duration:* \`30 Days All-Access\`
+📩 *Invitation Status:* \`Delivered via Brevo\`
+━━━━━━━━━━━━━━━━━━━━
+The user has been emailed a secure link to create their password.`;
+
+          const doneKeyboard = {
+            inline_keyboard: [
+              [
+                { text: "🔍 View Request", callback_data: `view_req:${res.req.id}` },
+                { text: "🔄 Resend Invitation", callback_data: `resend_invite:${res.req.id}` },
+              ],
+              [
+                { text: "🛡️ Open Admin Console", url: "https://verse.gaurxv.eu.org/admin" },
+              ],
+            ],
+          };
+
+          if (cb.message) {
+            const chatId = cb.message.chat.id;
+            const messageId = cb.message.message_id;
+            if (cb.message.caption !== undefined) {
+              await editTelegramMessageCaption(chatId, messageId, doneText, doneKeyboard);
+            } else {
+              await editTelegramMessageText(chatId, messageId, doneText, doneKeyboard);
             }
-          } catch {}
+          } else {
+            await sendTelegramMessage(doneText, { replyMarkup: doneKeyboard });
+          }
+          return { ok: true, action: "sub_invited" };
         }
 
-        if (!passcode && env && env.STARK_KV) {
-          try {
-            const raw = await env.STARK_KV.get("stark_users");
-            if (raw) {
-              const kvUsers = JSON.parse(raw);
-              const found = kvUsers.find((x) => x.username?.toLowerCase() === targetUser.toLowerCase());
-              if (found) {
-                passcode = found.password;
-                fullName = found.displayName || fullName;
-              }
-            }
-          } catch {}
-        }
+        // If no automatic verified proof found, ask admin for confirmation
+        await answerTelegramCallbackQuery(cb.id, "Payment verification needed.");
+        const verifyText = 
+`💳 *PAYMENT VERIFICATION REQUIRED*
+━━━━━━━━━━━━━━━━━━━━
+No pre-verified ₹29 payment proof was automatically matched for:
+👤 *User:* \`@${req.username}\`
+📧 *Email:* \`${req.email}\`
 
-        if (!passcode) {
-          passcode = `stark-${Math.random().toString(36).slice(2, 6)}-${Math.random().toString(36).slice(2, 6)}`;
-        }
-        if (!userEmail) {
-          throw new Error(`Cannot send credentials: No personal email on file for @${targetUser}.`);
-        }
+Has the ₹29 payment been received and verified?`;
 
-        const emailHtml = `
-          <div style="font-family:'Segoe UI',system-ui,sans-serif;background:#050508;color:#f1f5f9;padding:36px 24px;border-radius:18px;max-width:560px;margin:auto;border:1px solid rgba(255,255,255,0.1);">
-            <div style="text-align:center;margin-bottom:28px;">
-              <h1 style="font-size:26px;color:#38bdf8;margin:0 0 6px 0;font-weight:900;letter-spacing:0.5px;">Gaurxv Verse ⎊</h1>
-              <p style="font-size:12px;color:#94a3b8;margin:0;letter-spacing:1.5px;text-transform:uppercase;">Stark Entertainment Access Clearance</p>
-            </div>
-            <div style="background:#0c0d16;border:1px solid rgba(56,189,248,0.25);border-radius:14px;padding:24px;margin-bottom:24px;">
-              <p style="font-size:15px;margin:0 0 14px 0;">Welcome, <strong>${fullName || targetUser}</strong>!</p>
-              <p style="font-size:13px;line-height:1.6;color:#cbd5e1;margin:0 0 18px 0;">
-                Your account clearance has been approved by the administrator. Use your credentials below to unlock the <strong>Stark Security Gate</strong>:
-              </p>
-              <div style="background:#131522;border:1px dashed rgba(56,189,248,0.4);border-radius:10px;padding:16px;margin-bottom:20px;font-family:monospace;">
-                <div style="margin-bottom:8px;font-size:13px;color:#94a3b8;">
-                  Username: <strong style="color:#38bdf8;font-size:15px;">${targetUser}</strong>
-                </div>
-                <div style="font-size:13px;color:#94a3b8;">
-                  Passcode: <strong style="color:#4ade80;font-size:15px;letter-spacing:1px;">${passcode}</strong>
-                </div>
-              </div>
-              <div style="text-align:center;margin:24px 0 12px 0;">
-                <a href="https://verse.gaurxv.eu.org/" style="display:inline-block;background:#38bdf8;color:#050508;font-weight:800;font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;box-shadow:0 4px 14px rgba(56,189,248,0.3);">
-                  Unlock Gaurxv Verse ⎊
-                </a>
-              </div>
-            </div>
-            <p style="font-size:11px;color:#64748b;text-align:center;margin:0;">
-              Stark Entertainment Protocol · If you did not request this, contact work@gaurxv.eu.org
-            </p>
-          </div>
-        `;
+        const verifyKeyboard = {
+          inline_keyboard: [
+            [
+              { text: "✅ Yes — Payment Verified", callback_data: `confirm_sub_paid:${req.id}` },
+            ],
+            [
+              { text: "❌ No — Return to Requests", callback_data: `cancel_policy:${req.id}` },
+            ],
+          ],
+        };
 
-        const sent = await sendBrevoEmail({
-          to: { email: userEmail, name: fullName || targetUser },
-          subject: "⚡ Your Gaurxv Verse Clearance Passcode & Access Pass",
-          htmlContent: emailHtml,
-        });
-
-        if (sent) {
-          await answerTelegramCallbackQuery(cb.id, `✅ Credentials emailed to ${userEmail}!`);
-          await sendTelegramMessage(`📨 *EMAIL DELIVERED:* Login credentials for \`@${targetUser}\` were successfully sent to \`${userEmail}\` via Brevo!`, { chatId: cb.message?.chat?.id || adminChatId });
+        if (cb.message) {
+          const chatId = cb.message.chat.id;
+          const messageId = cb.message.message_id;
+          if (cb.message.caption !== undefined) {
+            await editTelegramMessageCaption(chatId, messageId, verifyText, verifyKeyboard);
+          } else {
+            await editTelegramMessageText(chatId, messageId, verifyText, verifyKeyboard);
+          }
         } else {
-          await answerTelegramCallbackQuery(cb.id, `⚠️ Failed to send email via Brevo.`, true);
-          await sendTelegramMessage(`⚠️ *Email Delivery Failed:* Could not send credentials to \`${userEmail}\`. Check Brevo API quota.`, { chatId: cb.message?.chat?.id || adminChatId });
+          await sendTelegramMessage(verifyText, { replyMarkup: verifyKeyboard });
         }
-        return { ok: true, action: "email_sent", email: userEmail };
+        return { ok: true, action: "payment_check_prompted" };
       } catch (err) {
         await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
         return { ok: false, error: err.message };
       }
     }
 
-    // 1E. Reject Account Request
+    // 1G. Confirm Sub Paid
+    if (action === "confirm_sub_paid") {
+      try {
+        const res = await finalizeAccountPolicyAndInvite({
+          reqId: targetId,
+          policy: "subscription",
+          env,
+          adminUser: `Telegram Admin (@${cb.from?.username || "Admin"})`,
+        });
+
+        await answerTelegramCallbackQuery(cb.id, "✅ Subscription Invitation sent!");
+
+        const doneText = 
+`✅ *ACCOUNT INVITATION SENT*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Username:* \`@${res.req.username}\`
+📧 *Email:* \`${res.req.email}\`
+🔖 *Request ID:* \`${res.req.request_reference || res.req.id}\`
+🎟️ *Access Type:* \`Premium Subscription (₹29 Plan)\`
+⏱️ *Duration:* \`30 Days All-Access\`
+📩 *Invitation Status:* \`Delivered via Brevo\`
+━━━━━━━━━━━━━━━━━━━━
+Payment manually verified. Invitation dispatched via Brevo.`;
+
+        const doneKeyboard = {
+          inline_keyboard: [
+            [
+              { text: "🔍 View Request", callback_data: `view_req:${res.req.id}` },
+              { text: "🔄 Resend Invitation", callback_data: `resend_invite:${res.req.id}` },
+            ],
+            [
+              { text: "🛡️ Open Admin Console", url: "https://verse.gaurxv.eu.org/admin" },
+            ],
+          ],
+        };
+
+        if (cb.message) {
+          const chatId = cb.message.chat.id;
+          const messageId = cb.message.message_id;
+          if (cb.message.caption !== undefined) {
+            await editTelegramMessageCaption(chatId, messageId, doneText, doneKeyboard);
+          } else {
+            await editTelegramMessageText(chatId, messageId, doneText, doneKeyboard);
+          }
+        } else {
+          await sendTelegramMessage(doneText, { replyMarkup: doneKeyboard });
+        }
+        return { ok: true, action: "sub_invited_manual" };
+      } catch (err) {
+        await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
+        return { ok: false, error: err.message };
+      }
+    }
+
+    // 1H. Policy: Custom Duration -> Prompt for Days
+    if (action === "policy_custom") {
+      try {
+        const req = await findAccountRequest(targetId, env);
+        if (!req) throw new Error("Account request not found.");
+
+        adminBotStates.set(adminChatId, {
+          action: "custom_days",
+          reqId: req.id,
+          username: req.username,
+          email: req.email,
+        });
+
+        await answerTelegramCallbackQuery(cb.id, "Enter duration in days:");
+
+        const promptText = 
+`⏳ *CUSTOM DURATION SELECTION*
+━━━━━━━━━━━━━━━━━━━━
+🔖 *Request ID:* \`${req.request_reference || req.id}\`
+👤 *Username:* \`@${req.username}\`
+📧 *Email:* \`${req.email}\`
+━━━━━━━━━━━━━━━━━━━━
+*Enter the access duration in days:*
+Reply with a single positive number of days (e.g. \`15\`, \`30\`, \`45\`, \`60\`, \`90\`, \`365\`).`;
+
+        await sendTelegramMessage(promptText, { chatId: cb.message?.chat?.id || adminChatId });
+        return { ok: true, action: "awaiting_custom_days" };
+      } catch (err) {
+        await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
+        return { ok: false, error: err.message };
+      }
+    }
+
+    // 1I. Confirm Custom Duration
+    if (action === "confirm_custom") {
+      try {
+        const colon2 = targetId.indexOf(":");
+        const realReqId = colon2 > -1 ? targetId.slice(0, colon2) : targetId;
+        const days = colon2 > -1 ? parseInt(targetId.slice(colon2 + 1), 10) : 30;
+
+        const res = await finalizeAccountPolicyAndInvite({
+          reqId: realReqId,
+          policy: "custom",
+          customDays: days,
+          env,
+          adminUser: `Telegram Admin (@${cb.from?.username || "Admin"})`,
+        });
+
+        await answerTelegramCallbackQuery(cb.id, `✅ Custom (${days} Days) Invitation sent!`);
+
+        const doneText = 
+`✅ *ACCOUNT INVITATION SENT*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Username:* \`@${res.req.username}\`
+📧 *Email:* \`${res.req.email}\`
+🔖 *Request ID:* \`${res.req.request_reference || res.req.id}\`
+🎟️ *Access Type:* \`Custom Duration\`
+⏱️ *Duration:* \`${days} Days (begins on first login)\`
+📩 *Invitation Status:* \`Delivered via Brevo\`
+━━━━━━━━━━━━━━━━━━━━
+The user has been emailed a secure link to create their password.`;
+
+        const doneKeyboard = {
+          inline_keyboard: [
+            [
+              { text: "🔍 View Request", callback_data: `view_req:${res.req.id}` },
+              { text: "🔄 Resend Invitation", callback_data: `resend_invite:${res.req.id}` },
+            ],
+            [
+              { text: "🛡️ Open Admin Console", url: "https://verse.gaurxv.eu.org/admin" },
+            ],
+          ],
+        };
+
+        if (cb.message) {
+          const chatId = cb.message.chat.id;
+          const messageId = cb.message.message_id;
+          if (cb.message.caption !== undefined) {
+            await editTelegramMessageCaption(chatId, messageId, doneText, doneKeyboard);
+          } else {
+            await editTelegramMessageText(chatId, messageId, doneText, doneKeyboard);
+          }
+        } else {
+          await sendTelegramMessage(doneText, { replyMarkup: doneKeyboard });
+        }
+        return { ok: true, action: "custom_invited" };
+      } catch (err) {
+        await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
+        return { ok: false, error: err.message };
+      }
+    }
+
+    // 1J. Cancel Policy Selection
+    if (action === "cancel_policy") {
+      try {
+        adminBotStates.delete(adminChatId);
+        await answerTelegramCallbackQuery(cb.id, "Action cancelled.");
+        if (cb.message) {
+          const chatId = cb.message.chat.id;
+          const messageId = cb.message.message_id;
+          await editTelegramMessageText(chatId, messageId, "↩️ *Action Cancelled*\nReturned to administrative dashboard.");
+        }
+        return { ok: true, action: "cancelled" };
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+    }
+
+    // 1K. Resend Invitation
+    if (action === "resend_invite") {
+      try {
+        const res = await resendAccountInvitation(targetId, env);
+        await answerTelegramCallbackQuery(cb.id, "📨 Invitation link resent via Brevo!");
+        await sendTelegramMessage(
+          `📨 *INVITATION RESENT:* A fresh 48-hour password setup link was delivered to \`${res.req.email}\` via Brevo!`,
+          { chatId: cb.message?.chat?.id || adminChatId }
+        );
+        return { ok: true, action: "invitation_resent" };
+      } catch (err) {
+        await answerTelegramCallbackQuery(cb.id, `⚠️ Resend failed: ${err.message}`, true);
+        return { ok: false, error: err.message };
+      }
+    }
+
+    // 1L. Reject Account Request
     if (action === "reject_req") {
       try {
-        const targetUser = targetId;
-        await sbFetch(`account_requests?username=eq.${encodeURIComponent(targetUser)}`, {
+        const req = await findAccountRequest(targetId, env);
+        if (!req) throw new Error("Account request not found.");
+
+        await sbFetch(`account_requests?id=eq.${req.id}`, {
           method: "PATCH",
-          body: JSON.stringify({ status: "rejected" }),
+          body: JSON.stringify({
+            status: "rejected",
+            reviewed_by: `Telegram Admin (@${cb.from?.username || "Admin"})`,
+            reviewed_at: new Date().toISOString(),
+          }),
         }, env);
 
-        await answerTelegramCallbackQuery(cb.id, `❌ Request for @${targetUser} rejected.`);
+        // Send Brevo rejection notice
+        try {
+          await sendBrevoEmail({
+            to: { email: req.email, name: req.full_name || req.username },
+            subject: "Stark Entertainment — Account Request Update",
+            htmlContent: `
+              <div style="font-family:'Segoe UI',system-ui,sans-serif;background:#050508;color:#f1f5f9;padding:32px 20px;border-radius:16px;max-width:540px;margin:auto;">
+                <h2 style="color:#ef4444;font-size:20px;">Request Not Approved</h2>
+                <p style="font-size:14px;color:#cbd5e1;line-height:1.6;">
+                  Hello ${req.full_name || req.username},<br/><br/>
+                  Thank you for your interest in Stark Entertainment. At this time, the administrator was unable to grant access clearance for request <code>${req.request_reference || req.id}</code>.
+                </p>
+                <p style="font-size:12px;color:#94a3b8;margin-top:20px;">
+                  If you believe this is an error, contact us directly at <a href="mailto:work@gaurxv.eu.org" style="color:#38bdf8;">work@gaurxv.eu.org</a>.
+                </p>
+              </div>
+            `,
+          });
+        } catch {}
+
+        await answerTelegramCallbackQuery(cb.id, `❌ Request for @${req.username} rejected.`);
 
         if (cb.message) {
           const chatId = cb.message.chat.id;
           const messageId = cb.message.message_id;
           const original = cb.message.caption || cb.message.text || "";
-          const updated = `${original}\n\n❌ *REQUEST REJECTED BY ADMIN*\n👮 *Actioned By:* \`@${cb.from?.username || "Admin"}\``;
+          const updated = `${original}\n\n❌ *REQUEST REJECTED BY ADMIN*\nUser notified via Brevo email.\n👮 *Actioned By:* \`@${cb.from?.username || "Admin"}\``;
           const finalKeyboard = {
             inline_keyboard: [
               [{ text: "🔍 Open Admin Console", url: "https://verse.gaurxv.eu.org/admin" }]
@@ -1566,6 +2242,48 @@ export async function handleTelegramWebhook(update, env) {
         return { ok: false, error: err.message };
       }
     }
+
+    // 1M. View Request Details
+    if (action === "view_req") {
+      try {
+        const req = await findAccountRequest(targetId, env);
+        if (!req) throw new Error("Account request not found.");
+
+        const detailsText = 
+`📋 *ACCOUNT REQUEST DETAILS*
+━━━━━━━━━━━━━━━━━━━━
+🔖 *Reference:* \`${req.request_reference || "N/A"}\`
+🆔 *Database ID:* \`${req.id}\`
+👤 *Username:* \`@${req.username}\`
+📛 *Full Name:* ${req.full_name || "Not provided"}
+📧 *Personal Email:* \`${req.email}\`
+📊 *Status:* \`${req.status}\`
+🎟️ *Selected Policy:* \`${req.selected_access_policy || "None"}\`
+🕒 *Submitted At:* \`${req.created_at || "N/A"}\`
+📝 *User Note:* ${req.note || "No note provided"}
+━━━━━━━━━━━━━━━━━━━━`;
+
+        const viewKeyboard = {
+          inline_keyboard: [
+            [
+              { text: "⚡ Approve", callback_data: `approve_req:${req.id}` },
+              { text: "❌ Reject", callback_data: `reject_req:${req.id}` },
+            ],
+            [
+              { text: "🔄 Resend Invite", callback_data: `resend_invite:${req.id}` },
+              { text: "🛡️ Admin Console", url: "https://verse.gaurxv.eu.org/admin" },
+            ],
+          ],
+        };
+
+        await sendTelegramMessage(detailsText, { chatId: cb.message?.chat?.id || adminChatId, replyMarkup: viewKeyboard });
+        await answerTelegramCallbackQuery(cb.id, "Details displayed.");
+        return { ok: true, action: "viewed" };
+      } catch (err) {
+        await answerTelegramCallbackQuery(cb.id, `⚠️ Error: ${err.message}`, true);
+        return { ok: false, error: err.message };
+      }
+    }
   }
 
   // 2. Text Commands Sent to the Bot (@JarvisXPay_Bot)
@@ -1576,6 +2294,42 @@ export async function handleTelegramWebhook(update, env) {
 
     if (chatId !== adminChatId) {
       await sendTelegramMessage("🔒 *Gaurxv Verse Security System*\nThis bot only accepts commands from the designated administrator.", { chatId });
+      return { ok: true };
+    }
+
+    // Check if administrator is in the middle of entering custom duration days
+    const customState = adminBotStates.get(chatId);
+    if (customState && customState.action === "custom_days") {
+      const days = parseInt(text.trim(), 10);
+      if (!/^\d+$/.test(text.trim()) || isNaN(days) || days <= 0 || days > 3650) {
+        await sendTelegramMessage(
+          "⚠️ *Invalid duration input.*\nEnter only a positive whole number of days (e.g. `15`, `30`, `60`, `90`, `365`). Text with letters, fractions, or negative numbers is rejected.",
+          { chatId }
+        );
+        return { ok: true };
+      }
+
+      adminBotStates.delete(chatId);
+
+      const confirmText = 
+`⏳ *CONFIRM CUSTOM ACCESS CLEARANCE*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Username:* \`@${customState.username}\`
+📧 *Email:* \`${customState.email}\`
+⏱️ *Duration:* \`${days} Days\` (activates on user's first login)
+━━━━━━━━━━━━━━━━━━━━
+Proceed to generate secure invitation link and deliver via Brevo?`;
+
+      const confirmKeyboard = {
+        inline_keyboard: [
+          [
+            { text: `✅ Confirm (${days} Days)`, callback_data: `confirm_custom:${customState.reqId}:${days}` },
+            { text: "❌ Cancel", callback_data: `cancel_policy:${customState.reqId}` },
+          ],
+        ],
+      };
+
+      await sendTelegramMessage(confirmText, { chatId, replyMarkup: confirmKeyboard });
       return { ok: true };
     }
 
@@ -1633,7 +2387,7 @@ Interactive controls for subscriptions, payment approvals & account credentials!
     }
 
     if (text === "/requests") {
-      const reqRes = await sbFetch("account_requests?status=eq.pending&order=created_at.desc&limit=5", {}, env);
+      const reqRes = await sbFetch("account_requests?status=in.(pending_review,approved_policy_pending,pending)&order=created_at.desc&limit=5", {}, env);
       if (reqRes.ok) {
         const list = await reqRes.json();
         if (!Array.isArray(list) || list.length === 0) {
@@ -1647,14 +2401,19 @@ Interactive controls for subscriptions, payment approvals & account credentials!
 `👤 *User:* \`@${item.username}\`
 📛 *Name:* ${item.full_name || "Not provided"}
 📧 *Email:* \`${item.email}\`
+🔖 *Reference:* \`${item.request_reference || item.id}\`
 📝 *Note:* ${item.note || "No note"}
 🕒 *Date:* \`${new Date(item.created_at).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST\``;
 
           const itemKeyboard = {
             inline_keyboard: [
               [
-                { text: `⚡ Approve @${item.username}`, callback_data: `approve_req:${item.username}` },
-                { text: `❌ Reject`, callback_data: `reject_req:${item.username}` }
+                { text: `⚡ Approve @${item.username}`, callback_data: `approve_req:${item.id || item.username}` },
+                { text: `❌ Reject`, callback_data: `reject_req:${item.id || item.username}` }
+              ],
+              [
+                { text: `🔍 Details`, callback_data: `view_req:${item.id || item.username}` },
+                { text: `🛡️ Admin Panel`, url: "https://verse.gaurxv.eu.org/admin" }
               ]
             ]
           };

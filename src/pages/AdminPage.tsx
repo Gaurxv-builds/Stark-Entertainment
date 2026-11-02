@@ -81,11 +81,15 @@ interface AuditLog {
 
 interface AccountRequest {
   id: string
+  request_reference?: string
   username: string
   email: string
   full_name?: string
   note?: string
   status: string
+  selected_access_policy?: string
+  custom_duration_days?: number
+  invitation_sent_at?: string
   created_at: string
 }
 
@@ -372,6 +376,97 @@ export default function AdminPage() {
       }
     } catch {
       toast('Network error.', 'error')
+    }
+  }
+
+  // Handle Approve Account Request & Send Brevo Invitation
+  const handleApproveAccountRequest = async (
+    req: AccountRequest,
+    policy: 'trial' | 'lifetime' | 'subscription' | 'custom',
+    customDays?: number
+  ) => {
+    try {
+      const headers = {
+        ...(await getAdminHeaders()),
+        'Content-Type': 'application/json',
+      }
+      const res = await fetch('/api/admin/subscription/action', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'approve_account_request',
+          reqId: req.id,
+          policy,
+          days: customDays,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast(`Invitation sent to ${req.email} for @${req.username} (${policy})!`, 'success')
+        fetchSubscriptionData()
+      } else {
+        toast(data.error || 'Failed to approve request.', 'error')
+      }
+    } catch {
+      toast('Network error during request approval.', 'error')
+    }
+  }
+
+  // Handle Resend Account Invitation
+  const handleResendAccountInvite = async (req: AccountRequest) => {
+    try {
+      const headers = {
+        ...(await getAdminHeaders()),
+        'Content-Type': 'application/json',
+      }
+      const res = await fetch('/api/admin/subscription/action', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'resend_account_invite',
+          reqId: req.id,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast(`Fresh invitation link sent to ${req.email}!`, 'success')
+        fetchSubscriptionData()
+      } else {
+        toast(data.error || 'Failed to resend invite.', 'error')
+      }
+    } catch {
+      toast('Network error during resend.', 'error')
+    }
+  }
+
+  // Handle Reject Account Request
+  const handleRejectAccountRequest = async (req: AccountRequest) => {
+    const reason = prompt(`Enter rejection reason for @${req.username}:`, 'Access clearance declined.')
+    if (reason === null) return
+
+    try {
+      const headers = {
+        ...(await getAdminHeaders()),
+        'Content-Type': 'application/json',
+      }
+      const res = await fetch('/api/admin/subscription/action', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          action: 'reject_account_request',
+          reqId: req.id,
+          reason,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast(`Request rejected for @${req.username}.`, 'info')
+        fetchSubscriptionData()
+      } else {
+        toast(data.error || 'Failed to reject request.', 'error')
+      }
+    } catch {
+      toast('Network error during rejection.', 'error')
     }
   }
 
@@ -875,7 +970,7 @@ export default function AdminPage() {
                 <div className="flex items-center justify-between border-b border-border pb-4">
                   <div>
                     <h2 className="font-display text-xl font-bold">Account Access Requests</h2>
-                    <p className="text-xs text-muted">Users who submitted request through the login gate</p>
+                    <p className="text-xs text-muted">Automated clearance requests from Stark Login Gate &bull; Brevo transactional delivery</p>
                   </div>
                   <span className="font-mono text-xs font-bold text-accent">{accountRequests.length} Requests</span>
                 </div>
@@ -885,24 +980,113 @@ export default function AdminPage() {
                       key={req.id}
                       className="flex flex-col gap-3 rounded-2xl border border-border bg-background/50 p-4 sm:flex-row sm:items-center sm:justify-between text-xs"
                     >
-                      <div>
-                        <div className="font-bold text-white text-sm">@{req.username} <span className="text-muted font-normal">({req.email})</span></div>
-                        {req.note && <p className="text-muted mt-1 italic">&ldquo;{req.note}&rdquo;</p>}
-                        <span className="text-[10px] font-mono text-gray-500">{new Date(req.created_at).toLocaleString()}</span>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-white text-sm">@{req.username}</span>
+                          <span className="text-muted font-normal">({req.email})</span>
+                          {req.request_reference && (
+                            <span className="rounded border border-accent/30 bg-accent/15 px-1.5 py-0.5 font-mono text-[10px] font-bold text-accent">
+                              {req.request_reference}
+                            </span>
+                          )}
+                          <span
+                            className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                              req.status === 'invite_accepted'
+                                ? 'border border-emerald-500/30 bg-emerald-500/20 text-emerald-400'
+                                : req.status === 'invite_sent'
+                                ? 'border border-sky-500/30 bg-sky-500/20 text-sky-400'
+                                : req.status === 'rejected'
+                                ? 'border border-red-500/30 bg-red-500/20 text-red-400'
+                                : 'border border-amber-500/30 bg-amber-500/20 text-amber-300'
+                            }`}
+                          >
+                            {req.status === 'invite_accepted'
+                              ? 'Active User'
+                              : req.status === 'invite_sent'
+                              ? 'Invite Sent (Brevo)'
+                              : req.status === 'rejected'
+                              ? 'Rejected'
+                              : 'Pending Approval'}
+                          </span>
+                          {req.selected_access_policy && (
+                            <span className="rounded border border-purple-500/30 bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-bold text-purple-300 uppercase">
+                              {req.selected_access_policy}
+                            </span>
+                          )}
+                        </div>
+                        {req.full_name && req.full_name !== req.username && (
+                          <div className="text-[11px] text-muted">Full Name: {req.full_name}</div>
+                        )}
+                        {req.note && <p className="text-muted italic">&ldquo;{req.note}&rdquo;</p>}
+                        <div className="text-[10px] font-mono text-gray-500">
+                          Submitted: {new Date(req.created_at).toLocaleString()}
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewUsername(req.username)
-                          setNewDisplayName(req.full_name || req.username)
-                          setActiveTab('credentials')
-                          generateRandomKey()
-                        }}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-accent px-4 font-bold text-accent-fg active:scale-95"
-                      >
-                        <UserPlus className="size-3.5" />
-                        <span>Issue Passcode</span>
-                      </button>
+
+                      <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                        {(!req.status || req.status === 'pending' || req.status === 'pending_review' || req.status === 'approved_policy_pending') && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleApproveAccountRequest(req, 'trial')}
+                              className="rounded-lg border border-stark-400/40 bg-stark-400/10 px-2.5 py-1.5 text-[11px] font-semibold text-stark-300 hover:bg-stark-400/20 active:scale-95"
+                              title="Approve 20-Minute Trial and send Brevo invitation"
+                            >
+                              20m Trial
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApproveAccountRequest(req, 'lifetime')}
+                              className="rounded-lg border border-purple-500/40 bg-purple-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-purple-400 hover:bg-purple-500/20 active:scale-95"
+                              title="Approve Free Lifetime Access and send Brevo invitation"
+                            >
+                              Lifetime
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApproveAccountRequest(req, 'subscription')}
+                              className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-400 hover:bg-emerald-500/20 active:scale-95"
+                              title="Approve ₹29 Subscription and send Brevo invitation"
+                            >
+                              ₹29 Sub
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectAccountRequest(req)}
+                              className="rounded-lg border border-red-500/40 bg-red-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-red-400 hover:bg-red-500/20 active:scale-95"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+
+                        {req.status === 'invite_sent' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleResendAccountInvite(req)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-sky-500/40 bg-sky-500/15 px-3 py-1.5 text-[11px] font-semibold text-sky-400 hover:bg-sky-500/25 active:scale-95"
+                            >
+                              <RefreshCw className="size-3" />
+                              <span>Resend Invite</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRejectAccountRequest(req)}
+                              className="rounded-lg border border-red-500/40 bg-red-500/10 px-2 py-1.5 text-[11px] font-semibold text-red-400 hover:bg-red-500/20"
+                            >
+                              Revoke
+                            </button>
+                          </>
+                        )}
+
+                        {req.status === 'invite_accepted' && (
+                          <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-xs py-1">
+                            <CheckCircle2 className="size-3.5" />
+                            <span>Password Set</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

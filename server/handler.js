@@ -15,6 +15,8 @@ import {
   handleAdminSubscriptionAction,
   handleDeleteAccount,
   handleAccountRequest,
+  getInvitationInfo,
+  completePasswordSetup,
   handleTelegramWebhook,
   setTelegramWebhook,
 } from "./subscription.js";
@@ -1263,6 +1265,36 @@ export async function handle(request, env) {
         return json(result);
       } catch (e) {
         return json({ success: false, error: e.message || "Failed to submit account request." }, 400);
+      }
+    }
+  }
+
+  // 5b. Public Invitation Token Validation for Password Setup Page
+  if (path === "/api/auth/invitation-info") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "GET, OPTIONS" } });
+    }
+    const token = url.searchParams.get("token") || "";
+    try {
+      const info = await getInvitationInfo(token, env);
+      return json({ success: true, ...info });
+    } catch (e) {
+      return json({ success: false, error: e.message || "Invalid or expired invitation token." }, 400);
+    }
+  }
+
+  // 5c. Complete User Invitation & Password Setup
+  if (path === "/api/auth/setup-password") {
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: { ...CORS, "Access-Control-Allow-Methods": "POST, OPTIONS" } });
+    }
+    if (request.method === "POST") {
+      try {
+        const body = await request.json();
+        const result = await completePasswordSetup({ ...body, env });
+        return json(result);
+      } catch (e) {
+        return json({ success: false, error: e.message || "Failed to set password." }, 400);
       }
     }
   }

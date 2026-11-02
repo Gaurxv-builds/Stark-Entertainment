@@ -17,7 +17,9 @@ import {
   CheckCircle2,
   Sparkles,
   ExternalLink,
-  CreditCard,
+  Copy,
+  Check,
+  AlertTriangle,
 } from 'lucide-react'
 import { BRAND_NAME, BRAND_SYMBOL } from '../lib/brand'
 import { checkAndImportSyncPayload, syncCredentialsWithCloud } from '../lib/starkAuth'
@@ -68,6 +70,8 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
   const [reqNote, setReqNote] = useState('')
   const [reqSubmitting, setReqSubmitting] = useState(false)
   const [reqSuccess, setReqSuccess] = useState(false)
+  const [reqReference, setReqReference] = useState('')
+  const [copiedRef, setCopiedRef] = useState(false)
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -127,6 +131,7 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
       })
       const data = await res.json()
       if (res.ok && data.success) {
+        setReqReference(data.requestReference || '')
         setReqSuccess(true)
         toast('Account request dispatched to Administrator Bot!')
       } else {
@@ -304,50 +309,46 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
           </button>
         </form>
 
-        {/* New User Clearance: Primary Request Account CTA & Secondary Tour CTA */}
+        {/* New User Clearance: Request Account CTA, Centered Portal & Tour CTA */}
         <div className="mt-6 border-t border-border/60 pt-4 space-y-3">
-          <div className="space-y-1 text-center">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted">New user or need access?</span>
             <button
               type="button"
               onClick={() => {
                 setReqSuccess(false)
                 setShowRequestModal(true)
               }}
-              className="group relative flex w-full items-center justify-between gap-2 rounded-2xl border border-accent/40 bg-accent/15 px-4 py-3 text-xs font-bold text-accent transition-all duration-200 hover:border-accent hover:bg-accent hover:text-accent-fg active:scale-[0.98] shadow-md shadow-accent/10"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-accent/40 bg-accent/15 px-3 py-1.5 text-xs font-bold text-accent transition hover:border-accent hover:bg-accent hover:text-accent-fg active:scale-95 shadow-sm shadow-accent/10"
             >
-              <div className="flex items-center gap-2">
-                <UserPlus className="size-4 shrink-0 transition-transform group-hover:scale-110" />
-                <span className="font-display tracking-wide font-black uppercase">Request Account &bull; Paid Plan</span>
-              </div>
-              <span className="rounded-full bg-accent/25 px-2.5 py-0.5 font-mono text-[11px] font-black group-hover:bg-accent-fg/20 group-hover:text-accent-fg">
-                ₹29 / 30 Days
-              </span>
+              <UserPlus className="size-3.5" />
+              <span>Request Account</span>
             </button>
-            <p className="text-[11px] text-muted">
-              30-day all-access clearance &bull; Verified manual UPI activation
-            </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Centered Subscription & Payment Portal Button */}
+          <a
+            href="https://payments.gaurxv.eu.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border/80 bg-card/60 p-3 text-xs font-semibold text-muted transition hover:border-accent/40 hover:bg-card hover:text-foreground active:scale-[0.99]"
+            title="Open Subscription & Payment Portal"
+          >
+            <ShieldCheck className="size-4 shrink-0 text-accent" />
+            <span className="text-center font-medium">
+              Subscription &amp; Payment Portal <span className="text-[11px] text-muted font-normal">(payments.gaurxv.eu.org)</span>
+            </span>
+          </a>
+
+          <div className="flex justify-center pt-0.5">
             <button
               type="button"
               onClick={() => setShowTourModal(true)}
-              className="flex-1 flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card/60 px-3 text-xs font-semibold text-muted transition hover:bg-card hover:text-foreground active:scale-95"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-muted hover:text-accent transition"
             >
-              <Sparkles className="size-3.5 text-accent" />
-              <span>Explore App / Take a Tour</span>
+              <Sparkles className="size-3 text-accent" />
+              <span>Explore Application / Take an Interactive Tour</span>
             </button>
-            <a
-              href="https://payments.gaurxv.eu.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-border/80 bg-card/40 px-3 text-xs font-semibold text-muted transition hover:bg-card hover:text-accent active:scale-95"
-              title="Open Subscription & Payment Portal"
-            >
-              <ShieldCheck className="size-3.5 text-accent" />
-              <span className="text-center font-semibold text-[11px]">Portal</span>
-              <ExternalLink className="size-3" />
-            </a>
           </div>
         </div>
       </motion.div>
@@ -372,86 +373,135 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
 
               <div className="flex items-center gap-2 text-accent font-mono text-xs font-bold uppercase tracking-wider mb-2">
                 <UserPlus className="size-4" />
-                <span>Request Account Clearance &bull; ₹29 Paid Plan</span>
+                <span>Request Access Clearance</span>
               </div>
               <h2 className="font-display text-xl font-black text-white">Join Stark Entertainment</h2>
               <p className="mt-1 text-xs text-muted">
-                Submit your details to request an administrator-approved account on Gaurxv Verse.
+                Submit your details to request an administrator-approved account on Gaurxv Verse. Your account type will be assigned after administrator review.
               </p>
 
               {reqSuccess ? (
-                <div className="my-6 space-y-4">
-                  <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
-                    <CheckCircle2 className="size-6" />
+                /* SECTION 12: MANDATORY CONFIRMATION POPUP & GUIDANCE */
+                <div className="my-5 space-y-3.5">
+                  <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 shadow-lg shadow-emerald-500/10">
+                    <CheckCircle2 className="size-7" />
                   </div>
-                  <div className="text-center">
-                    <h3 className="font-bold text-white text-base">Account Request Dispatched!</h3>
-                    <p className="text-xs text-muted max-w-xs mx-auto mt-1">
-                      Your details have been transmitted directly to the administrator.
+
+                  <div className="text-center space-y-0.5">
+                    <h3 className="font-display font-black text-white text-base tracking-wide sm:text-lg">
+                      REQUEST SUBMITTED SUCCESSFULLY!
+                    </h3>
+                    <p className="font-mono text-xs font-bold text-accent tracking-wider uppercase">
+                      PLEASE CHECK YOUR EMAIL REGULARLY.
                     </p>
                   </div>
 
-                  {/* Submission Summary Card */}
-                  <div className="rounded-2xl border border-border/80 bg-background/70 p-3.5 space-y-2 text-xs">
-                    <div className="flex items-center justify-between text-muted">
-                      <span>Full Name</span>
-                      <strong className="text-white">{reqFullName}</strong>
-                    </div>
-                    <div className="flex items-center justify-between text-muted">
-                      <span>Username</span>
-                      <strong className="text-accent">@{reqUsername}</strong>
-                    </div>
-                    <div className="flex items-center justify-between text-muted">
-                      <span>Email</span>
-                      <strong className="text-white">{reqEmail}</strong>
-                    </div>
-                    <div className="flex items-center justify-between text-muted">
-                      <span>Pass Plan</span>
-                      <span className="font-bold text-emerald-400">₹29 / 30 Days</span>
-                    </div>
+                  {/* Unique Request Reference */}
+                  <div className="flex items-center justify-between rounded-2xl border border-accent/30 bg-accent/10 px-3.5 py-2.5 text-xs">
+                    <span className="text-muted">
+                      Request Reference:{' '}
+                      <strong className="font-mono text-accent text-sm ml-1">
+                        {reqReference || 'REQ-PENDING'}
+                      </strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (reqReference) {
+                          navigator.clipboard.writeText(reqReference)
+                          setCopiedRef(true)
+                          setTimeout(() => setCopiedRef(false), 2000)
+                          toast('Request Reference copied to clipboard')
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-accent/40 bg-card/60 px-2 py-1 text-[11px] font-semibold text-accent hover:bg-accent hover:text-accent-fg transition"
+                    >
+                      {copiedRef ? <Check className="size-3" /> : <Copy className="size-3" />}
+                      <span>{copiedRef ? 'Copied' : 'Copy'}</span>
+                    </button>
                   </div>
 
-                  {/* Payment Next Step */}
-                  <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200/90 space-y-2">
-                    <p className="font-semibold text-amber-300">Next Step: Complete Payment</p>
+                  <p className="text-xs text-muted leading-relaxed">
+                    Your request has been submitted to the administrator. If approved, you will receive an account invitation link at your registered personal email address (<strong className="text-white">{reqEmail}</strong>) to set your password and access Gaurxv Verse.
+                  </p>
+
+                  {/* 6-Hour Delivery Guarantee */}
+                  <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200/90 space-y-1">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-300">
+                      <AlertTriangle className="size-3.5 shrink-0" />
+                      <span>6-Hour Response Window</span>
+                    </div>
                     <p className="text-[11px] leading-relaxed text-amber-100/80">
-                      To activate your 30-day clearance, open the Payment Portal, complete the ₹29 UPI transfer, and upload your screenshot.
+                      If you do not receive an email within 6 hours, please contact the administrator on Telegram (<a href="https://t.me/pepperonyx" target="_blank" rel="noreferrer" className="text-accent underline font-semibold">@pepperonyx</a>) or email <a href="mailto:work@gaurxv.eu.org" className="text-accent underline font-semibold">work@gaurxv.eu.org</a> with your request reference.
                     </p>
+                  </div>
+
+                  {/* Spam Folder Guidance */}
+                  <div className="rounded-2xl border border-border/80 bg-background/70 p-3 text-xs text-muted space-y-1.5">
+                    <p className="font-bold text-white text-[11px] uppercase font-mono tracking-wider">
+                      📬 Important Spam Folder Guidance:
+                    </p>
+                    <ul className="list-disc pl-4 space-y-1 text-[11px] leading-relaxed">
+                      <li>Check your <strong>Spam / Junk</strong> folder if not seen in your Primary inbox.</li>
+                      <li>If the invitation lands in Spam, mark it as <strong>&lsquo;Not Spam&rsquo;</strong>.</li>
+                      <li>Add <strong className="text-white">updates@gaurxv.eu.org</strong> to your contacts or safe senders list.</li>
+                    </ul>
+                  </div>
+
+                  {/* Warning Banner */}
+                  <div className="rounded-xl border border-red-500/40 bg-red-500/15 p-2 text-center text-[11px] font-bold text-red-300 flex items-center justify-center gap-2">
+                    <AlertTriangle className="size-3.5 shrink-0 text-red-400" />
+                    <span>PLEASE DO NOT MISS THE ACCOUNT INVITATION EMAIL. Setup links expire in 48h.</span>
                   </div>
 
                   <div className="flex flex-col gap-2 pt-1">
-                    <a
-                      href={`https://payments.gaurxv.eu.org/?user=${encodeURIComponent(reqUsername)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent font-bold text-xs text-accent-fg shadow-lg shadow-accent/20 transition hover:brightness-110 active:scale-95"
-                    >
-                      <CreditCard className="size-4" />
-                      <span>Open Payment Portal (payments.gaurxv.eu.org)</span>
-                      <ExternalLink className="size-3.5" />
-                    </a>
-
                     <button
                       type="button"
                       onClick={() => setShowRequestModal(false)}
-                      className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-border text-xs font-semibold text-muted hover:text-foreground"
+                      className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-accent text-xs font-bold text-accent-fg shadow-lg shadow-accent/20 transition hover:brightness-110 active:scale-95"
                     >
-                      Back to Login Gate
+                      Got It
                     </button>
+
+                    <a
+                      href="https://t.me/pepperonyx"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-border text-xs font-semibold text-muted hover:text-white transition"
+                    >
+                      <span>Contact Support on Telegram (@pepperonyx)</span>
+                      <ExternalLink className="size-3" />
+                    </a>
                   </div>
                 </div>
               ) : (
                 <form onSubmit={handleRequestSubmit} className="mt-4 space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted">Full Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={reqFullName}
-                      onChange={(e) => setReqFullName(e.target.value)}
-                      placeholder="Tony Stark"
-                      className="h-10 w-full rounded-xl border border-border bg-background px-3 text-xs outline-none focus:border-accent"
-                    />
+                  {/* Pricing and Access Tier Information */}
+                  <div className="rounded-2xl border border-border/80 bg-background/60 p-3 text-xs space-y-2">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted">
+                      Available Access Clearance Types
+                    </p>
+                    <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+                      <div className="rounded-xl border border-border/60 bg-card/60 p-2">
+                        <span className="font-bold text-stark-300 block">⏱️ Free Trial</span>
+                        <span className="text-[10px] text-muted">20 min (if approved)</span>
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-card/60 p-2">
+                        <span className="font-bold text-purple-400 block">⚡ Lifetime Free</span>
+                        <span className="text-[10px] text-muted">Free (if approved)</span>
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-card/60 p-2">
+                        <span className="font-bold text-emerald-400 block">👑 Premium Pass</span>
+                        <span className="text-[10px] text-muted">₹29 / 30 Days</span>
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-card/60 p-2">
+                        <span className="font-bold text-amber-400 block">⏳ Custom Pass</span>
+                        <span className="text-[10px] text-muted">Assigned by admin</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-muted leading-tight">
+                      Administrator reviews and assigns clearance. Passwords are never requested here.
+                    </p>
                   </div>
 
                   <div className="space-y-1">
@@ -467,7 +517,7 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted">Email Address *</label>
+                    <label className="text-xs font-semibold text-muted">Personal Email Address *</label>
                     <input
                       type="email"
                       required
@@ -479,12 +529,24 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
                   </div>
 
                   <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted">Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={reqFullName}
+                      onChange={(e) => setReqFullName(e.target.value)}
+                      placeholder="Tony Stark"
+                      className="h-10 w-full rounded-xl border border-border bg-background px-3 text-xs outline-none focus:border-accent"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
                     <label className="text-xs font-semibold text-muted">Note or Message (Optional)</label>
                     <textarea
                       rows={2}
                       value={reqNote}
                       onChange={(e) => setReqNote(e.target.value)}
-                      placeholder="Tell the admin how you found the platform..."
+                      placeholder="Reason for access, payment details, or referral..."
                       className="w-full rounded-xl border border-border bg-background p-2.5 text-xs outline-none focus:border-accent resize-none"
                     />
                   </div>
@@ -493,9 +555,20 @@ export function StarkLoginGate({ onUnlock }: StarkLoginGateProps) {
                     <button
                       type="submit"
                       disabled={reqSubmitting}
-                      className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-accent font-bold text-xs text-accent-fg hover:brightness-110 active:scale-95 disabled:opacity-50"
+                      className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent font-bold text-xs text-accent-fg hover:brightness-110 active:scale-95 disabled:opacity-50 shadow-md shadow-accent/20"
                     >
-                      {reqSubmitting ? 'Transmitting to Admin...' : 'Transmit Account Request (₹29 Plan) ⎊'}
+                      {reqSubmitting ? (
+                        <>
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                            className="size-4 rounded-full border-2 border-accent-fg/30 border-t-accent-fg"
+                          />
+                          <span>Transmitting to Admin...</span>
+                        </>
+                      ) : (
+                        <span>Transmit Account Request ⎊</span>
+                      )}
                     </button>
                   </div>
                 </form>

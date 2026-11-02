@@ -49,6 +49,7 @@ const AniListCallbackPage = lazy(() => import('./pages/AniListCallbackPage'))
 const FindPage = lazy(() => import('./pages/FindPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const MusicPage = lazy(() => import('./pages/MusicPage'))
+const PasswordSetupPage = lazy(() => import('./pages/PasswordSetupPage'))
 
 export default function App() {
   const { authenticated, loading, unlock } = useStarkAuth()
@@ -92,6 +93,14 @@ export default function App() {
 
   // 2. Unauthenticated state: display Stark Login Gate (blocks all protected content and subroutes)
   if (!authenticated) {
+    if (pathname.startsWith('/auth/setup-password')) {
+      return (
+        <Suspense fallback={<StarkLoadingScreen />}>
+          <PasswordSetupPage onComplete={unlock} />
+          <Toaster />
+        </Suspense>
+      )
+    }
     return (
       <>
         <TopLoader />
