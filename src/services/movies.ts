@@ -85,6 +85,14 @@ const toItem = (r: RawItem, fallback: MediaType): MovieItem | null => {
 
 const mem = new Map<string, Promise<unknown>>()
 
+const TMDB_KEYS = [
+  'c7db6169bfdd3fc9f7dd6c44ea8ad100',
+  '4e44d9029b1270a757cddc766a1bcb63',
+  '844dba0bfd8f3a4f3799f6130ef9e335',
+  '3fd2be6f0c70a2a598f084ddfb75487c',
+]
+const LOVABLE_PROXY = 'https://webpage-launchpad.lovable.app/api/public/proxy'
+
 async function get<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
   const qs = new URLSearchParams()
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '') qs.set(k, String(v))
@@ -92,14 +100,56 @@ async function get<T>(path: string, params: Record<string, string | number | und
   const url = apiUrl(`/api/${path}${tail}`)
   const hit = mem.get(url)
   if (hit) return hit as Promise<T>
-  // ponytail: TMDB proxy called straight from the browser (no Worker request); the Worker is only the fallback
-  const direct = `https://aniversee.vercel.app/api/tmdb/${path.slice(7)}?${new URLSearchParams({ language: 'en-US', include_adult: 'false', ...Object.fromEntries(qs) })}`
+
   const p = (async () => {
-    const res = await fetch(direct).then((r) => (r.ok ? r : fetch(url)), () => fetch(url))
-    const data = (await res.json().catch(() => null)) as T | { error?: string } | null
-    if (!res.ok || !data) throw new Error((data as { error?: string } | null)?.error ?? `Request failed (${res.status})`)
-    return data as T
+    // 1. Primary: Cloudflare Pages / Node backend (/api/movies/...)
+    try {
+      const res = await fetch(url)
+      if (res.ok) {
+        const data = (await res.json().catch(() => null)) as T | { error?: string } | null
+        if (data && !(data as { error?: string }).error) return data as T
+      }
+    } catch {
+      // Backend unavailable or network error, proceed to direct/proxy fallbacks
+    }
+
+    const sub = path.startsWith('movies/') ? path.slice('movies/'.length) : path
+
+    // 2. Secondary: Resilient Lovable edge proxy straight from the browser
+    for (const key of TMDB_KEYS) {
+      const directTmdbUrl = `https://api.themoviedb.org/3/${sub}?${new URLSearchParams({
+        api_key: key,
+        language: 'en-US',
+        include_adult: 'false',
+        ...Object.fromEntries(qs),
+      })}`
+
+      try {
+        const proxyUrl = `${LOVABLE_PROXY}?url=${encodeURIComponent(directTmdbUrl)}`
+        const res = await fetch(proxyUrl, { signal: AbortSignal.timeout(6000) })
+        if (res.ok) {
+          const data = (await res.json().catch(() => null)) as T | { error?: string } | null
+          if (data && !(data as { error?: string }).error) return data as T
+        }
+      } catch {
+        // Try next key or tier
+      }
+
+      // 3. Tertiary: Direct TMDB v3 API (if not blocked by client ISP)
+      try {
+        const res = await fetch(directTmdbUrl, { signal: AbortSignal.timeout(5000) })
+        if (res.ok) {
+          const data = (await res.json().catch(() => null)) as T | { error?: string } | null
+          if (data && !(data as { error?: string }).error) return data as T
+        }
+      } catch {
+        // Try next key
+      }
+    }
+
+    throw new Error('Movie database request failed across all providers')
   })()
+
   mem.set(url, p)
   p.catch(() => mem.delete(url)) // never keep a failure around
   return p

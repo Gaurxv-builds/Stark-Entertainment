@@ -470,5 +470,30 @@ test('Feature Eight: GitHub Actions Auto-Release Workflow & Release Configuratio
   assert(readmeContent.includes('Release History'), 'README must document release history');
 });
 
+// 24. Resilient TMDB Client & Deprecated Proxy Eradication
+test('Feature Nine: Resilient TMDB Multi-Tier Resolver & Zero aniversee Dependency', () => {
+  const tmdbClientPath = 'server/tmdb.js';
+  assert(fs.existsSync(tmdbClientPath), 'server/tmdb.js must exist');
+  const tmdbContent = fs.readFileSync(tmdbClientPath, 'utf8');
+  assert(tmdbContent.includes('tmdbFetch'), 'server/tmdb.js must export tmdbFetch');
+  assert(tmdbContent.includes('TMDB_KEYS'), 'server/tmdb.js must define key rotation pool');
+  assert(tmdbContent.includes('TMDB_FALLBACK'), 'server/tmdb.js must define resilient fallback proxy');
+
+  const handlerContent = fs.readFileSync('server/handler.js', 'utf8');
+  assert(handlerContent.includes('import { tmdbFetch } from "./tmdb.js"'), 'handler.js must import tmdbFetch');
+  assert(!handlerContent.includes('https://aniversee.vercel.app/api/tmdb'), 'handler.js must not reference dead aniversee proxy');
+
+  const moviesService = fs.readFileSync('src/services/movies.ts', 'utf8');
+  assert(!moviesService.includes('aniversee.vercel.app'), 'movies.ts must not reference dead aniversee proxy');
+  assert(moviesService.includes('LOVABLE_PROXY'), 'movies.ts must implement resilient Lovable edge proxy fallback');
+  assert(moviesService.includes('TMDB_KEYS'), 'movies.ts must implement rotating TMDB keys');
+
+  const showcaseService = fs.readFileSync('src/services/showcase.ts', 'utf8');
+  assert(!showcaseService.includes('aniversee.vercel.app'), 'showcase.ts must not reference dead aniversee proxy');
+
+  const tmdbDirectService = fs.readFileSync('src/services/tmdbDirect.ts', 'utf8');
+  assert(!tmdbDirectService.includes('aniversee.vercel.app'), 'tmdbDirect.ts must not reference dead aniversee proxy');
+});
+
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`)
 if (failed > 0) process.exit(1)

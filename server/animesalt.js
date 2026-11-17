@@ -20,7 +20,7 @@ async function loadMapping(origin = "") {
   try {
     const targetUrl = origin
       ? `${origin}/anime-mapping.json`
-      : "https://aniversee.vercel.app/anime-mapping.json";
+      : "https://verse.gaurxv.eu.org/anime-mapping.json";
     const res = await fetch(targetUrl);
     if (res.ok) {
       cachedMapping = await res.json();

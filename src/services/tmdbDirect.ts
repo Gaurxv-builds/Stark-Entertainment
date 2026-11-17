@@ -5,7 +5,8 @@ import type { Mapping, Tmdb, TmdbBundle } from './api'
  * Same steps and same result shape as tmdbFor() in server/handler.js; api.ts tries this first and
  * falls back to the /api/tmdb server route when anything here fails.
  */
-const TMDB = 'https://aniversee.vercel.app/api/tmdb'
+const TMDB_KEY = 'c7db6169bfdd3fc9f7dd6c44ea8ad100'
+const LOVABLE_PROXY = 'https://webpage-launchpad.lovable.app/api/public/proxy'
 const ANIBRIDGE = 'https://anibridge.eliasbenb.dev/api/mappings?source.descriptor=anilist:'
 const ARM = 'https://arm.haglund.dev/api/v2/ids?source=anilist&id='
 
@@ -83,7 +84,8 @@ export async function tmdbDirect(anilistId: number, title: string, format?: stri
   if (!ref && title) {
     try {
       const want = format === 'MOVIE' ? 'movie' : 'tv'
-      const res = await get(`${TMDB}/search/multi?query=${encodeURIComponent(cleanTitle(title) || title)}`)
+      const directUrl = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_KEY}&language=en-US&query=${encodeURIComponent(cleanTitle(title) || title)}`
+      const res = await get(`${LOVABLE_PROXY}?url=${encodeURIComponent(directUrl)}`).catch(() => get(directUrl))
       const hit = res.results?.find((r: any) => r.media_type === want) || res.results?.find((r: any) => r.media_type === 'tv' || r.media_type === 'movie')
       if (hit) ref = { id: hit.id, type: hit.media_type, season: null }
     } catch {
@@ -93,7 +95,7 @@ export async function tmdbDirect(anilistId: number, title: string, format?: stri
   if (!ref) return { mapping: map, tmdb: null }
 
   const d = await get(
-    `${TMDB}/${ref.type}/${ref.id}?language=en-US&append_to_response=images,videos,credits,external_ids,content_ratings,release_dates&include_image_language=en,null`,
+    `${LOVABLE_PROXY}?url=${encodeURIComponent(`https://api.themoviedb.org/3/${ref.type}/${ref.id}?api_key=${TMDB_KEY}&language=en-US&append_to_response=images,videos,credits,external_ids,content_ratings,release_dates&include_image_language=en,null`)}`,
   )
   const pngs = (d.images?.logos || []).filter((l: any) => l.file_path && !l.file_path.toLowerCase().endsWith('.svg'))
   const logo = pngs.sort((a: any, b: any) => Number(b.iso_639_1 === 'en') - Number(a.iso_639_1 === 'en') || b.vote_average - a.vote_average)[0]?.file_path ?? null
@@ -133,6 +135,6 @@ export async function tmdbDirect(anilistId: number, title: string, format?: stri
 }
 
 export async function tmdbEpisodesDirect(tmdbId: number, season: number): Promise<{ n: number; name: string | null; overview: string | null; still: string | null; runtime: number | null; air: string | null }[]> {
-  const d = await get(`${TMDB}/tv/${tmdbId}/season/${season}?language=en-US`)
+  const d = await get(`${LOVABLE_PROXY}?url=${encodeURIComponent(`https://api.themoviedb.org/3/tv/${tmdbId}/season/${season}?api_key=${TMDB_KEY}&language=en-US`)}`)
   return (d.episodes || []).map((e: any) => ({ n: e.episode_number, name: e.name || null, overview: e.overview || null, still: e.still_path || null, runtime: e.runtime || null, air: e.air_date || null }))
 }

@@ -164,7 +164,7 @@ async function loadMovies(): Promise<ShowcaseImage[]> {
     return (await res.json()) as Raw
   }
   try {
-    const d = await load('https://aniversee.vercel.app/api/tmdb/trending/movie/week').catch(() => load(apiUrl('/api/movies/trending/movie/week')))
+    const d = await load(apiUrl('/api/movies/trending/movie/week')).catch(() => load('https://webpage-launchpad.lovable.app/api/public/proxy?url=' + encodeURIComponent('https://api.themoviedb.org/3/trending/movie/week?api_key=c7db6169bfdd3fc9f7dd6c44ea8ad100')))
     const list = (d.results ?? [])
       .filter((m) => m.poster_path)
       .map((m) => ({ src: `https://image.tmdb.org/t/p/w780${m.poster_path}`, wide: m.backdrop_path ? `https://image.tmdb.org/t/p/w1280${m.backdrop_path}` : null, title: m.title ?? 'Movie' }))
